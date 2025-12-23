@@ -3,9 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Clock, Plus, Trash2, ChevronLeft, ChevronRight, MapPin, Calendar, GraduationCap, Loader2 } from "lucide-react";
+import { Clock, Plus, Trash2, ChevronLeft, ChevronRight, MapPin, Calendar, GraduationCap, Loader2, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays, subDays, startOfWeek, differenceInHours } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -67,6 +68,17 @@ const Timetable = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showAddExamDialog, setShowAddExamDialog] = useState(false);
+  
+  // Edit/Delete state
+  const [editingExam, setEditingExam] = useState<ExamItem | null>(null);
+  const [showEditExamDialog, setShowEditExamDialog] = useState(false);
+  const [deleteExamId, setDeleteExamId] = useState<string | null>(null);
+  const [showDeleteExamAlert, setShowDeleteExamAlert] = useState(false);
+  const [editingClass, setEditingClass] = useState<ClassItem | null>(null);
+  const [showEditClassDialog, setShowEditClassDialog] = useState(false);
+  const [deleteClassId, setDeleteClassId] = useState<string | null>(null);
+  const [showDeleteClassAlert, setShowDeleteClassAlert] = useState(false);
+  
   const [newClass, setNewClass] = useState({
     subject: "",
     code: "",
@@ -202,9 +214,32 @@ const Timetable = () => {
 
   const handleDeleteClass = (id: string) => {
     setClasses(classes.filter(c => c.id !== id));
+    setShowDeleteClassAlert(false);
+    setDeleteClassId(null);
     toast({
       title: "Class removed",
       description: "The class has been deleted from your timetable."
+    });
+  };
+
+  const confirmDeleteClass = (id: string) => {
+    setDeleteClassId(id);
+    setShowDeleteClassAlert(true);
+  };
+
+  const openEditClassDialog = (classItem: ClassItem) => {
+    setEditingClass({ ...classItem });
+    setShowEditClassDialog(true);
+  };
+
+  const handleEditClass = () => {
+    if (!editingClass) return;
+    setClasses(classes.map(c => c.id === editingClass.id ? editingClass : c));
+    setShowEditClassDialog(false);
+    setEditingClass(null);
+    toast({
+      title: "Class updated",
+      description: "Your changes have been saved."
     });
   };
 
@@ -292,6 +327,8 @@ const Timetable = () => {
       if (error) throw error;
 
       setExams(exams.filter(e => e.id !== id));
+      setShowDeleteExamAlert(false);
+      setDeleteExamId(null);
       toast({
         title: "Exam removed",
         description: "The exam has been deleted."
@@ -301,6 +338,52 @@ const Timetable = () => {
       toast({
         title: "Error",
         description: "Failed to delete exam.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const confirmDeleteExam = (id: string) => {
+    setDeleteExamId(id);
+    setShowDeleteExamAlert(true);
+  };
+
+  const openEditExamDialog = (exam: ExamItem) => {
+    setEditingExam({ ...exam });
+    setShowEditExamDialog(true);
+  };
+
+  const handleEditExam = async () => {
+    if (!editingExam) return;
+    
+    try {
+      const { error } = await supabase
+        .from('exams')
+        .update({
+          subject: editingExam.subject,
+          code: editingExam.code || null,
+          date: editingExam.date,
+          start_time: editingExam.startTime,
+          end_time: editingExam.endTime,
+          room: editingExam.room || null,
+          type: editingExam.type,
+        })
+        .eq('id', editingExam.id);
+
+      if (error) throw error;
+
+      setExams(exams.map(e => e.id === editingExam.id ? editingExam : e));
+      setShowEditExamDialog(false);
+      setEditingExam(null);
+      toast({
+        title: "Exam updated",
+        description: "Your changes have been saved."
+      });
+    } catch (error) {
+      console.error('Error updating exam:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update exam.",
         variant: "destructive"
       });
     }
@@ -530,14 +613,24 @@ const Timetable = () => {
                           {classItem.type}
                         </span>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-2 right-2 h-8 w-8 bg-white/20 hover:bg-white/30 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => handleDeleteClass(classItem.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 bg-white/20 hover:bg-white/30 text-white"
+                          onClick={() => openEditClassDialog(classItem)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 bg-white/20 hover:bg-white/30 text-white"
+                          onClick={() => confirmDeleteClass(classItem.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -757,14 +850,24 @@ const Timetable = () => {
                             </span>
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute top-2 right-2 h-8 w-8 bg-white/20 hover:bg-white/30 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleDeleteExam(exam.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 bg-white/20 hover:bg-white/30 text-white"
+                            onClick={() => openEditExamDialog(exam)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 bg-white/20 hover:bg-white/30 text-white"
+                            onClick={() => confirmDeleteExam(exam.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -774,6 +877,120 @@ const Timetable = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Class Dialog */}
+      <Dialog open={showEditClassDialog} onOpenChange={setShowEditClassDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Class</DialogTitle>
+          </DialogHeader>
+          {editingClass && (
+            <div className="space-y-4 pt-4">
+              <Input placeholder="Subject Name" value={editingClass.subject} onChange={(e) => setEditingClass({ ...editingClass, subject: e.target.value })} />
+              <Input placeholder="Course Code" value={editingClass.code} onChange={(e) => setEditingClass({ ...editingClass, code: e.target.value })} />
+              <div className="grid grid-cols-2 gap-4">
+                <Select value={editingClass.day} onValueChange={(val) => setEditingClass({ ...editingClass, day: val })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{daysOfWeek.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={editingClass.type} onValueChange={(val: "Lecture" | "Lab" | "Tutorial") => setEditingClass({ ...editingClass, type: val })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Lecture">Lecture</SelectItem>
+                    <SelectItem value="Lab">Lab</SelectItem>
+                    <SelectItem value="Tutorial">Tutorial</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Select value={editingClass.startTime} onValueChange={(val) => setEditingClass({ ...editingClass, startTime: val })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{timeOptions.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={editingClass.endTime} onValueChange={(val) => setEditingClass({ ...editingClass, endTime: val })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{timeOptions.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <Input placeholder="Room" value={editingClass.room} onChange={(e) => setEditingClass({ ...editingClass, room: e.target.value })} />
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowEditClassDialog(false)}>Cancel</Button>
+                <Button onClick={handleEditClass} className="bg-success hover:bg-success/90">Save</Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Exam Dialog */}
+      <Dialog open={showEditExamDialog} onOpenChange={setShowEditExamDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Exam</DialogTitle>
+          </DialogHeader>
+          {editingExam && (
+            <div className="space-y-4 pt-4">
+              <Input placeholder="Subject Name" value={editingExam.subject} onChange={(e) => setEditingExam({ ...editingExam, subject: e.target.value })} />
+              <Input placeholder="Course Code" value={editingExam.code} onChange={(e) => setEditingExam({ ...editingExam, code: e.target.value })} />
+              <div className="grid grid-cols-2 gap-4">
+                <Input type="date" value={editingExam.date} onChange={(e) => setEditingExam({ ...editingExam, date: e.target.value })} className="date-input" />
+                <Select value={editingExam.type} onValueChange={(val: "Midterm" | "Final" | "Quiz" | "Practical") => setEditingExam({ ...editingExam, type: val })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Midterm">Midterm</SelectItem>
+                    <SelectItem value="Final">Final</SelectItem>
+                    <SelectItem value="Quiz">Quiz</SelectItem>
+                    <SelectItem value="Practical">Practical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Select value={editingExam.startTime} onValueChange={(val) => setEditingExam({ ...editingExam, startTime: val })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{timeOptions.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={editingExam.endTime} onValueChange={(val) => setEditingExam({ ...editingExam, endTime: val })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{timeOptions.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <Input placeholder="Room" value={editingExam.room} onChange={(e) => setEditingExam({ ...editingExam, room: e.target.value })} />
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowEditExamDialog(false)}>Cancel</Button>
+                <Button onClick={handleEditExam} className="bg-success hover:bg-success/90">Save</Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Class Alert */}
+      <AlertDialog open={showDeleteClassAlert} onOpenChange={setShowDeleteClassAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Class?</AlertDialogTitle>
+            <AlertDialogDescription>This will remove the class from your timetable.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteClassId && handleDeleteClass(deleteClassId)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Exam Alert */}
+      <AlertDialog open={showDeleteExamAlert} onOpenChange={setShowDeleteExamAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Exam?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently delete the exam.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteExamId && handleDeleteExam(deleteExamId)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

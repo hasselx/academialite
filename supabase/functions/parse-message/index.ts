@@ -23,13 +23,14 @@ serve(async (req) => {
     1. title: A clear, concise title for the reminder
     2. type: One of "assignment", "exam", "project", or "other"
     3. dueDate: The due date in YYYY-MM-DD format. If only a day/month is mentioned, assume the current or next year.
-    4. priority: "critical" for exams/finals, "urgent" for assignments due within 3 days, "normal" otherwise
-    5. description: Any additional relevant details
+    4. dueTime: The time in HH:MM format (24-hour). Extract from phrases like "1pm", "2:30 PM", "at 10", "by noon", etc. Return null if no time mentioned.
+    5. priority: "critical" for exams/finals, "urgent" for assignments due within 3 days, "normal" otherwise
+    6. description: Any additional relevant details (room number, location, etc.)
     
     Today's date is ${new Date().toISOString().split('T')[0]}.
     
     Respond ONLY with a valid JSON object in this exact format:
-    {"title": "...", "type": "...", "dueDate": "YYYY-MM-DD", "priority": "...", "description": "..."}`;
+    {"title": "...", "type": "...", "dueDate": "YYYY-MM-DD", "dueTime": "HH:MM" or null, "priority": "...", "description": "..."}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
