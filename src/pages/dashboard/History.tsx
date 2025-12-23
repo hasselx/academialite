@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -26,6 +26,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, Cell } from "recharts";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import html2canvas from "html2canvas";
 
 interface Course {
   id: string;
@@ -64,6 +65,8 @@ const HistoryPage = () => {
   const [editSgpa, setEditSgpa] = useState("");
   const [editCredits, setEditCredits] = useState("");
   const [expandedSemester, setExpandedSemester] = useState<string | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const analysisContentRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -261,67 +264,97 @@ const HistoryPage = () => {
     Credits: sem.credits
   }));
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
+  const exportToPDF = async () => {
+    if (!analysisContentRef.current) return;
     
-    // Title
-    doc.setFontSize(20);
-    doc.setTextColor(40, 40, 40);
-    doc.text("CGPA Analysis Report", 20, 20);
+    setExportingPdf(true);
     
-    // Date
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 28);
-    
-    // Summary Section
-    doc.setFontSize(14);
-    doc.setTextColor(40, 40, 40);
-    doc.text("Summary", 20, 42);
-    
-    doc.setFontSize(11);
-    doc.text(`Overall CGPA: ${cgpa.toFixed(2)} / 10.0`, 20, 52);
-    doc.text(`Total Credits: ${totalCredits}`, 20, 60);
-    doc.text(`Total Semesters: ${semesters.length}`, 20, 68);
-    doc.text(`Average SGPA: ${avgSgpa.toFixed(2)}`, 20, 76);
-    
-    // Scale Conversions
-    doc.setFontSize(14);
-    doc.text("Scale Conversions", 20, 92);
-    
-    doc.setFontSize(11);
-    doc.text(`4.0 Scale (US): ${convert4Scale().toFixed(2)}`, 20, 102);
-    doc.text(`5.0 Scale: ${(cgpa / 2).toFixed(2)}`, 20, 110);
-    doc.text(`Percentage: ${((cgpa - 0.5) * 10).toFixed(1)}%`, 20, 118);
-    
-    // Semester Table
-    doc.setFontSize(14);
-    doc.text("Semester-wise Breakdown", 20, 134);
-    
-    const tableData = semesters.map((sem) => [
-      sem.name,
-      sem.sgpa.toFixed(2),
-      sem.credits.toString(),
-      (sem.sgpa * sem.credits).toFixed(2),
-      getPerformance(sem.sgpa).text
-    ]);
-    
-    autoTable(doc, {
-      startY: 140,
-      head: [["Semester", "SGPA", "Credits", "Grade Points", "Performance"]],
-      body: tableData,
-      theme: "grid",
-      headStyles: { fillColor: [59, 130, 246] },
-      alternateRowStyles: { fillColor: [245, 247, 250] }
-    });
-    
-    // Save the PDF
-    doc.save("cgpa-analysis.pdf");
-    
-    toast({
-      title: "PDF Exported",
-      description: "Your analysis has been downloaded."
-    });
+    try {
+      // Capture the analysis content as an image
+      const canvas = await html2canvas(analysisContentRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#0a1929', // Match the dark background
+        logging: false,
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      // Calculate dimensions to fit the image
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min((pdfWidth - 20) / imgWidth, (pdfHeight - 40) / imgHeight);
+      const scaledWidth = imgWidth * ratio;
+      const scaledHeight = imgHeight * ratio;
+      
+      // Title
+      pdf.setFontSize(20);
+      pdf.setTextColor(40, 40, 40);
+      pdf.text("CGPA Analysis Report", 10, 15);
+      
+      // Date
+      pdf.setFontSize(10);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, 10, 22);
+      
+      // Add the captured image
+      let yPosition = 28;
+      
+      // Check if image fits on one page
+      if (scaledHeight > pdfHeight - yPosition - 10) {
+        // Split across multiple pages if needed
+        const pageHeight = pdfHeight - 20;
+        let sourceY = 0;
+        let remainingHeight = imgHeight;
+        
+        while (remainingHeight > 0) {
+          const sliceHeight = Math.min(remainingHeight, (pageHeight / ratio));
+          
+          // Create a temporary canvas for this slice
+          const sliceCanvas = document.createElement('canvas');
+          sliceCanvas.width = imgWidth;
+          sliceCanvas.height = sliceHeight;
+          const sliceCtx = sliceCanvas.getContext('2d');
+          sliceCtx?.drawImage(canvas, 0, sourceY, imgWidth, sliceHeight, 0, 0, imgWidth, sliceHeight);
+          
+          const sliceImgData = sliceCanvas.toDataURL('image/png');
+          const sliceScaledHeight = sliceHeight * ratio;
+          
+          if (sourceY > 0) {
+            pdf.addPage();
+            yPosition = 10;
+          }
+          
+          pdf.addImage(sliceImgData, 'PNG', 10, yPosition, scaledWidth, sliceScaledHeight);
+          
+          sourceY += sliceHeight;
+          remainingHeight -= sliceHeight;
+        }
+      } else {
+        pdf.addImage(imgData, 'PNG', 10, yPosition, scaledWidth, scaledHeight);
+      }
+      
+      // Save the PDF
+      pdf.save("cgpa-analysis.pdf");
+      
+      toast({
+        title: "PDF Exported",
+        description: "Your styled analysis has been downloaded."
+      });
+    } catch (error) {
+      console.error("PDF export error:", error);
+      toast({
+        title: "Export Failed",
+        description: "There was an error exporting the PDF. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setExportingPdf(false);
+    }
   };
 
   if (loading) {
@@ -457,7 +490,7 @@ const HistoryPage = () => {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-8">
+          <div ref={analysisContentRef} className="space-y-8 bg-background p-4 rounded-lg">
             {/* Stats Row */}
             <div className="grid grid-cols-3 gap-4">
               <Card className="p-4 border-2 border-primary/20">
@@ -667,17 +700,22 @@ const HistoryPage = () => {
               </CardContent>
             </Card>
 
+          </div>
+
             {/* Footer Buttons */}
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => setShowAnalysis(false)}>
                 Close
               </Button>
-              <Button className="gradient-primary" onClick={exportToPDF}>
-                <Download className="w-4 h-4 mr-2" />
-                Export PDF
+              <Button className="gradient-primary" onClick={exportToPDF} disabled={exportingPdf}>
+                {exportingPdf ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                {exportingPdf ? "Exporting..." : "Export PDF"}
               </Button>
             </div>
-          </div>
         </DialogContent>
       </Dialog>
 
