@@ -2,25 +2,27 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, Check } from "lucide-react";
+import { User, AtSign, Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SignupStepperProps {
   name: string;
   setName: (name: string) => void;
+  username: string;
+  setUsername: (username: string) => void;
   email: string;
   setEmail: (email: string) => void;
   password: string;
   setPassword: (password: string) => void;
-  errors: { email?: string; password?: string; name?: string };
-  setErrors: (errors: { email?: string; password?: string; name?: string }) => void;
+  errors: { email?: string; password?: string; name?: string; username?: string };
+  setErrors: (errors: { email?: string; password?: string; name?: string; username?: string }) => void;
   isSubmitting: boolean;
   onSubmit: (e: React.FormEvent) => void;
   onSwitchToLogin: () => void;
 }
 
 const steps = [
-  { id: 1, title: "Personal Info", description: "Your name" },
+  { id: 1, title: "Personal Info", description: "Name & Username" },
   { id: 2, title: "Email", description: "Your email address" },
   { id: 3, title: "Password", description: "Create password" },
 ];
@@ -28,6 +30,8 @@ const steps = [
 export const SignupStepper = ({
   name,
   setName,
+  username,
+  setUsername,
   email,
   setEmail,
   password,
@@ -41,7 +45,7 @@ export const SignupStepper = ({
   const [currentStep, setCurrentStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
 
-  const canProceedStep1 = name.trim().length >= 2;
+  const canProceedStep1 = name.trim().length >= 2 && username.trim().length >= 3;
   const canProceedStep2 = email.includes("@") && email.includes(".");
   const canProceedStep3 = password.length >= 6;
 
@@ -114,12 +118,12 @@ export const SignupStepper = ({
 
       {/* Step Content */}
       <form onSubmit={onSubmit} className="space-y-6">
-        {/* Step 1: Name */}
+        {/* Step 1: Name & Username */}
         {currentStep === 1 && (
           <div className="space-y-4 animate-fade-in">
             <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-foreground">What's your name?</h2>
-              <p className="text-muted-foreground mt-1">Let's get to know you better</p>
+              <h2 className="text-2xl font-bold text-foreground">Let's get started</h2>
+              <p className="text-muted-foreground mt-1">Tell us about yourself</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="name" className="text-foreground font-medium">Full Name</Label>
@@ -138,6 +142,28 @@ export const SignupStepper = ({
               </div>
               {errors.name && (
                 <p className="text-sm text-destructive">{errors.name}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="username" className="text-foreground font-medium">Username</Label>
+              <div className="relative">
+                <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="johndoe"
+                  value={username}
+                  onChange={(e) => {
+                    setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''));
+                    if (errors.username) setErrors({ ...errors, username: undefined });
+                  }}
+                  onKeyDown={handleKeyDown}
+                  className={cn("h-12 pl-12", errors.username && "border-destructive")}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Use this to sign in later (letters, numbers, underscores only)</p>
+              {errors.username && (
+                <p className="text-sm text-destructive">{errors.username}</p>
               )}
             </div>
           </div>
