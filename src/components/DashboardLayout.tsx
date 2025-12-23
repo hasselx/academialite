@@ -128,7 +128,7 @@ const DashboardLayout = () => {
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
           collapsed ? "w-16" : "w-72"
         )}>
-          {/* Header with User Profile & Collapse Button */}
+          {/* Header with User Profile */}
           <div className={cn(
             "p-4 border-b border-sidebar-border",
             collapsed && "px-2"
@@ -152,26 +152,6 @@ const DashboardLayout = () => {
                   <p className="text-sm text-muted-foreground truncate">{getMemberSince()}</p>
                 </div>
               )}
-              {/* Desktop Collapse Button beside header */}
-              <Tooltip delayDuration={0}>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="hidden lg:flex shrink-0 h-8 w-8"
-                    onClick={() => setCollapsed(!collapsed)}
-                  >
-                    {collapsed ? (
-                      <PanelLeft className="w-4 h-4" />
-                    ) : (
-                      <PanelLeftClose className="w-4 h-4" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side={collapsed ? "right" : "bottom"}>
-                  {collapsed ? "Expand sidebar" : "Collapse sidebar"}
-                </TooltipContent>
-              </Tooltip>
               {/* Mobile Close Button */}
               <Button 
                 variant="ghost" 
@@ -244,6 +224,27 @@ const DashboardLayout = () => {
           {/* Top Bar */}
           <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-lg border-b border-border/50 px-4 lg:px-8 py-4">
             <div className="flex items-center gap-4">
+              {/* Desktop Collapse Button - outside sidebar */}
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="hidden lg:flex shrink-0"
+                    onClick={() => setCollapsed(!collapsed)}
+                  >
+                    {collapsed ? (
+                      <PanelLeft className="w-5 h-5" />
+                    ) : (
+                      <PanelLeftClose className="w-5 h-5" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                </TooltipContent>
+              </Tooltip>
+
               <Button
                 variant="ghost"
                 size="icon"
