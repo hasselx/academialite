@@ -56,7 +56,7 @@
     --sidebar-background: 205 100% 14%;
     --sidebar-foreground: 50 52% 94%;
     --sidebar-primary: 197 76% 43%;
-    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-primary-foreground: 205 100% 14%;
     --sidebar-accent: 205 80% 22%;
     --sidebar-accent-foreground: 50 52% 94%;
     --sidebar-border: 205 80% 20%;
@@ -196,7 +196,7 @@
   }
 
   .nav-link-active {
-    @apply bg-primary text-primary-foreground shadow-md;
+    @apply bg-sidebar-primary text-sidebar-primary-foreground shadow-md;
   }
 
   .nav-link-inactive {

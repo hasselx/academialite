@@ -487,8 +487,19 @@ const CGPACalculator = () => {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Grade Scale Reference */}
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-primary">
+          <Calculator className="w-8 h-8" />
+          <h1 className="text-3xl font-bold">CGPA Calculator</h1>
+        </div>
+      </div>
+
+      <p className="text-muted-foreground text-center md:text-left">
+        Calculate your cumulative GPA with quick entry or detailed course input
+      </p>
+
       <Card className="overflow-hidden">
         <CardHeader className="bg-gradient-to-r from-primary/10 to-accent/30 py-3">
           <CardTitle className="text-sm flex items-center gap-2">
