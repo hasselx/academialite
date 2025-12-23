@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,8 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Bell, RefreshCw, Trash2, Edit2, Plus, Mail, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
+import { Bell, RefreshCw, Trash2, Edit2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Reminder {
   id: string;
@@ -16,36 +18,59 @@ interface Reminder {
   dueDate: string;
   description: string;
   priority: "critical" | "urgent" | "normal";
+  completed: boolean;
 }
 
-const mockReminders: Reminder[] = [
-  {
-    id: "1",
-    title: "Data Structures Assignment",
-    type: "assignment",
-    dueDate: "2024-12-25",
-    description: "Complete binary tree implementation",
-    priority: "critical"
-  },
-  {
-    id: "2",
-    title: "Machine Learning Project",
-    type: "project",
-    dueDate: "2024-12-30",
-    description: "Submit final project report",
-    priority: "normal"
-  }
-];
-
 const Reminders = () => {
-  const [reminders, setReminders] = useState<Reminder[]>(mockReminders);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [messageText, setMessageText] = useState("");
   const [title, setTitle] = useState("");
   const [type, setType] = useState<string>("assignment");
   const [dueDate, setDueDate] = useState("");
   const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState<string>("normal");
   const [emailEnabled, setEmailEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      fetchReminders();
+    }
+  }, [user]);
+
+  const fetchReminders = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('reminders')
+        .select('*')
+        .eq('user_id', user?.id)
+        .eq('completed', false)
+        .order('due_date', { ascending: true });
+
+      if (error) throw error;
+
+      setReminders(data?.map(r => ({
+        id: r.id,
+        title: r.title,
+        type: r.type as Reminder['type'],
+        dueDate: r.due_date,
+        description: r.description || '',
+        priority: r.priority as Reminder['priority'],
+        completed: r.completed
+      })) || []);
+    } catch (error: any) {
+      toast({
+        title: "Error fetching reminders",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const stats = {
     critical: reminders.filter(r => r.priority === "critical").length,
@@ -83,7 +108,7 @@ const Reminders = () => {
     });
   };
 
-  const handleSaveReminder = () => {
+  const handleSaveReminder = async () => {
     if (!title.trim()) {
       toast({
         title: "Title required",
@@ -93,33 +118,96 @@ const Reminders = () => {
       return;
     }
 
-    const newReminder: Reminder = {
-      id: Date.now().toString(),
-      title,
-      type: type as Reminder["type"],
-      dueDate: dueDate || new Date().toISOString().split('T')[0],
-      description,
-      priority: "normal"
-    };
+    try {
+      const { data, error } = await supabase
+        .from('reminders')
+        .insert({
+          user_id: user?.id,
+          title,
+          type,
+          due_date: dueDate || new Date().toISOString().split('T')[0],
+          description: description || null,
+          priority,
+          completed: false
+        })
+        .select()
+        .single();
 
-    setReminders([newReminder, ...reminders]);
-    setTitle("");
-    setType("assignment");
-    setDueDate("");
-    setDescription("");
-    
-    toast({
-      title: "Reminder saved!",
-      description: "Your reminder has been added successfully."
-    });
+      if (error) throw error;
+
+      setReminders([{
+        id: data.id,
+        title: data.title,
+        type: data.type as Reminder['type'],
+        dueDate: data.due_date,
+        description: data.description || '',
+        priority: data.priority as Reminder['priority'],
+        completed: data.completed
+      }, ...reminders]);
+
+      setTitle("");
+      setType("assignment");
+      setDueDate("");
+      setDescription("");
+      setPriority("normal");
+      
+      toast({
+        title: "Reminder saved!",
+        description: "Your reminder has been added successfully."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error saving reminder",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleDeleteReminder = (id: string) => {
-    setReminders(reminders.filter(r => r.id !== id));
-    toast({
-      title: "Reminder deleted",
-      description: "The reminder has been removed."
-    });
+  const handleDeleteReminder = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('reminders')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setReminders(reminders.filter(r => r.id !== id));
+      toast({
+        title: "Reminder deleted",
+        description: "The reminder has been removed."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error deleting reminder",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCompleteReminder = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('reminders')
+        .update({ completed: true })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setReminders(reminders.filter(r => r.id !== id));
+      toast({
+        title: "Reminder completed!",
+        description: "Great job finishing this task."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error updating reminder",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
   const getPriorityColor = (priority: string) => {
@@ -138,6 +226,14 @@ const Reminders = () => {
       default: return "bg-muted-foreground";
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -160,7 +256,7 @@ const Reminders = () => {
         </h2>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="bg-success/10">Online</Badge>
-          <Button size="sm" variant="outline">
+          <Button size="sm" variant="outline" onClick={fetchReminders}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
@@ -267,13 +363,28 @@ Example:
                 </div>
               </div>
 
-              <div>
-                <label className="text-sm font-medium mb-2 block">Description</label>
-                <Textarea 
-                  placeholder="Additional details about the reminder..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Priority</label>
+                  <Select value={priority} onValueChange={setPriority}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">🔵 Normal</SelectItem>
+                      <SelectItem value="urgent">🟡 Urgent</SelectItem>
+                      <SelectItem value="critical">🔴 Critical</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Description</label>
+                  <Input 
+                    placeholder="Additional details..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </div>
               </div>
 
               <div className="flex gap-2">
@@ -285,6 +396,7 @@ Example:
                   setType("assignment");
                   setDueDate("");
                   setDescription("");
+                  setPriority("normal");
                 }}>
                   Reset Form
                 </Button>
@@ -344,8 +456,13 @@ Example:
                         </div>
                       </div>
                       <div className="flex gap-1">
-                        <Button size="icon" variant="ghost" className="text-muted-foreground hover:text-primary">
-                          <Edit2 className="w-4 h-4" />
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="text-muted-foreground hover:text-success"
+                          onClick={() => handleCompleteReminder(reminder.id)}
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
                         </Button>
                         <Button 
                           size="icon" 

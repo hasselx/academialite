@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,9 +6,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Calculator, Plus, Trash2, Edit2, BarChart3, TrendingUp, Target, Award } from "lucide-react";
+import { Calculator, Plus, Trash2, Edit2, BarChart3, TrendingUp, Target, Award, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Semester {
   id: string;
@@ -23,24 +25,49 @@ const gradeScales = [
   { value: "5", label: "5.0 Scale", range: "Range: 0.0 - 5.0" },
 ];
 
-const initialSemesters: Semester[] = [
-  { id: "1", name: "Semester 1", sgpa: 8.28, credits: 25 },
-  { id: "2", name: "Semester 2", sgpa: 7.46, credits: 24 },
-  { id: "3", name: "Semester 3", sgpa: 8.3, credits: 25 },
-  { id: "4", name: "Semester 4", sgpa: 8.56, credits: 26 },
-  { id: "5", name: "Semester 5", sgpa: 7.74, credits: 23 },
-  { id: "6", name: "Semester 6", sgpa: 7.57, credits: 21 },
-  { id: "7", name: "Semester 7", sgpa: 7.55, credits: 22 },
-  { id: "8", name: "Semester 8", sgpa: 7.0, credits: 18 },
-];
-
 const CGPACalculator = () => {
   const [scale, setScale] = useState("10");
-  const [semesters, setSemesters] = useState<Semester[]>(initialSemesters);
+  const [semesters, setSemesters] = useState<Semester[]>([]);
   const [newSgpa, setNewSgpa] = useState("");
   const [newCredits, setNewCredits] = useState("");
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      fetchSemesters();
+    }
+  }, [user]);
+
+  const fetchSemesters = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('semesters')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      setSemesters(data?.map(s => ({
+        id: s.id,
+        name: s.name,
+        sgpa: Number(s.sgpa),
+        credits: s.credits
+      })) || []);
+    } catch (error: any) {
+      toast({
+        title: "Error fetching data",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const calculateCGPA = () => {
     if (semesters.length === 0) return 0;
@@ -62,7 +89,7 @@ const CGPACalculator = () => {
     return { text: "NEEDS IMPROVEMENT", class: "status-poor" };
   };
 
-  const handleAddSemester = () => {
+  const handleAddSemester = async () => {
     const sgpa = parseFloat(newSgpa);
     const credits = parseInt(newCredits);
 
@@ -75,29 +102,86 @@ const CGPACalculator = () => {
       return;
     }
 
-    const newSemester: Semester = {
-      id: Date.now().toString(),
-      name: `Semester ${semesters.length + 1}`,
-      sgpa,
-      credits
-    };
+    try {
+      const { data, error } = await supabase
+        .from('semesters')
+        .insert({
+          user_id: user?.id,
+          name: `Semester ${semesters.length + 1}`,
+          sgpa,
+          credits
+        })
+        .select()
+        .single();
 
-    setSemesters([...semesters, newSemester]);
-    setNewSgpa("");
-    setNewCredits("");
+      if (error) throw error;
 
-    toast({
-      title: "Semester added",
-      description: `${newSemester.name} has been added.`
-    });
+      setSemesters([...semesters, {
+        id: data.id,
+        name: data.name,
+        sgpa: Number(data.sgpa),
+        credits: data.credits
+      }]);
+      setNewSgpa("");
+      setNewCredits("");
+
+      toast({
+        title: "Semester added",
+        description: `Semester ${semesters.length + 1} has been saved.`
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error saving semester",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleDeleteSemester = (id: string) => {
-    setSemesters(semesters.filter(s => s.id !== id));
-    toast({
-      title: "Semester removed",
-      description: "The semester has been deleted."
-    });
+  const handleDeleteSemester = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('semesters')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setSemesters(semesters.filter(s => s.id !== id));
+      toast({
+        title: "Semester removed",
+        description: "The semester has been deleted."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error deleting semester",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleResetAll = async () => {
+    try {
+      const { error } = await supabase
+        .from('semesters')
+        .delete()
+        .eq('user_id', user?.id);
+
+      if (error) throw error;
+
+      setSemesters([]);
+      toast({
+        title: "All semesters cleared",
+        description: "Your CGPA data has been reset."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error resetting data",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
   const chartData = semesters.map((sem, index) => ({
@@ -109,6 +193,14 @@ const CGPACalculator = () => {
   const convert4Scale = () => (cgpa - 5) * 4 / 5;
   const convert5Scale = () => cgpa / 2;
   const convertPercentage = () => (cgpa - 0.5) * 10;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -208,18 +300,16 @@ const CGPACalculator = () => {
                   <Plus className="w-4 h-4 mr-2" />
                   Add Semester
                 </Button>
-                <Button className="gradient-primary">
-                  <Calculator className="w-4 h-4 mr-2" />
-                  Calculate CGPA
-                </Button>
               </div>
-              <Button 
-                variant="ghost" 
-                className="mt-2 text-muted-foreground"
-                onClick={() => setSemesters([])}
-              >
-                Reset
-              </Button>
+              {semesters.length > 0 && (
+                <Button 
+                  variant="ghost" 
+                  className="mt-2 text-muted-foreground"
+                  onClick={handleResetAll}
+                >
+                  Reset All
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -237,7 +327,7 @@ const CGPACalculator = () => {
               <div className="text-center py-12">
                 <Calculator className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">
-                  Enter your semester details and click "Calculate CGPA" to see your results
+                  Add your semester details to see your CGPA results
                 </p>
               </div>
             ) : (
@@ -403,10 +493,6 @@ const CGPACalculator = () => {
                     <Award className="w-5 h-5" />
                     Semester-wise Breakdown
                   </span>
-                  <Button size="sm" className="bg-success hover:bg-success/90">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add New Semester
-                  </Button>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -418,12 +504,11 @@ const CGPACalculator = () => {
                       <TableHead>Credits</TableHead>
                       <TableHead>Grade Points</TableHead>
                       <TableHead>Performance</TableHead>
-                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {semesters.map((sem) => {
-                      const perf = getPerformance(sem.sgpa);
+                      const performance = getPerformance(sem.sgpa);
                       return (
                         <TableRow key={sem.id}>
                           <TableCell className="font-medium">{sem.name}</TableCell>
@@ -431,22 +516,9 @@ const CGPACalculator = () => {
                           <TableCell>{sem.credits}</TableCell>
                           <TableCell>{(sem.sgpa * sem.credits).toFixed(2)}</TableCell>
                           <TableCell>
-                            <span className={perf.class}>{perf.text}</span>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button size="icon" variant="ghost" className="h-8 w-8">
-                                <Edit2 className="w-4 h-4 text-primary" />
-                              </Button>
-                              <Button 
-                                size="icon" 
-                                variant="ghost" 
-                                className="h-8 w-8"
-                                onClick={() => handleDeleteSemester(sem.id)}
-                              >
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
-                            </div>
+                            <Badge className={performance.class}>
+                              {performance.text}
+                            </Badge>
                           </TableCell>
                         </TableRow>
                       );
@@ -455,15 +527,6 @@ const CGPACalculator = () => {
                 </Table>
               </CardContent>
             </Card>
-
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowAnalysis(false)}>
-                Close
-              </Button>
-              <Button className="bg-success hover:bg-success/90">
-                Export Analysis
-              </Button>
-            </div>
           </div>
         </DialogContent>
       </Dialog>
