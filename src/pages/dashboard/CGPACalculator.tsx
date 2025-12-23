@@ -5,33 +5,56 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Calculator, Plus, Trash2, Edit2, BarChart3, TrendingUp, Target, Award, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Calculator, Plus, Trash2, BarChart3, TrendingUp, Target, Award, Loader2, ChevronDown, ChevronUp, Edit2, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+
+// Grade scale mapping
+const gradePoints: Record<string, number> = {
+  "O": 10,
+  "A+": 9.5,
+  "A": 9,
+  "B+": 8,
+  "B": 7,
+  "C": 6,
+  "P": 5,
+  "F": 0,
+  "W": 0,
+  "I": 0,
+  "FA": 0
+};
+
+const gradeOptions = Object.keys(gradePoints);
+
+interface Course {
+  id: string;
+  name: string;
+  credits: number;
+  grade: string;
+  gradePoint: number;
+}
 
 interface Semester {
   id: string;
   name: string;
   sgpa: number;
   credits: number;
+  courses: Course[];
 }
 
-const gradeScales = [
-  { value: "10", label: "10 Point Scale (Indian Universities)", range: "Range: 0.0 - 10.0 | Excellent: 9.0+, Good: 7.0-8.9, Average: 6.0-6.9" },
-  { value: "4", label: "4.0 Scale (US)", range: "Range: 0.0 - 4.0 | Excellent: 3.7+, Good: 3.0-3.6, Average: 2.0-2.9" },
-  { value: "5", label: "5.0 Scale", range: "Range: 0.0 - 5.0" },
-];
-
 const CGPACalculator = () => {
-  const [scale, setScale] = useState("10");
   const [semesters, setSemesters] = useState<Semester[]>([]);
-  const [newSgpa, setNewSgpa] = useState("");
-  const [newCredits, setNewCredits] = useState("");
+  const [expandedSemester, setExpandedSemester] = useState<string | null>(null);
+  const [editingSemester, setEditingSemester] = useState<string | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [newSemesterName, setNewSemesterName] = useState("");
+  const [newCourse, setNewCourse] = useState({ name: "", credits: "", grade: "O" });
+  const [tempCourses, setTempCourses] = useState<Omit<Course, 'id'>[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -44,20 +67,36 @@ const CGPACalculator = () => {
   const fetchSemesters = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data: semesterData, error: semError } = await supabase
         .from('semesters')
         .select('*')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      if (semError) throw semError;
 
-      setSemesters(data?.map(s => ({
+      const { data: courseData, error: courseError } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('user_id', user?.id);
+
+      if (courseError) throw courseError;
+
+      const semestersWithCourses = semesterData?.map(s => ({
         id: s.id,
         name: s.name,
         sgpa: Number(s.sgpa),
-        credits: s.credits
-      })) || []);
+        credits: s.credits,
+        courses: courseData?.filter(c => c.semester_id === s.id).map(c => ({
+          id: c.id,
+          name: c.name,
+          credits: c.credits,
+          grade: c.grade,
+          gradePoint: Number(c.grade_point)
+        })) || []
+      })) || [];
+
+      setSemesters(semestersWithCourses);
     } catch (error: any) {
       toast({
         title: "Error fetching data",
@@ -69,65 +108,127 @@ const CGPACalculator = () => {
     }
   };
 
+  const calculateSGPA = (courses: Omit<Course, 'id'>[]) => {
+    if (courses.length === 0) return 0;
+    const totalGradePoints = courses.reduce((sum, c) => sum + (c.gradePoint * c.credits), 0);
+    const totalCredits = courses.reduce((sum, c) => sum + c.credits, 0);
+    return totalCredits > 0 ? totalGradePoints / totalCredits : 0;
+  };
+
   const calculateCGPA = () => {
     if (semesters.length === 0) return 0;
-    const totalGradePoints = semesters.reduce((sum, sem) => sum + (sem.sgpa * sem.credits), 0);
-    const totalCredits = semesters.reduce((sum, sem) => sum + sem.credits, 0);
+    const allCourses = semesters.flatMap(s => s.courses);
+    const totalGradePoints = allCourses.reduce((sum, c) => sum + (c.gradePoint * c.credits), 0);
+    const totalCredits = allCourses.reduce((sum, c) => sum + c.credits, 0);
     return totalCredits > 0 ? totalGradePoints / totalCredits : 0;
   };
 
   const cgpa = calculateCGPA();
   const totalCredits = semesters.reduce((sum, sem) => sum + sem.credits, 0);
-  const avgSgpa = semesters.length > 0 
-    ? semesters.reduce((sum, sem) => sum + sem.sgpa, 0) / semesters.length 
-    : 0;
+  const percentage = cgpa * 10;
 
   const getPerformance = (sgpa: number) => {
-    if (sgpa >= 9.0) return { text: "EXCELLENT", class: "status-excellent" };
-    if (sgpa >= 7.0) return { text: "GOOD", class: "status-good" };
-    if (sgpa >= 6.0) return { text: "AVERAGE", class: "status-average" };
-    return { text: "NEEDS IMPROVEMENT", class: "status-poor" };
+    if (sgpa >= 9.0) return { text: "EXCELLENT", class: "bg-success text-success-foreground" };
+    if (sgpa >= 7.0) return { text: "GOOD", class: "bg-info text-info-foreground" };
+    if (sgpa >= 6.0) return { text: "AVERAGE", class: "bg-warning text-warning-foreground" };
+    return { text: "NEEDS IMPROVEMENT", class: "bg-destructive text-destructive-foreground" };
   };
 
-  const handleAddSemester = async () => {
-    const sgpa = parseFloat(newSgpa);
-    const credits = parseInt(newCredits);
-
-    if (isNaN(sgpa) || isNaN(credits) || sgpa < 0 || sgpa > parseFloat(scale) || credits <= 0) {
+  const handleAddCourseToTemp = () => {
+    if (!newCourse.name.trim() || !newCourse.credits || !newCourse.grade) {
       toast({
         title: "Invalid input",
-        description: "Please enter valid SGPA and credits.",
+        description: "Please enter course name, credits, and grade.",
         variant: "destructive"
       });
       return;
     }
 
+    const credits = parseInt(newCourse.credits);
+    if (isNaN(credits) || credits <= 0) {
+      toast({
+        title: "Invalid credits",
+        description: "Credits must be a positive number.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setTempCourses([...tempCourses, {
+      name: newCourse.name.trim(),
+      credits,
+      grade: newCourse.grade,
+      gradePoint: gradePoints[newCourse.grade]
+    }]);
+    setNewCourse({ name: "", credits: "", grade: "O" });
+  };
+
+  const handleRemoveTempCourse = (index: number) => {
+    setTempCourses(tempCourses.filter((_, i) => i !== index));
+  };
+
+  const handleSaveSemester = async () => {
+    if (!newSemesterName.trim() || tempCourses.length === 0) {
+      toast({
+        title: "Invalid semester",
+        description: "Please enter a semester name and add at least one course.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const sgpa = calculateSGPA(tempCourses);
+    const totalCredits = tempCourses.reduce((sum, c) => sum + c.credits, 0);
+
     try {
-      const { data, error } = await supabase
+      const { data: semesterData, error: semError } = await supabase
         .from('semesters')
         .insert({
           user_id: user?.id,
-          name: `Semester ${semesters.length + 1}`,
+          name: newSemesterName.trim(),
           sgpa,
-          credits
+          credits: totalCredits
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (semError) throw semError;
+
+      const coursesToInsert = tempCourses.map(c => ({
+        user_id: user?.id,
+        semester_id: semesterData.id,
+        name: c.name,
+        credits: c.credits,
+        grade: c.grade,
+        grade_point: c.gradePoint
+      }));
+
+      const { data: courseData, error: courseError } = await supabase
+        .from('courses')
+        .insert(coursesToInsert)
+        .select();
+
+      if (courseError) throw courseError;
 
       setSemesters([...semesters, {
-        id: data.id,
-        name: data.name,
-        sgpa: Number(data.sgpa),
-        credits: data.credits
+        id: semesterData.id,
+        name: semesterData.name,
+        sgpa: Number(semesterData.sgpa),
+        credits: semesterData.credits,
+        courses: courseData.map(c => ({
+          id: c.id,
+          name: c.name,
+          credits: c.credits,
+          grade: c.grade,
+          gradePoint: Number(c.grade_point)
+        }))
       }]);
-      setNewSgpa("");
-      setNewCredits("");
 
+      setNewSemesterName("");
+      setTempCourses([]);
       toast({
-        title: "Semester added",
-        description: `Semester ${semesters.length + 1} has been saved.`
+        title: "Semester saved",
+        description: `${newSemesterName} has been saved successfully.`
       });
     } catch (error: any) {
       toast({
@@ -150,7 +251,7 @@ const CGPACalculator = () => {
       setSemesters(semesters.filter(s => s.id !== id));
       toast({
         title: "Semester removed",
-        description: "The semester has been deleted."
+        description: "The semester and its courses have been deleted."
       });
     } catch (error: any) {
       toast({
@@ -190,10 +291,6 @@ const CGPACalculator = () => {
     Credits: sem.credits
   }));
 
-  const convert4Scale = () => (cgpa - 5) * 4 / 5;
-  const convert5Scale = () => cgpa / 2;
-  const convertPercentage = () => (cgpa - 0.5) * 10;
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -204,12 +301,27 @@ const CGPACalculator = () => {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Formula Banner */}
-      <div className="bg-gradient-to-r from-accent via-accent/50 to-accent/30 rounded-xl p-4 text-center">
-        <p className="text-lg font-medium text-foreground">
-          <span className="font-bold">CGPA Formula:</span> CGPA = Σ(SGPA × Credits) / Σ(Credits)
-        </p>
-      </div>
+      {/* Grade Scale Reference */}
+      <Card className="overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-primary/10 to-accent/30 py-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Award className="w-4 h-4" />
+            Grade Point Scale
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4">
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(gradePoints).map(([grade, points]) => (
+              <Badge key={grade} variant="outline" className="text-xs">
+                {grade} = {points}
+              </Badge>
+            ))}
+          </div>
+          <p className="text-sm text-muted-foreground mt-3">
+            <strong>Formula:</strong> SGPA = Σ(Credits × Grade Points) / Σ(Credits) | <strong>Percentage:</strong> CGPA × 10
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Main Grid */}
       <div className="grid lg:grid-cols-2 gap-8">
@@ -218,99 +330,113 @@ const CGPACalculator = () => {
           <CardHeader className="gradient-header">
             <CardTitle className="text-primary-foreground flex items-center gap-2">
               <Calculator className="w-5 h-5" />
-              Enter Semester Details
+              Add Semester
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
-            {/* Scale Selector */}
+            {/* Semester Name */}
             <div className="space-y-2">
-              <label className="font-medium">CGPA Scale</label>
-              <Select value={scale} onValueChange={setScale}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {gradeScales.map((gs) => (
-                    <SelectItem key={gs.value} value={gs.value}>
-                      {gs.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-sm text-info bg-info/10 p-3 rounded-lg">
-                {gradeScales.find(g => g.value === scale)?.range}
-              </p>
+              <label className="font-medium">Semester Name</label>
+              <Input
+                placeholder="e.g., Semester 1"
+                value={newSemesterName}
+                onChange={(e) => setNewSemesterName(e.target.value)}
+              />
             </div>
 
-            {/* Semesters List */}
-            {semesters.length > 0 && (
-              <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                {semesters.map((sem, index) => (
-                  <div key={sem.id} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                    <span className="font-medium min-w-[100px]">{sem.name}</span>
-                    <div className="flex-1 grid grid-cols-2 gap-4">
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">SGPA:</span>{" "}
-                        <span className="font-semibold">{sem.sgpa}</span>
-                      </div>
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Credits:</span>{" "}
-                        <span className="font-semibold">{sem.credits}</span>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => handleDeleteSemester(sem.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Add New Semester */}
-            <div className="border-t pt-4">
-              <h4 className="font-medium mb-3">Add New Semester</h4>
-              <div className="grid grid-cols-2 gap-4 mb-4">
+            {/* Add Course Form */}
+            <div className="border rounded-lg p-4 space-y-4">
+              <h4 className="font-medium">Add Course</h4>
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-sm text-muted-foreground mb-1 block">SGPA</label>
-                  <Input 
-                    type="number" 
-                    step="0.01"
-                    placeholder="e.g., 8.5"
-                    value={newSgpa}
-                    onChange={(e) => setNewSgpa(e.target.value)}
+                  <label className="text-sm text-muted-foreground mb-1 block">Course Name</label>
+                  <Input
+                    placeholder="e.g., Maths"
+                    value={newCourse.name}
+                    onChange={(e) => setNewCourse({ ...newCourse, name: e.target.value })}
                   />
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground mb-1 block">Credits</label>
-                  <Input 
+                  <Input
                     type="number"
-                    placeholder="e.g., 23"
-                    value={newCredits}
-                    onChange={(e) => setNewCredits(e.target.value)}
+                    placeholder="e.g., 4"
+                    value={newCourse.credits}
+                    onChange={(e) => setNewCourse({ ...newCourse, credits: e.target.value })}
                   />
                 </div>
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">Grade</label>
+                  <Select value={newCourse.grade} onValueChange={(v) => setNewCourse({ ...newCourse, grade: v })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {gradeOptions.map((g) => (
+                        <SelectItem key={g} value={g}>
+                          {g} ({gradePoints[g]})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={handleAddSemester}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Semester
-                </Button>
-              </div>
-              {semesters.length > 0 && (
-                <Button 
-                  variant="ghost" 
-                  className="mt-2 text-muted-foreground"
-                  onClick={handleResetAll}
-                >
-                  Reset All
-                </Button>
-              )}
+              <Button variant="outline" size="sm" onClick={handleAddCourseToTemp}>
+                <Plus className="w-4 h-4 mr-1" />
+                Add Course
+              </Button>
             </div>
+
+            {/* Temp Courses List */}
+            {tempCourses.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="font-medium">Courses to Add ({tempCourses.length})</h4>
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Course</TableHead>
+                        <TableHead>Credits</TableHead>
+                        <TableHead>Grade</TableHead>
+                        <TableHead>Points</TableHead>
+                        <TableHead>C×G</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {tempCourses.map((c, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell className="font-medium">{c.name}</TableCell>
+                          <TableCell>{c.credits}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{c.grade}</Badge>
+                          </TableCell>
+                          <TableCell>{c.gradePoint}</TableCell>
+                          <TableCell className="font-semibold">{(c.credits * c.gradePoint).toFixed(1)}</TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="icon" onClick={() => handleRemoveTempCourse(idx)}>
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Total Credits:</span>{" "}
+                    <span className="font-semibold">{tempCourses.reduce((s, c) => s + c.credits, 0)}</span>
+                    {" | "}
+                    <span className="text-muted-foreground">SGPA:</span>{" "}
+                    <span className="font-semibold text-primary">{calculateSGPA(tempCourses).toFixed(2)}</span>
+                  </div>
+                  <Button onClick={handleSaveSemester}>
+                    Save Semester
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -337,60 +463,148 @@ const CGPACalculator = () => {
                   <div className="stat-card text-center">
                     <div className="text-3xl font-bold text-primary">{cgpa.toFixed(2)}</div>
                     <div className="text-sm text-muted-foreground">Overall CGPA</div>
-                    <div className="text-xs text-primary mt-1">{scale}.0 Scale</div>
                   </div>
                   <div className="stat-card text-center">
                     <div className="text-3xl font-bold text-success">{totalCredits}</div>
                     <div className="text-sm text-muted-foreground">Total Credits</div>
-                    <div className="text-xs text-success mt-1">{semesters.length} Semesters</div>
                   </div>
                   <div className="stat-card text-center">
-                    <div className="text-3xl font-bold text-chart-4">{avgSgpa.toFixed(2)}</div>
-                    <div className="text-sm text-muted-foreground">Average SGPA</div>
-                    <div className="text-xs text-chart-4 mt-1">{(cgpa * totalCredits).toFixed(2)} Points</div>
+                    <div className="text-3xl font-bold text-chart-4">{percentage.toFixed(1)}%</div>
+                    <div className="text-sm text-muted-foreground">Percentage</div>
                   </div>
                 </div>
 
-                {/* Scale Conversions */}
-                {scale === "10" && (
-                  <div>
-                    <h4 className="font-medium mb-3 flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4" />
-                      Scale Conversions
-                    </h4>
-                    <div className="grid grid-cols-3 gap-4">
-                      <Card className="p-4 text-center">
-                        <div className="text-2xl font-bold text-info">{convert4Scale().toFixed(2)}</div>
-                        <div className="text-sm text-muted-foreground">4.0 Scale (US)</div>
-                        <div className="text-xs text-muted-foreground mt-1">Formula: (CGPA - 5) × 4 / 5</div>
-                      </Card>
-                      <Card className="p-4 text-center">
-                        <div className="text-2xl font-bold text-success">{convert5Scale().toFixed(2)}</div>
-                        <div className="text-sm text-muted-foreground">5.0 Scale</div>
-                        <div className="text-xs text-muted-foreground mt-1">Formula: CGPA / 2</div>
-                      </Card>
-                      <Card className="p-4 text-center">
-                        <div className="text-2xl font-bold text-chart-4">{convertPercentage().toFixed(1)}%</div>
-                        <div className="text-sm text-muted-foreground">Percentage</div>
-                        <div className="text-xs text-muted-foreground mt-1">Formula: (CGPA - 0.5) × 10</div>
-                      </Card>
-                    </div>
-                  </div>
-                )}
-
                 {/* View Analysis Button */}
-                <Button 
+                <Button
                   className="w-full gradient-primary"
                   onClick={() => setShowAnalysis(true)}
                 >
                   <BarChart3 className="w-4 h-4 mr-2" />
                   View Detailed Analysis
                 </Button>
+
+                {semesters.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    className="w-full text-muted-foreground"
+                    onClick={handleResetAll}
+                  >
+                    Reset All Data
+                  </Button>
+                )}
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Saved Semesters */}
+      {semesters.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Award className="w-5 h-5" />
+              Saved Semesters ({semesters.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {semesters.map((sem) => {
+              const performance = getPerformance(sem.sgpa);
+              return (
+                <Collapsible
+                  key={sem.id}
+                  open={expandedSemester === sem.id}
+                  onOpenChange={(open) => setExpandedSemester(open ? sem.id : null)}
+                >
+                  <div className="border rounded-lg overflow-hidden group hover:border-primary/50 transition-colors">
+                    <CollapsibleTrigger asChild>
+                      <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <span className="font-semibold">{sem.name}</span>
+                          <Badge className={performance.class}>{performance.text}</Badge>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-sm text-muted-foreground">
+                            <span className="font-semibold text-foreground">{sem.sgpa.toFixed(2)}</span> SGPA |{" "}
+                            <span className="font-semibold text-foreground">{sem.credits}</span> Credits |{" "}
+                            <span className="font-semibold text-foreground">{sem.courses.length}</span> Courses
+                          </div>
+                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteSemester(sem.id);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          {expandedSemester === sem.id ? (
+                            <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                          )}
+                        </div>
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="border-t p-4 bg-muted/30">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Course</TableHead>
+                              <TableHead>Credits</TableHead>
+                              <TableHead>Grade</TableHead>
+                              <TableHead>Grade Point</TableHead>
+                              <TableHead>Credit × GP</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {sem.courses.map((course) => (
+                              <TableRow key={course.id}>
+                                <TableCell className="font-medium">{course.name}</TableCell>
+                                <TableCell>{course.credits}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline">{course.grade}</Badge>
+                                </TableCell>
+                                <TableCell>{course.gradePoint}</TableCell>
+                                <TableCell className="font-semibold">
+                                  {(course.credits * course.gradePoint).toFixed(1)}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            <TableRow className="bg-primary/5">
+                              <TableCell className="font-bold">Total</TableCell>
+                              <TableCell className="font-bold">
+                                {sem.courses.reduce((s, c) => s + c.credits, 0)}
+                              </TableCell>
+                              <TableCell></TableCell>
+                              <TableCell></TableCell>
+                              <TableCell className="font-bold">
+                                {sem.courses.reduce((s, c) => s + c.credits * c.gradePoint, 0).toFixed(1)}
+                              </TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                        <div className="mt-3 text-right text-sm">
+                          <span className="text-muted-foreground">SGPA:</span>{" "}
+                          <span className="font-bold text-primary text-lg">{sem.sgpa.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Analysis Dialog */}
       <Dialog open={showAnalysis} onOpenChange={setShowAnalysis}>
@@ -411,7 +625,6 @@ const CGPACalculator = () => {
                   <div>
                     <div className="text-3xl font-bold text-primary">{cgpa.toFixed(2)}</div>
                     <div className="text-sm text-muted-foreground">Overall CGPA</div>
-                    <div className="text-xs text-primary">{scale}.0 Scale</div>
                   </div>
                 </div>
               </div>
@@ -429,9 +642,9 @@ const CGPACalculator = () => {
                 <div className="flex items-center gap-3">
                   <TrendingUp className="w-10 h-10 text-chart-4" />
                   <div>
-                    <div className="text-3xl font-bold text-chart-4">{avgSgpa.toFixed(2)}</div>
-                    <div className="text-sm text-muted-foreground">Average SGPA</div>
-                    <div className="text-xs text-chart-4">{(cgpa * totalCredits).toFixed(2)} Points</div>
+                    <div className="text-3xl font-bold text-chart-4">{percentage.toFixed(1)}%</div>
+                    <div className="text-sm text-muted-foreground">Notional Percentage</div>
+                    <div className="text-xs text-chart-4">CGPA × 10</div>
                   </div>
                 </div>
               </div>
@@ -472,10 +685,10 @@ const CGPACalculator = () => {
                       <XAxis dataKey="name" fontSize={12} />
                       <YAxis domain={[0, 10]} fontSize={12} />
                       <Tooltip />
-                      <Line 
-                        type="monotone" 
-                        dataKey="SGPA" 
-                        stroke="hsl(var(--primary))" 
+                      <Line
+                        type="monotone"
+                        dataKey="SGPA"
+                        stroke="hsl(var(--primary))"
                         strokeWidth={2}
                         dot={{ fill: "hsl(var(--primary))", r: 6 }}
                       />
@@ -485,14 +698,12 @@ const CGPACalculator = () => {
               </Card>
             </div>
 
-            {/* Semester Table */}
+            {/* All Courses Table */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <Award className="w-5 h-5" />
-                    Semester-wise Breakdown
-                  </span>
+                <CardTitle className="flex items-center gap-2">
+                  <Award className="w-5 h-5" />
+                  Complete Course Breakdown
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -500,29 +711,43 @@ const CGPACalculator = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Semester</TableHead>
-                      <TableHead>SGPA</TableHead>
+                      <TableHead>Course</TableHead>
                       <TableHead>Credits</TableHead>
-                      <TableHead>Grade Points</TableHead>
-                      <TableHead>Performance</TableHead>
+                      <TableHead>Grade</TableHead>
+                      <TableHead>Grade Point</TableHead>
+                      <TableHead>Weighted Points</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {semesters.map((sem) => {
-                      const performance = getPerformance(sem.sgpa);
-                      return (
-                        <TableRow key={sem.id}>
-                          <TableCell className="font-medium">{sem.name}</TableCell>
-                          <TableCell>{sem.sgpa.toFixed(2)}</TableCell>
-                          <TableCell>{sem.credits}</TableCell>
-                          <TableCell>{(sem.sgpa * sem.credits).toFixed(2)}</TableCell>
+                    {semesters.flatMap((sem) =>
+                      sem.courses.map((course, idx) => (
+                        <TableRow key={course.id}>
+                          {idx === 0 && (
+                            <TableCell rowSpan={sem.courses.length} className="font-medium border-r">
+                              {sem.name}
+                            </TableCell>
+                          )}
+                          <TableCell>{course.name}</TableCell>
+                          <TableCell>{course.credits}</TableCell>
                           <TableCell>
-                            <Badge className={performance.class}>
-                              {performance.text}
-                            </Badge>
+                            <Badge variant="outline">{course.grade}</Badge>
+                          </TableCell>
+                          <TableCell>{course.gradePoint}</TableCell>
+                          <TableCell className="font-semibold">
+                            {(course.credits * course.gradePoint).toFixed(1)}
                           </TableCell>
                         </TableRow>
-                      );
-                    })}
+                      ))
+                    )}
+                    <TableRow className="bg-primary/10 font-bold">
+                      <TableCell colSpan={2}>Grand Total</TableCell>
+                      <TableCell>{totalCredits}</TableCell>
+                      <TableCell></TableCell>
+                      <TableCell></TableCell>
+                      <TableCell>
+                        {semesters.flatMap(s => s.courses).reduce((sum, c) => sum + c.credits * c.gradePoint, 0).toFixed(1)}
+                      </TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
               </CardContent>
