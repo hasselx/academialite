@@ -63,6 +63,10 @@ const CGPACalculator = () => {
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   
+  // Session-only entered data (not yet calculated/saved to history view)
+  const [sessionQuickSemesters, setSessionQuickSemesters] = useState<QuickSemester[]>([]);
+  const [sessionDetailedSemesters, setSessionDetailedSemesters] = useState<Semester[]>([]);
+  
   // Quick mode inputs
   const [quickCredits, setQuickCredits] = useState("");
   const [quickSgpa, setQuickSgpa] = useState("");
@@ -216,12 +220,16 @@ const CGPACalculator = () => {
 
       if (error) throw error;
 
-      setQuickSemesters([...quickSemesters, {
+      const newSem = {
         id: data.id,
         name: data.name,
         sgpa: Number(data.sgpa),
         credits: data.credits
-      }]);
+      };
+
+      setQuickSemesters([...quickSemesters, newSem]);
+      // Also add to session semesters to show in EnteredData
+      setSessionQuickSemesters([...sessionQuickSemesters, newSem]);
 
       setQuickCredits("");
       setQuickSgpa("");
@@ -249,6 +257,7 @@ const CGPACalculator = () => {
       if (error) throw error;
 
       setQuickSemesters(quickSemesters.filter(s => s.id !== id));
+      setSessionQuickSemesters(sessionQuickSemesters.filter(s => s.id !== id));
       toast({
         title: "Semester removed",
         description: "The semester has been deleted."
@@ -341,7 +350,7 @@ const CGPACalculator = () => {
 
       if (courseError) throw courseError;
 
-      setSemesters([...semesters, {
+      const newSem = {
         id: semesterData.id,
         name: semesterData.name,
         sgpa: Number(semesterData.sgpa),
@@ -353,7 +362,11 @@ const CGPACalculator = () => {
           grade: c.grade,
           gradePoint: Number(c.grade_point)
         }))
-      }]);
+      };
+
+      setSemesters([...semesters, newSem]);
+      // Also add to session semesters to show in EnteredData
+      setSessionDetailedSemesters([...sessionDetailedSemesters, newSem]);
 
       setTempCourses([]);
       toast({
@@ -379,6 +392,7 @@ const CGPACalculator = () => {
       if (error) throw error;
 
       setSemesters(semesters.filter(s => s.id !== id));
+      setSessionDetailedSemesters(sessionDetailedSemesters.filter(s => s.id !== id));
       toast({
         title: "Semester removed",
         description: "The semester and its courses have been deleted."
@@ -403,6 +417,8 @@ const CGPACalculator = () => {
 
       setSemesters([]);
       setQuickSemesters([]);
+      setSessionQuickSemesters([]);
+      setSessionDetailedSemesters([]);
       setShowResults(false);
       toast({
         title: "All semesters cleared",
@@ -460,6 +476,9 @@ const CGPACalculator = () => {
       return;
     }
     setShowResults(true);
+    // Clear session data after calculating (it's now "calculated" and visible in results/history)
+    setSessionQuickSemesters([]);
+    setSessionDetailedSemesters([]);
     await fetchAIMotivation();
   };
 
@@ -607,8 +626,8 @@ const CGPACalculator = () => {
               />
             ) : (
               <EnteredDataCard
-                quickSemesters={quickSemesters}
-                semesters={semesters}
+                quickSemesters={sessionQuickSemesters}
+                semesters={sessionDetailedSemesters}
                 mode="quick"
                 onDeleteQuick={handleDeleteQuickSemester}
                 onDeleteDetailed={handleDeleteDetailedSemester}
@@ -747,8 +766,8 @@ const CGPACalculator = () => {
               />
             ) : (
               <EnteredDataCard
-                quickSemesters={quickSemesters}
-                semesters={semesters}
+                quickSemesters={sessionQuickSemesters}
+                semesters={sessionDetailedSemesters}
                 mode="detailed"
                 onDeleteQuick={handleDeleteQuickSemester}
                 onDeleteDetailed={handleDeleteDetailedSemester}
