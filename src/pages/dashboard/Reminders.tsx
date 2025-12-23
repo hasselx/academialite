@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Bell, RefreshCw, Trash2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles, Calendar, Send, GraduationCap, X, Settings, ChevronDown } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Bell, RefreshCw, Trash2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles, Calendar, Send, GraduationCap, X, Settings, ChevronDown, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,6 +21,7 @@ interface Reminder {
   title: string;
   type: "assignment" | "exam" | "project" | "other";
   dueDate: string;
+  dueTime: string | null;
   description: string;
   priority: "critical" | "urgent" | "normal";
   completed: boolean;
@@ -51,6 +54,13 @@ const Reminders = () => {
   const [sendingEmail, setSendingEmail] = useState(false);
   const [showExamPopup, setShowExamPopup] = useState(true);
   const [upcomingExam, setUpcomingExam] = useState<Exam | null>(null);
+  
+  // Edit/Delete state
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [deleteReminderId, setDeleteReminderId] = useState<string | null>(null);
+  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+  
   const { toast } = useToast();
   const { user } = useAuth();
   
@@ -109,6 +119,7 @@ const Reminders = () => {
         title: r.title,
         type: r.type as Reminder['type'],
         dueDate: r.due_date,
+        dueTime: r.due_time || null,
         description: r.description || '',
         priority: r.priority as Reminder['priority'],
         completed: r.completed
@@ -229,6 +240,7 @@ const Reminders = () => {
       setTitle(parsed.title || '');
       setType(parsed.type || 'assignment');
       setDueDate(parsed.dueDate || '');
+      setDueTime(parsed.dueTime || '');
       setPriority(parsed.priority || 'normal');
       setDescription(parsed.description || '');
 
@@ -348,6 +360,7 @@ const Reminders = () => {
         title: data.title,
         type: data.type as Reminder['type'],
         dueDate: data.due_date,
+        dueTime: data.due_time || null,
         description: data.description || '',
         priority: data.priority as Reminder['priority'],
         completed: data.completed
@@ -389,6 +402,8 @@ const Reminders = () => {
       if (error) throw error;
 
       setReminders(reminders.filter(r => r.id !== id));
+      setShowDeleteAlert(false);
+      setDeleteReminderId(null);
       toast({
         title: "Reminder deleted",
         description: "The reminder has been removed."
@@ -400,6 +415,50 @@ const Reminders = () => {
         variant: "destructive"
       });
     }
+  };
+
+  const handleEditReminder = async () => {
+    if (!editingReminder) return;
+    
+    try {
+      const { error } = await supabase
+        .from('reminders')
+        .update({
+          title: editingReminder.title,
+          type: editingReminder.type,
+          due_date: editingReminder.dueDate,
+          due_time: editingReminder.dueTime || null,
+          description: editingReminder.description || null,
+          priority: editingReminder.priority,
+        })
+        .eq('id', editingReminder.id);
+
+      if (error) throw error;
+
+      setReminders(reminders.map(r => r.id === editingReminder.id ? editingReminder : r));
+      setShowEditDialog(false);
+      setEditingReminder(null);
+      toast({
+        title: "Reminder updated",
+        description: "Your changes have been saved."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error updating reminder",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const openEditDialog = (reminder: Reminder) => {
+    setEditingReminder({ ...reminder });
+    setShowEditDialog(true);
+  };
+
+  const confirmDeleteReminder = (id: string) => {
+    setDeleteReminderId(id);
+    setShowDeleteAlert(true);
   };
 
   const handleCompleteReminder = async (id: string) => {
@@ -592,8 +651,17 @@ const Reminders = () => {
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Clock className="w-4 h-4" />
                       {new Date(reminder.dueDate).toLocaleDateString()}
+                      {reminder.dueTime && ` at ${reminder.dueTime.slice(0, 5)}`}
                     </div>
                     <div className="flex gap-1">
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        className="text-primary hover:text-primary hover:bg-primary/10"
+                        onClick={() => openEditDialog(reminder)}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
                       <Button 
                         size="sm" 
                         variant="ghost"
@@ -606,7 +674,7 @@ const Reminders = () => {
                         size="sm" 
                         variant="ghost"
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleDeleteReminder(reminder.id)}
+                        onClick={() => confirmDeleteReminder(reminder.id)}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -695,6 +763,7 @@ Example:
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
+                className="date-input"
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -702,7 +771,7 @@ Example:
                 type="time"
                 value={dueTime}
                 onChange={(e) => setDueTime(e.target.value)}
-                placeholder="Time"
+                className="date-input"
               />
               <Select value={priority} onValueChange={setPriority}>
                 <SelectTrigger>
@@ -939,6 +1008,115 @@ Example:
           </CollapsibleContent>
         </Card>
       </Collapsible>
+
+      {/* Edit Reminder Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Reminder</DialogTitle>
+            <DialogDescription>Make changes to your reminder.</DialogDescription>
+          </DialogHeader>
+          {editingReminder && (
+            <div className="space-y-4 pt-2">
+              <div>
+                <label className="font-medium mb-2 block text-sm">Title</label>
+                <Input 
+                  value={editingReminder.title}
+                  onChange={(e) => setEditingReminder({ ...editingReminder, title: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-medium mb-2 block text-sm">Type</label>
+                  <Select 
+                    value={editingReminder.type} 
+                    onValueChange={(val) => setEditingReminder({ ...editingReminder, type: val as Reminder['type'] })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="assignment">📋 Assignment</SelectItem>
+                      <SelectItem value="exam">📝 Exam</SelectItem>
+                      <SelectItem value="project">🎯 Project</SelectItem>
+                      <SelectItem value="other">📌 Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="font-medium mb-2 block text-sm">Priority</label>
+                  <Select 
+                    value={editingReminder.priority} 
+                    onValueChange={(val) => setEditingReminder({ ...editingReminder, priority: val as Reminder['priority'] })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">🔵 Normal</SelectItem>
+                      <SelectItem value="urgent">🟡 Urgent</SelectItem>
+                      <SelectItem value="critical">🔴 Critical</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-medium mb-2 block text-sm">Due Date</label>
+                  <Input 
+                    type="date"
+                    value={editingReminder.dueDate}
+                    onChange={(e) => setEditingReminder({ ...editingReminder, dueDate: e.target.value })}
+                    className="date-input"
+                  />
+                </div>
+                <div>
+                  <label className="font-medium mb-2 block text-sm">Time</label>
+                  <Input 
+                    type="time"
+                    value={editingReminder.dueTime || ''}
+                    onChange={(e) => setEditingReminder({ ...editingReminder, dueTime: e.target.value || null })}
+                    className="date-input"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="font-medium mb-2 block text-sm">Description</label>
+                <Textarea 
+                  value={editingReminder.description}
+                  onChange={(e) => setEditingReminder({ ...editingReminder, description: e.target.value })}
+                  className="min-h-[60px]"
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowEditDialog(false)}>Cancel</Button>
+                <Button onClick={handleEditReminder} className="bg-success hover:bg-success/90">Save Changes</Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Alert */}
+      <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Reminder?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the reminder.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteReminderId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => deleteReminderId && handleDeleteReminder(deleteReminderId)}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
