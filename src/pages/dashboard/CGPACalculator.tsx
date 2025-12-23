@@ -577,31 +577,6 @@ const CGPACalculator = () => {
                   </Button>
                 </div>
 
-                {/* Quick Semesters List */}
-                {quickSemesters.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="font-medium">Added Semesters ({quickSemesters.length})</h4>
-                    <div className="space-y-2">
-                      {quickSemesters.map((sem) => (
-                        <div key={sem.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                          <div>
-                            <div className="font-medium">{sem.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {sem.credits} credits • SGPA: {sem.sgpa.toFixed(2)}
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteQuickSemester(sem.id)}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 <Button 
                   className="w-full gradient-primary"
@@ -741,31 +716,6 @@ const CGPACalculator = () => {
                   </div>
                 )}
 
-                {/* Saved Detailed Semesters */}
-                {semesters.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="font-medium">Saved Semesters ({semesters.length})</h4>
-                    <div className="space-y-2">
-                      {semesters.map((sem) => (
-                        <div key={sem.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                          <div>
-                            <div className="font-medium">{sem.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {sem.courses.length} courses • {sem.credits} credits • SGPA: {sem.sgpa.toFixed(2)}
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteDetailedSemester(sem.id)}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 <Button 
                   className="w-full gradient-primary"

@@ -311,11 +311,6 @@ const DashboardLayout = () => {
               </Link>
 
               <div className="flex-1" />
-
-              <Button variant="outline" size="sm" className="hidden sm:flex">
-                <Bell className="w-4 h-4 mr-2" />
-                Notifications
-              </Button>
             </div>
           </header>
 
