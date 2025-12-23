@@ -54,9 +54,9 @@ const features = [
 ];
 
 const stats = [
-  { value: "10K+", label: "Active Students" },
-  { value: "50K+", label: "Tasks Tracked" },
-  { value: "98%", label: "Satisfaction" },
+  { value: "Free", label: "To Get Started" },
+  { value: "6+", label: "Powerful Tools" },
+  { value: "AI", label: "Powered" },
   { value: "24/7", label: "Available" }
 ];
 

@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Bell, RefreshCw, Trash2, Edit2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles } from "lucide-react";
+import { Bell, RefreshCw, Trash2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -263,247 +263,245 @@ const Reminders = () => {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="text-center">
         <div className="flex items-center justify-center gap-2 text-primary mb-2">
           <Bell className="w-8 h-8" />
-          <h1 className="text-3xl font-bold">Smart Student Reminder System</h1>
+          <h1 className="text-3xl font-bold">Smart Reminders</h1>
         </div>
         <p className="text-muted-foreground">
-          Paste messages from WhatsApp, emails, or any text to automatically create smart reminders!
+          Paste messages to automatically create smart reminders with AI
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold flex items-center gap-2">
-          <CheckCircle2 className="w-5 h-5" />
-          Your Reminders
-        </h2>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="bg-success/10">Online</Badge>
-          <Button size="sm" variant="outline" onClick={fetchReminders}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
-        </div>
-      </div>
+      {/* Bento Grid Layout */}
+      <div className="grid grid-cols-12 gap-4">
+        {/* Stats - Row 1 */}
+        <Card className="col-span-6 md:col-span-3 border-2 border-destructive/30">
+          <CardContent className="p-4 text-center">
+            <AlertTriangle className="w-8 h-8 text-destructive mx-auto mb-2" />
+            <div className="text-3xl font-bold text-destructive">{stats.critical}</div>
+            <div className="text-sm text-muted-foreground">Critical</div>
+          </CardContent>
+        </Card>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {[
-          { label: "Critical", value: stats.critical, color: "border-destructive/50 text-destructive" },
-          { label: "Urgent", value: stats.urgent, color: "border-warning/50 text-warning" },
-          { label: "Overdue", value: stats.overdue, color: "border-destructive/50 text-destructive" },
-          { label: "Due Today", value: stats.dueToday, color: "border-warning/50 text-warning" },
-          { label: "Total", value: stats.total, color: "border-info/50 text-info" },
-        ].map((stat, index) => (
-          <Card key={index} className={`border-2 ${stat.color}`}>
-            <CardContent className="p-4 text-center">
-              <div className="text-3xl font-bold">{stat.value}</div>
-              <div className="text-sm text-muted-foreground">{stat.label}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+        <Card className="col-span-6 md:col-span-3 border-2 border-warning/30">
+          <CardContent className="p-4 text-center">
+            <Clock className="w-8 h-8 text-warning mx-auto mb-2" />
+            <div className="text-3xl font-bold text-warning">{stats.urgent}</div>
+            <div className="text-sm text-muted-foreground">Urgent</div>
+          </CardContent>
+        </Card>
 
-      {/* Main Content Grid */}
-      <div className="grid lg:grid-cols-2 gap-8">
-        {/* Parse Message Section */}
-        <div className="space-y-6">
-          <Card className="overflow-hidden">
-            <CardHeader className="gradient-header">
-              <CardTitle className="text-primary-foreground flex items-center gap-2">
-                <Mail className="w-5 h-5" />
-                Paste Your Message
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Copy and paste messages from WhatsApp, emails, or any text containing assignment/exam information
-              </p>
-              <Textarea
-                placeholder="Paste your message here...
+        <Card className="col-span-6 md:col-span-3 border-2 border-destructive/30">
+          <CardContent className="p-4 text-center">
+            <Calendar className="w-8 h-8 text-destructive mx-auto mb-2" />
+            <div className="text-3xl font-bold text-destructive">{stats.overdue}</div>
+            <div className="text-sm text-muted-foreground">Overdue</div>
+          </CardContent>
+        </Card>
+
+        <Card className="col-span-6 md:col-span-3 border-2 border-info/30">
+          <CardContent className="p-4 text-center">
+            <CheckCircle2 className="w-8 h-8 text-info mx-auto mb-2" />
+            <div className="text-3xl font-bold text-info">{stats.total}</div>
+            <div className="text-sm text-muted-foreground">Total</div>
+          </CardContent>
+        </Card>
+
+        {/* AI Parse Section - Large Card */}
+        <Card className="col-span-12 lg:col-span-7 overflow-hidden row-span-2">
+          <CardHeader className="gradient-header py-3">
+            <CardTitle className="text-primary-foreground flex items-center gap-2 text-base">
+              <Sparkles className="w-5 h-5" />
+              AI Message Parser
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Paste messages from WhatsApp, emails, or any text
+            </p>
+            <Textarea
+              placeholder="Paste your message here...
 
 Example:
-'Hi students, your Data Structures assignment is due on 20th July 2025. Please submit before 11:59 PM.'"
-                value={messageText}
-                onChange={(e) => setMessageText(e.target.value)}
-                className="min-h-[150px]"
+'Hi students, your Data Structures assignment is due on 20th July 2025.'"
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              className="min-h-[120px]"
+            />
+            <div className="flex gap-2">
+              <Button onClick={handleParseMessage} className="gradient-primary flex-1" disabled={parsing}>
+                {parsing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Parsing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Parse with AI
+                  </>
+                )}
+              </Button>
+              <Button variant="outline" onClick={() => setMessageText("")} disabled={parsing}>
+                Clear
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Stats Card */}
+        <Card className="col-span-12 lg:col-span-5 row-span-2">
+          <CardHeader className="py-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Plus className="w-5 h-5" />
+              Create Reminder
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            <div>
+              <Input 
+                placeholder="Title *"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
               />
-              <div className="flex gap-2">
-                <Button onClick={handleParseMessage} className="gradient-primary" disabled={parsing}>
-                  {parsing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Parsing with AI...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Parse with AI
-                    </>
-                  )}
-                </Button>
-                <Button variant="outline" onClick={() => setMessageText("")} disabled={parsing}>
-                  Clear
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Select value={type} onValueChange={setType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="assignment">📋 Assignment</SelectItem>
+                  <SelectItem value="exam">📝 Exam</SelectItem>
+                  <SelectItem value="project">🎯 Project</SelectItem>
+                  <SelectItem value="other">📌 Other</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input 
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+            </div>
+            <Select value={priority} onValueChange={setPriority}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="normal">🔵 Normal</SelectItem>
+                <SelectItem value="urgent">🟡 Urgent</SelectItem>
+                <SelectItem value="critical">🔴 Critical</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input 
+              placeholder="Description (optional)"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+            <Button onClick={handleSaveReminder} className="w-full bg-success hover:bg-success/90">
+              Save Reminder
+            </Button>
+          </CardContent>
+        </Card>
 
-          {/* Create Reminder Form */}
-          <Card className="overflow-hidden">
-            <CardHeader className="gradient-header">
-              <CardTitle className="text-primary-foreground flex items-center gap-2">
-                <Plus className="w-5 h-5" />
-                Create Reminder
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 space-y-4">
-              <p className="text-sm text-muted-foreground mb-4">
-                Review parsed information or create a reminder manually
-              </p>
-              
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="md:col-span-1">
-                  <label className="text-sm font-medium mb-2 block">Title *</label>
-                  <Input 
-                    placeholder="e.g., Data Structures Assignment"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                  />
-                </div>
+        {/* Email Notifications - Small Card */}
+        <Card className="col-span-12 md:col-span-6 lg:col-span-4">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Mail className="w-6 h-6 text-primary" />
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Type</label>
-                  <Select value={type} onValueChange={setType}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="assignment">📋 Assignment</SelectItem>
-                      <SelectItem value="exam">📝 Exam</SelectItem>
-                      <SelectItem value="project">🎯 Project</SelectItem>
-                      <SelectItem value="other">📌 Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Due Date</label>
-                  <Input 
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Priority</label>
-                  <Select value={priority} onValueChange={setPriority}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="normal">🔵 Normal</SelectItem>
-                      <SelectItem value="urgent">🟡 Urgent</SelectItem>
-                      <SelectItem value="critical">🔴 Critical</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Description</label>
-                  <Input 
-                    placeholder="Additional details..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button onClick={handleSaveReminder} className="bg-success hover:bg-success/90">
-                  Save Reminder
-                </Button>
-                <Button variant="outline" onClick={() => {
-                  setTitle("");
-                  setType("assignment");
-                  setDueDate("");
-                  setDescription("");
-                  setPriority("normal");
-                }}>
-                  Reset Form
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Email Notifications */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <Mail className="w-5 h-5" />
-                    Email Notifications
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Receive email notifications for upcoming deadlines
+                  <h3 className="font-semibold text-sm">Email Notifications</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Get email alerts
                   </p>
                 </div>
-                <Switch checked={emailEnabled} onCheckedChange={setEmailEnabled} />
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <Switch checked={emailEnabled} onCheckedChange={setEmailEnabled} />
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Reminders List */}
-        <div className="space-y-4">
-          <h3 className="font-semibold text-lg">Active Reminders</h3>
+        {/* Refresh Button Card */}
+        <Card className="col-span-12 md:col-span-6 lg:col-span-4">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <RefreshCw className="w-6 h-6 text-info" />
+                <div>
+                  <h3 className="font-semibold text-sm">Sync Status</h3>
+                  <p className="text-xs text-muted-foreground">
+                    <Badge variant="outline" className="bg-success/10 text-success text-xs">Online</Badge>
+                  </p>
+                </div>
+              </div>
+              <Button size="sm" variant="outline" onClick={fetchReminders}>
+                Refresh
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Due Today Card */}
+        <Card className="col-span-12 lg:col-span-4 bg-gradient-to-br from-warning/10 to-warning/5 border-warning/30">
+          <CardContent className="p-4 text-center">
+            <div className="text-4xl font-bold text-warning">{stats.dueToday}</div>
+            <div className="text-sm font-medium">Due Today</div>
+          </CardContent>
+        </Card>
+
+        {/* Reminders List - Full Width */}
+        <div className="col-span-12 space-y-3">
+          <h3 className="font-semibold text-lg flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5" />
+            Active Reminders
+          </h3>
+          
           {reminders.length === 0 ? (
-            <Card className="p-12 text-center">
+            <Card className="p-8 text-center">
               <Bell className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">No reminders yet. Create one above!</p>
             </Card>
           ) : (
-            <div className="space-y-3">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
               {reminders.map((reminder) => (
                 <Card key={reminder.id} className="overflow-hidden hover:shadow-soft transition-shadow">
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge className={getTypeColor(reminder.type)}>
-                            {reminder.type}
-                          </Badge>
-                          <Badge variant="outline" className={getPriorityColor(reminder.priority)}>
-                            {reminder.priority}
-                          </Badge>
-                        </div>
-                        <h4 className="font-semibold text-foreground">{reminder.title}</h4>
-                        {reminder.description && (
-                          <p className="text-sm text-muted-foreground mt-1">{reminder.description}</p>
-                        )}
-                        <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                          <Clock className="w-4 h-4" />
-                          Due: {new Date(reminder.dueDate).toLocaleDateString()}
-                        </div>
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge className={getTypeColor(reminder.type)}>
+                          {reminder.type}
+                        </Badge>
+                        <Badge variant="outline" className={getPriorityColor(reminder.priority)}>
+                          {reminder.priority}
+                        </Badge>
+                      </div>
+                    </div>
+                    <h4 className="font-semibold text-foreground mb-1">{reminder.title}</h4>
+                    {reminder.description && (
+                      <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{reminder.description}</p>
+                    )}
+                    <div className="flex items-center justify-between mt-3">
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Clock className="w-4 h-4" />
+                        {new Date(reminder.dueDate).toLocaleDateString()}
                       </div>
                       <div className="flex gap-1">
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          className="text-muted-foreground hover:text-success"
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-success"
                           onClick={() => handleCompleteReminder(reminder.id)}
                         >
                           <CheckCircle2 className="w-4 h-4" />
                         </Button>
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          className="text-muted-foreground hover:text-destructive"
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive"
                           onClick={() => handleDeleteReminder(reminder.id)}
                         >
                           <Trash2 className="w-4 h-4" />
