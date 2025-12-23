@@ -6,12 +6,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calculator, Plus, Trash2, BarChart3, TrendingUp, Target, Award, Loader2, ChevronDown, ChevronUp, Edit2, Eye, Sparkles } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calculator, Plus, Trash2, BarChart3, TrendingUp, Target, Award, Loader2, Sparkles, Zap, BookOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 // Grade scale mapping
 const gradePoints: Record<string, number> = {
@@ -46,18 +46,33 @@ interface Semester {
   courses: Course[];
 }
 
+interface QuickSemester {
+  id: string;
+  name: string;
+  sgpa: number;
+  credits: number;
+}
+
 const CGPACalculator = () => {
+  const [mode, setMode] = useState<"quick" | "detailed">("quick");
   const [semesters, setSemesters] = useState<Semester[]>([]);
-  const [expandedSemester, setExpandedSemester] = useState<string | null>(null);
-  const [editingSemester, setEditingSemester] = useState<string | null>(null);
+  const [quickSemesters, setQuickSemesters] = useState<QuickSemester[]>([]);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [loading, setLoading] = useState(true);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  
+  // Quick mode inputs
+  const [quickSemesterName, setQuickSemesterName] = useState("");
+  const [quickCredits, setQuickCredits] = useState("");
+  const [quickSgpa, setQuickSgpa] = useState("");
+  
+  // Detailed mode inputs
   const [newSemesterName, setNewSemesterName] = useState("");
   const [newCourse, setNewCourse] = useState({ name: "", credits: "", grade: "O" });
   const [tempCourses, setTempCourses] = useState<Omit<Course, 'id'>[]>([]);
+  
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -99,7 +114,17 @@ const CGPACalculator = () => {
         })) || []
       })) || [];
 
-      setSemesters(semestersWithCourses);
+      // Separate quick semesters (no courses) from detailed semesters (with courses)
+      const detailed = semestersWithCourses.filter(s => s.courses.length > 0);
+      const quick = semestersWithCourses.filter(s => s.courses.length === 0).map(s => ({
+        id: s.id,
+        name: s.name,
+        sgpa: s.sgpa,
+        credits: s.credits
+      }));
+
+      setSemesters(detailed);
+      setQuickSemesters(quick);
     } catch (error: any) {
       toast({
         title: "Error fetching data",
@@ -119,15 +144,22 @@ const CGPACalculator = () => {
   };
 
   const calculateCGPA = () => {
-    if (semesters.length === 0) return 0;
-    const allCourses = semesters.flatMap(s => s.courses);
-    const totalGradePoints = allCourses.reduce((sum, c) => sum + (c.gradePoint * c.credits), 0);
-    const totalCredits = allCourses.reduce((sum, c) => sum + c.credits, 0);
-    return totalCredits > 0 ? totalGradePoints / totalCredits : 0;
+    // Combine both quick and detailed semesters
+    const allSemesters = [
+      ...quickSemesters.map(s => ({ sgpa: s.sgpa, credits: s.credits })),
+      ...semesters.map(s => ({ sgpa: s.sgpa, credits: s.credits }))
+    ];
+    
+    if (allSemesters.length === 0) return 0;
+    
+    const totalWeightedPoints = allSemesters.reduce((sum, s) => sum + (s.sgpa * s.credits), 0);
+    const totalCredits = allSemesters.reduce((sum, s) => sum + s.credits, 0);
+    return totalCredits > 0 ? totalWeightedPoints / totalCredits : 0;
   };
 
   const cgpa = calculateCGPA();
-  const totalCredits = semesters.reduce((sum, sem) => sum + sem.credits, 0);
+  const totalCredits = [...quickSemesters, ...semesters].reduce((sum, sem) => sum + sem.credits, 0);
+  const totalSemesters = quickSemesters.length + semesters.length;
   const percentage = cgpa * 10;
 
   const getPerformance = (sgpa: number) => {
@@ -137,6 +169,100 @@ const CGPACalculator = () => {
     return { text: "NEEDS IMPROVEMENT", class: "bg-destructive text-destructive-foreground" };
   };
 
+  // Quick Mode Handlers
+  const handleAddQuickSemester = async () => {
+    if (!quickSemesterName.trim() || !quickCredits || !quickSgpa) {
+      toast({
+        title: "Invalid input",
+        description: "Please enter semester name, credits, and SGPA.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const credits = parseInt(quickCredits);
+    const sgpa = parseFloat(quickSgpa);
+
+    if (isNaN(credits) || credits <= 0) {
+      toast({
+        title: "Invalid credits",
+        description: "Credits must be a positive number.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isNaN(sgpa) || sgpa < 0 || sgpa > 10) {
+      toast({
+        title: "Invalid SGPA",
+        description: "SGPA must be between 0 and 10.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('semesters')
+        .insert({
+          user_id: user?.id,
+          name: quickSemesterName.trim(),
+          sgpa,
+          credits
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setQuickSemesters([...quickSemesters, {
+        id: data.id,
+        name: data.name,
+        sgpa: Number(data.sgpa),
+        credits: data.credits
+      }]);
+
+      setQuickSemesterName("");
+      setQuickCredits("");
+      setQuickSgpa("");
+      
+      toast({
+        title: "Semester added",
+        description: `${quickSemesterName} has been saved.`
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error saving semester",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteQuickSemester = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('semesters')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setQuickSemesters(quickSemesters.filter(s => s.id !== id));
+      toast({
+        title: "Semester removed",
+        description: "The semester has been deleted."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error deleting semester",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Detailed Mode Handlers
   const handleAddCourseToTemp = () => {
     if (!newCourse.name.trim() || !newCourse.credits || !newCourse.grade) {
       toast({
@@ -170,7 +296,7 @@ const CGPACalculator = () => {
     setTempCourses(tempCourses.filter((_, i) => i !== index));
   };
 
-  const handleSaveSemester = async () => {
+  const handleSaveDetailedSemester = async () => {
     if (!newSemesterName.trim() || tempCourses.length === 0) {
       toast({
         title: "Invalid semester",
@@ -242,7 +368,7 @@ const CGPACalculator = () => {
     }
   };
 
-  const handleDeleteSemester = async (id: string) => {
+  const handleDeleteDetailedSemester = async (id: string) => {
     try {
       const { error } = await supabase
         .from('semesters')
@@ -275,6 +401,8 @@ const CGPACalculator = () => {
       if (error) throw error;
 
       setSemesters([]);
+      setQuickSemesters([]);
+      setShowResults(false);
       toast({
         title: "All semesters cleared",
         description: "Your CGPA data has been reset."
@@ -289,7 +417,7 @@ const CGPACalculator = () => {
   };
 
   const fetchAIMotivation = async () => {
-    if (semesters.length === 0) return;
+    if (totalSemesters === 0) return;
     
     setAiLoading(true);
     try {
@@ -301,7 +429,7 @@ const CGPACalculator = () => {
         body: JSON.stringify({
           cgpa,
           percentage,
-          semesters: semesters.length,
+          semesters: totalSemesters,
           totalCredits,
           type: "motivation"
         }),
@@ -316,18 +444,13 @@ const CGPACalculator = () => {
       setAiMessage(data.message);
     } catch (error: any) {
       console.error("AI motivation error:", error);
-      toast({
-        title: "AI message unavailable",
-        description: "Could not generate personalized message.",
-        variant: "destructive"
-      });
     } finally {
       setAiLoading(false);
     }
   };
 
   const handleCalculateCGPA = async () => {
-    if (semesters.length === 0) {
+    if (totalSemesters === 0) {
       toast({
         title: "No data",
         description: "Please add at least one semester to calculate CGPA.",
@@ -339,11 +462,20 @@ const CGPACalculator = () => {
     await fetchAIMotivation();
   };
 
-  const chartData = semesters.map((sem, index) => ({
-    name: `Sem ${index + 1}`,
-    SGPA: sem.sgpa,
-    Credits: sem.credits
-  }));
+  const chartData = [
+    ...quickSemesters.map((sem, index) => ({
+      name: `Sem ${index + 1}`,
+      SGPA: sem.sgpa,
+      Credits: sem.credits,
+      type: "quick"
+    })),
+    ...semesters.map((sem, index) => ({
+      name: `Sem ${quickSemesters.length + index + 1}`,
+      SGPA: sem.sgpa,
+      Credits: sem.credits,
+      type: "detailed"
+    }))
+  ];
 
   if (loading) {
     return (
@@ -372,224 +504,295 @@ const CGPACalculator = () => {
             ))}
           </div>
           <p className="text-sm text-muted-foreground mt-3">
-            <strong>Formula:</strong> SGPA = Σ(Credits × Grade Points) / Σ(Credits) | <strong>Percentage:</strong> CGPA × 10
+            <strong>Formula:</strong> CGPA = Σ(Credits × SGPA) / Σ(Credits) | <strong>Percentage:</strong> CGPA × 10
           </p>
         </CardContent>
       </Card>
 
-      {/* Main Grid */}
-      <div className="grid lg:grid-cols-2 gap-8">
-        {/* Input Section */}
-        <Card className="overflow-hidden">
-          <CardHeader className="gradient-header">
-            <CardTitle className="text-primary-foreground flex items-center gap-2">
-              <Calculator className="w-5 h-5" />
-              Add Semester
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6 space-y-6">
-            {/* Semester Name */}
-            <div className="space-y-2">
-              <label className="font-medium">Semester Name</label>
-              <Input
-                placeholder="e.g., Semester 1"
-                value={newSemesterName}
-                onChange={(e) => setNewSemesterName(e.target.value)}
-              />
-            </div>
+      {/* Mode Selection Tabs */}
+      <Tabs value={mode} onValueChange={(v) => setMode(v as "quick" | "detailed")} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="quick" className="flex items-center gap-2">
+            <Zap className="w-4 h-4" />
+            Quick Mode
+          </TabsTrigger>
+          <TabsTrigger value="detailed" className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4" />
+            Detailed Mode
+          </TabsTrigger>
+        </TabsList>
 
-            {/* Add Course Form */}
-            <div className="border rounded-lg p-4 space-y-4">
-              <h4 className="font-medium">Add Course</h4>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1 block">Course Name</label>
-                  <Input
-                    placeholder="e.g., Maths"
-                    value={newCourse.name}
-                    onChange={(e) => setNewCourse({ ...newCourse, name: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1 block">Credits</label>
-                  <Input
-                    type="number"
-                    placeholder="e.g., 4"
-                    value={newCourse.credits}
-                    onChange={(e) => setNewCourse({ ...newCourse, credits: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1 block">Grade</label>
-                  <Select value={newCourse.grade} onValueChange={(v) => setNewCourse({ ...newCourse, grade: v })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {gradeOptions.map((g) => (
-                        <SelectItem key={g} value={g}>
-                          {g} ({gradePoints[g]})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <Button variant="outline" size="sm" onClick={handleAddCourseToTemp}>
-                <Plus className="w-4 h-4 mr-1" />
-                Add Course
-              </Button>
-            </div>
+        <TabsContent value="quick" className="mt-6">
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Quick Input Section */}
+            <Card className="overflow-hidden">
+              <CardHeader className="gradient-header">
+                <CardTitle className="text-primary-foreground flex items-center gap-2">
+                  <Zap className="w-5 h-5" />
+                  Quick Add Semester
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                <p className="text-sm text-muted-foreground">
+                  Enter your semester's total credits and SGPA directly for quick CGPA calculation.
+                </p>
 
-            {/* Temp Courses List */}
-            {tempCourses.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="font-medium">Courses to Add ({tempCourses.length})</h4>
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Course</TableHead>
-                        <TableHead>Credits</TableHead>
-                        <TableHead>Grade</TableHead>
-                        <TableHead>Points</TableHead>
-                        <TableHead>C×G</TableHead>
-                        <TableHead></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {tempCourses.map((c, idx) => (
-                        <TableRow key={idx}>
-                          <TableCell className="font-medium">{c.name}</TableCell>
-                          <TableCell>{c.credits}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{c.grade}</Badge>
-                          </TableCell>
-                          <TableCell>{c.gradePoint}</TableCell>
-                          <TableCell className="font-semibold">{(c.credits * c.gradePoint).toFixed(1)}</TableCell>
-                          <TableCell>
-                            <Button variant="ghost" size="icon" onClick={() => handleRemoveTempCourse(idx)}>
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Total Credits:</span>{" "}
-                    <span className="font-semibold">{tempCourses.reduce((s, c) => s + c.credits, 0)}</span>
-                    {" | "}
-                    <span className="text-muted-foreground">SGPA:</span>{" "}
-                    <span className="font-semibold text-primary">{calculateSGPA(tempCourses).toFixed(2)}</span>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="font-medium">Semester Name</label>
+                    <Input
+                      placeholder="e.g., Semester 1"
+                      value={quickSemesterName}
+                      onChange={(e) => setQuickSemesterName(e.target.value)}
+                    />
                   </div>
-                  <Button onClick={handleSaveSemester}>
-                    Save Semester
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="font-medium">Total Credits</label>
+                      <Input
+                        type="number"
+                        placeholder="e.g., 24"
+                        value={quickCredits}
+                        onChange={(e) => setQuickCredits(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="font-medium">SGPA</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="10"
+                        placeholder="e.g., 8.5"
+                        value={quickSgpa}
+                        onChange={(e) => setQuickSgpa(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <Button onClick={handleAddQuickSemester} className="w-full">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Semester
                   </Button>
                 </div>
 
-                {/* Calculate CGPA Button */}
-                <Button 
-                  className="w-full gradient-primary mt-4"
-                  onClick={handleCalculateCGPA}
-                  disabled={semesters.length === 0}
-                >
-                  <Calculator className="w-4 h-4 mr-2" />
-                  Calculate CGPA
-                </Button>
-              </div>
-            )}
-
-            {/* Calculate CGPA Button - Always visible */}
-            {tempCourses.length === 0 && (
-              <Button 
-                className="w-full gradient-primary"
-                onClick={handleCalculateCGPA}
-                disabled={semesters.length === 0}
-              >
-                <Calculator className="w-4 h-4 mr-2" />
-                Calculate CGPA
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Results Section */}
-        <Card className="overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-chart-4/20 to-primary/20">
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-primary" />
-              Results
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            {!showResults || semesters.length === 0 ? (
-              <div className="text-center py-12">
-                <Calculator className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">
-                  Enter your semester details and click "Calculate CGPA" to see your results
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* AI Motivation Message */}
-                {aiLoading ? (
-                  <div className="flex items-center gap-2 p-4 bg-primary/5 rounded-lg border border-primary/20">
-                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                    <span className="text-sm text-muted-foreground">Generating personalized message...</span>
-                  </div>
-                ) : aiMessage && (
-                  <div className="p-4 bg-gradient-to-r from-primary/10 to-accent/20 rounded-lg border border-primary/20">
-                    <div className="flex items-start gap-3">
-                      <Sparkles className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                      <p className="text-sm leading-relaxed">{aiMessage}</p>
+                {/* Quick Semesters List */}
+                {quickSemesters.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="font-medium">Added Semesters ({quickSemesters.length})</h4>
+                    <div className="space-y-2">
+                      {quickSemesters.map((sem) => (
+                        <div key={sem.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div>
+                            <div className="font-medium">{sem.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {sem.credits} credits • SGPA: {sem.sgpa.toFixed(2)}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteQuickSemester(sem.id)}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
 
-                {/* Main Stats */}
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="stat-card text-center">
-                    <div className="text-3xl font-bold text-primary">{cgpa.toFixed(2)}</div>
-                    <div className="text-sm text-muted-foreground">Overall CGPA</div>
-                  </div>
-                  <div className="stat-card text-center">
-                    <div className="text-3xl font-bold text-success">{totalCredits}</div>
-                    <div className="text-sm text-muted-foreground">Total Credits</div>
-                  </div>
-                  <div className="stat-card text-center">
-                    <div className="text-3xl font-bold text-chart-4">{percentage.toFixed(1)}%</div>
-                    <div className="text-sm text-muted-foreground">Percentage</div>
-                  </div>
+                <Button 
+                  className="w-full gradient-primary"
+                  onClick={handleCalculateCGPA}
+                  disabled={totalSemesters === 0}
+                >
+                  <Calculator className="w-4 h-4 mr-2" />
+                  Calculate CGPA
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Results Section */}
+            <ResultsCard
+              showResults={showResults}
+              totalSemesters={totalSemesters}
+              cgpa={cgpa}
+              totalCredits={totalCredits}
+              percentage={percentage}
+              aiLoading={aiLoading}
+              aiMessage={aiMessage}
+              onViewAnalysis={() => setShowAnalysis(true)}
+              onReset={handleResetAll}
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="detailed" className="mt-6">
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Detailed Input Section */}
+            <Card className="overflow-hidden">
+              <CardHeader className="gradient-header">
+                <CardTitle className="text-primary-foreground flex items-center gap-2">
+                  <BookOpen className="w-5 h-5" />
+                  Add Semester with Courses
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                <p className="text-sm text-muted-foreground">
+                  Add individual courses with grades for detailed CGPA calculation and analysis.
+                </p>
+
+                {/* Semester Name */}
+                <div className="space-y-2">
+                  <label className="font-medium">Semester Name</label>
+                  <Input
+                    placeholder="e.g., Semester 1"
+                    value={newSemesterName}
+                    onChange={(e) => setNewSemesterName(e.target.value)}
+                  />
                 </div>
 
-                {/* View Analysis Button */}
-                <Button
-                  className="w-full gradient-primary"
-                  onClick={() => setShowAnalysis(true)}
-                >
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  View Detailed Analysis
-                </Button>
-
-                {semesters.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    className="w-full text-muted-foreground"
-                    onClick={handleResetAll}
-                  >
-                    Reset All Data
+                {/* Add Course Form */}
+                <div className="border rounded-lg p-4 space-y-4">
+                  <h4 className="font-medium">Add Course</h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-sm text-muted-foreground mb-1 block">Course Name</label>
+                      <Input
+                        placeholder="e.g., Maths"
+                        value={newCourse.name}
+                        onChange={(e) => setNewCourse({ ...newCourse, name: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground mb-1 block">Credits</label>
+                      <Input
+                        type="number"
+                        placeholder="e.g., 4"
+                        value={newCourse.credits}
+                        onChange={(e) => setNewCourse({ ...newCourse, credits: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground mb-1 block">Grade</label>
+                      <Select value={newCourse.grade} onValueChange={(v) => setNewCourse({ ...newCourse, grade: v })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {gradeOptions.map((g) => (
+                            <SelectItem key={g} value={g}>
+                              {g} ({gradePoints[g]})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleAddCourseToTemp}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Course
                   </Button>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                </div>
 
-      {/* Note: Saved semesters are available in the History tab */}
+                {/* Temp Courses List */}
+                {tempCourses.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium">Courses to Add ({tempCourses.length})</h4>
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Course</TableHead>
+                            <TableHead>Credits</TableHead>
+                            <TableHead>Grade</TableHead>
+                            <TableHead></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {tempCourses.map((c, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="font-medium">{c.name}</TableCell>
+                              <TableCell>{c.credits}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{c.grade}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Button variant="ghost" size="icon" onClick={() => handleRemoveTempCourse(idx)}>
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">SGPA:</span>{" "}
+                        <span className="font-semibold text-primary">{calculateSGPA(tempCourses).toFixed(2)}</span>
+                      </div>
+                      <Button onClick={handleSaveDetailedSemester}>
+                        Save Semester
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Saved Detailed Semesters */}
+                {semesters.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="font-medium">Saved Semesters ({semesters.length})</h4>
+                    <div className="space-y-2">
+                      {semesters.map((sem) => (
+                        <div key={sem.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div>
+                            <div className="font-medium">{sem.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {sem.courses.length} courses • {sem.credits} credits • SGPA: {sem.sgpa.toFixed(2)}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteDetailedSemester(sem.id)}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <Button 
+                  className="w-full gradient-primary"
+                  onClick={handleCalculateCGPA}
+                  disabled={totalSemesters === 0}
+                >
+                  <Calculator className="w-4 h-4 mr-2" />
+                  Calculate CGPA
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Results Section */}
+            <ResultsCard
+              showResults={showResults}
+              totalSemesters={totalSemesters}
+              cgpa={cgpa}
+              totalCredits={totalCredits}
+              percentage={percentage}
+              aiLoading={aiLoading}
+              aiMessage={aiMessage}
+              onViewAnalysis={() => setShowAnalysis(true)}
+              onReset={handleResetAll}
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Analysis Dialog */}
       <Dialog open={showAnalysis} onOpenChange={setShowAnalysis}>
@@ -619,7 +822,7 @@ const CGPACalculator = () => {
                   <div>
                     <div className="text-3xl font-bold text-success">{totalCredits}</div>
                     <div className="text-sm text-muted-foreground">Total Credits</div>
-                    <div className="text-xs text-success">{semesters.length} Semesters</div>
+                    <div className="text-xs text-success">{totalSemesters} Semesters</div>
                   </div>
                 </div>
               </div>
@@ -636,112 +839,201 @@ const CGPACalculator = () => {
             </div>
 
             {/* Charts */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card className="p-4">
-                <h4 className="font-semibold mb-4 flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4" />
-                  SGPA vs Credits by Semester
-                </h4>
-                <div className="h-[250px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                      <XAxis dataKey="name" fontSize={12} />
-                      <YAxis yAxisId="left" fontSize={12} />
-                      <YAxis yAxisId="right" orientation="right" fontSize={12} />
-                      <Tooltip />
-                      <Legend />
-                      <Bar yAxisId="left" dataKey="SGPA" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                      <Bar yAxisId="right" dataKey="Credits" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </Card>
+            {chartData.length > 0 && (
+              <div className="grid md:grid-cols-2 gap-6">
+                <Card className="p-4">
+                  <h4 className="font-semibold mb-4 flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4" />
+                    SGPA vs Credits by Semester
+                  </h4>
+                  <div className="h-[250px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                        <XAxis dataKey="name" fontSize={12} />
+                        <YAxis yAxisId="left" fontSize={12} />
+                        <YAxis yAxisId="right" orientation="right" fontSize={12} />
+                        <Tooltip />
+                        <Legend />
+                        <Bar yAxisId="left" dataKey="SGPA" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                        <Bar yAxisId="right" dataKey="Credits" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
 
-              <Card className="p-4">
-                <h4 className="font-semibold mb-4 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" />
-                  SGPA Trend Over Semesters
-                </h4>
-                <div className="h-[250px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                      <XAxis dataKey="name" fontSize={12} />
-                      <YAxis domain={[0, 10]} fontSize={12} />
-                      <Tooltip />
-                      <Line
-                        type="monotone"
-                        dataKey="SGPA"
-                        stroke="hsl(var(--primary))"
-                        strokeWidth={2}
-                        dot={{ fill: "hsl(var(--primary))", r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </Card>
-            </div>
+                <Card className="p-4">
+                  <h4 className="font-semibold mb-4 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" />
+                    SGPA Trend Over Semesters
+                  </h4>
+                  <div className="h-[250px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                        <XAxis dataKey="name" fontSize={12} />
+                        <YAxis domain={[0, 10]} fontSize={12} />
+                        <Tooltip />
+                        <Line
+                          type="monotone"
+                          dataKey="SGPA"
+                          stroke="hsl(var(--primary))"
+                          strokeWidth={2}
+                          dot={{ fill: "hsl(var(--primary))", r: 6 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+              </div>
+            )}
 
-            {/* All Courses Table */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Award className="w-5 h-5" />
-                  Complete Course Breakdown
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Semester</TableHead>
-                      <TableHead>Course</TableHead>
-                      <TableHead>Credits</TableHead>
-                      <TableHead>Grade</TableHead>
-                      <TableHead>Grade Point</TableHead>
-                      <TableHead>Weighted Points</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {semesters.flatMap((sem) =>
-                      sem.courses.map((course, idx) => (
-                        <TableRow key={course.id}>
-                          {idx === 0 && (
-                            <TableCell rowSpan={sem.courses.length} className="font-medium border-r">
-                              {sem.name}
+            {/* Detailed Courses Table (only for detailed mode semesters) */}
+            {semesters.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Award className="w-5 h-5" />
+                    Complete Course Breakdown
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Semester</TableHead>
+                        <TableHead>Course</TableHead>
+                        <TableHead>Credits</TableHead>
+                        <TableHead>Grade</TableHead>
+                        <TableHead>Grade Point</TableHead>
+                        <TableHead>Weighted Points</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {semesters.flatMap((sem) =>
+                        sem.courses.map((course, idx) => (
+                          <TableRow key={course.id}>
+                            {idx === 0 && (
+                              <TableCell rowSpan={sem.courses.length} className="font-medium border-r">
+                                {sem.name}
+                              </TableCell>
+                            )}
+                            <TableCell>{course.name}</TableCell>
+                            <TableCell>{course.credits}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{course.grade}</Badge>
                             </TableCell>
-                          )}
-                          <TableCell>{course.name}</TableCell>
-                          <TableCell>{course.credits}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{course.grade}</Badge>
-                          </TableCell>
-                          <TableCell>{course.gradePoint}</TableCell>
-                          <TableCell className="font-semibold">
-                            {(course.credits * course.gradePoint).toFixed(1)}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                    <TableRow className="bg-primary/10 font-bold">
-                      <TableCell colSpan={2}>Grand Total</TableCell>
-                      <TableCell>{totalCredits}</TableCell>
-                      <TableCell></TableCell>
-                      <TableCell></TableCell>
-                      <TableCell>
-                        {semesters.flatMap(s => s.courses).reduce((sum, c) => sum + c.credits * c.gradePoint, 0).toFixed(1)}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                            <TableCell>{course.gradePoint}</TableCell>
+                            <TableCell className="font-semibold">
+                              {(course.credits * course.gradePoint).toFixed(1)}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </DialogContent>
       </Dialog>
     </div>
   );
 };
+
+// Results Card Component
+const ResultsCard = ({
+  showResults,
+  totalSemesters,
+  cgpa,
+  totalCredits,
+  percentage,
+  aiLoading,
+  aiMessage,
+  onViewAnalysis,
+  onReset
+}: {
+  showResults: boolean;
+  totalSemesters: number;
+  cgpa: number;
+  totalCredits: number;
+  percentage: number;
+  aiLoading: boolean;
+  aiMessage: string | null;
+  onViewAnalysis: () => void;
+  onReset: () => void;
+}) => (
+  <Card className="overflow-hidden">
+    <CardHeader className="bg-gradient-to-r from-chart-4/20 to-primary/20">
+      <CardTitle className="flex items-center gap-2">
+        <BarChart3 className="w-5 h-5 text-primary" />
+        Results
+      </CardTitle>
+    </CardHeader>
+    <CardContent className="p-6">
+      {!showResults || totalSemesters === 0 ? (
+        <div className="text-center py-12">
+          <Calculator className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">
+            Add your semester details and click "Calculate CGPA" to see your results
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* AI Motivation Message */}
+          {aiLoading ? (
+            <div className="flex items-center gap-2 p-4 bg-primary/5 rounded-lg border border-primary/20">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              <span className="text-sm text-muted-foreground">Generating personalized message...</span>
+            </div>
+          ) : aiMessage && (
+            <div className="p-4 bg-gradient-to-r from-primary/10 to-accent/20 rounded-lg border border-primary/20">
+              <div className="flex items-start gap-3">
+                <Sparkles className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                <p className="text-sm leading-relaxed">{aiMessage}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Main Stats */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="stat-card text-center">
+              <div className="text-3xl font-bold text-primary">{cgpa.toFixed(2)}</div>
+              <div className="text-sm text-muted-foreground">Overall CGPA</div>
+            </div>
+            <div className="stat-card text-center">
+              <div className="text-3xl font-bold text-success">{totalCredits}</div>
+              <div className="text-sm text-muted-foreground">Total Credits</div>
+            </div>
+            <div className="stat-card text-center">
+              <div className="text-3xl font-bold text-chart-4">{percentage.toFixed(1)}%</div>
+              <div className="text-sm text-muted-foreground">Percentage</div>
+            </div>
+          </div>
+
+          {/* View Analysis Button */}
+          <Button
+            className="w-full gradient-primary"
+            onClick={onViewAnalysis}
+          >
+            <BarChart3 className="w-4 h-4 mr-2" />
+            View Detailed Analysis
+          </Button>
+
+          {totalSemesters > 0 && (
+            <Button
+              variant="ghost"
+              className="w-full text-muted-foreground"
+              onClick={onReset}
+            >
+              Reset All Data
+            </Button>
+          )}
+        </div>
+      )}
+    </CardContent>
+  </Card>
+);
 
 export default CGPACalculator;

@@ -73,10 +73,6 @@ const Index = () => {
             <span className="text-xl font-bold text-foreground">Academia</span>
           </Link>
           <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" className="hidden sm:flex">
-              <Bell className="w-4 h-4 mr-2" />
-              Notifications
-            </Button>
             <Link to="/login">
               <Button variant="ghost" className="font-medium">Sign In</Button>
             </Link>
