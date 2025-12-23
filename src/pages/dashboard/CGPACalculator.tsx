@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calculator, Plus, Trash2, BarChart3, TrendingUp, Target, Award, Loader2, ChevronDown, ChevronUp, Edit2, Eye } from "lucide-react";
+import { Calculator, Plus, Trash2, BarChart3, TrendingUp, Target, Award, Loader2, ChevronDown, ChevronUp, Edit2, Eye, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,7 +51,10 @@ const CGPACalculator = () => {
   const [expandedSemester, setExpandedSemester] = useState<string | null>(null);
   const [editingSemester, setEditingSemester] = useState<string | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [showResults, setShowResults] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [aiMessage, setAiMessage] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const [newSemesterName, setNewSemesterName] = useState("");
   const [newCourse, setNewCourse] = useState({ name: "", credits: "", grade: "O" });
   const [tempCourses, setTempCourses] = useState<Omit<Course, 'id'>[]>([]);
@@ -285,6 +288,57 @@ const CGPACalculator = () => {
     }
   };
 
+  const fetchAIMotivation = async () => {
+    if (semesters.length === 0) return;
+    
+    setAiLoading(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-motivation`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          cgpa,
+          percentage,
+          semesters: semesters.length,
+          totalCredits,
+          type: "motivation"
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to get AI message");
+      }
+
+      const data = await response.json();
+      setAiMessage(data.message);
+    } catch (error: any) {
+      console.error("AI motivation error:", error);
+      toast({
+        title: "AI message unavailable",
+        description: "Could not generate personalized message.",
+        variant: "destructive"
+      });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleCalculateCGPA = async () => {
+    if (semesters.length === 0) {
+      toast({
+        title: "No data",
+        description: "Please add at least one semester to calculate CGPA.",
+        variant: "destructive"
+      });
+      return;
+    }
+    setShowResults(true);
+    await fetchAIMotivation();
+  };
+
   const chartData = semesters.map((sem, index) => ({
     name: `Sem ${index + 1}`,
     SGPA: sem.sgpa,
@@ -435,7 +489,29 @@ const CGPACalculator = () => {
                     Save Semester
                   </Button>
                 </div>
+
+                {/* Calculate CGPA Button */}
+                <Button 
+                  className="w-full gradient-primary mt-4"
+                  onClick={handleCalculateCGPA}
+                  disabled={semesters.length === 0}
+                >
+                  <Calculator className="w-4 h-4 mr-2" />
+                  Calculate CGPA
+                </Button>
               </div>
+            )}
+
+            {/* Calculate CGPA Button - Always visible */}
+            {tempCourses.length === 0 && (
+              <Button 
+                className="w-full gradient-primary"
+                onClick={handleCalculateCGPA}
+                disabled={semesters.length === 0}
+              >
+                <Calculator className="w-4 h-4 mr-2" />
+                Calculate CGPA
+              </Button>
             )}
           </CardContent>
         </Card>
@@ -449,15 +525,30 @@ const CGPACalculator = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
-            {semesters.length === 0 ? (
+            {!showResults || semesters.length === 0 ? (
               <div className="text-center py-12">
                 <Calculator className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">
-                  Add your semester details to see your CGPA results
+                  Enter your semester details and click "Calculate CGPA" to see your results
                 </p>
               </div>
             ) : (
               <div className="space-y-6">
+                {/* AI Motivation Message */}
+                {aiLoading ? (
+                  <div className="flex items-center gap-2 p-4 bg-primary/5 rounded-lg border border-primary/20">
+                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                    <span className="text-sm text-muted-foreground">Generating personalized message...</span>
+                  </div>
+                ) : aiMessage && (
+                  <div className="p-4 bg-gradient-to-r from-primary/10 to-accent/20 rounded-lg border border-primary/20">
+                    <div className="flex items-start gap-3">
+                      <Sparkles className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                      <p className="text-sm leading-relaxed">{aiMessage}</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Main Stats */}
                 <div className="grid grid-cols-3 gap-4">
                   <div className="stat-card text-center">
