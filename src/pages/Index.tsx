@@ -79,10 +79,8 @@ const Index = () => {
 
   useEffect(() => {
     const fetchUserCount = async () => {
-      const { count } = await supabase
-        .from("profiles")
-        .select("*", { count: "exact", head: true });
-      setUserCount(count || 0);
+      const { data } = await supabase.rpc("get_user_count");
+      setUserCount(data || 0);
     };
     fetchUserCount();
   }, []);
