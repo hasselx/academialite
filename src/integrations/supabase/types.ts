@@ -47,6 +47,47 @@ export type Database = {
         }
         Relationships: []
       }
+      courses: {
+        Row: {
+          created_at: string
+          credits: number
+          grade: string
+          grade_point: number
+          id: string
+          name: string
+          semester_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits: number
+          grade: string
+          grade_point: number
+          id?: string
+          name: string
+          semester_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credits?: number
+          grade?: string
+          grade_point?: number
+          id?: string
+          name?: string
+          semester_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courses_semester_id_fkey"
+            columns: ["semester_id"]
+            isOneToOne: false
+            referencedRelation: "semesters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expenses: {
         Row: {
           amount: number
