@@ -245,8 +245,24 @@ const Reminders = () => {
     }
   };
 
-  const sendEmailNotification = async (reminderTitle: string, reminderDueDate: string) => {
-    if (!user?.email) return;
+  const getPriorityIcon = (priorityLevel: string) => {
+    switch (priorityLevel) {
+      case "critical": return "🔴";
+      case "urgent": return "🟠";
+      default: return "🟢";
+    }
+  };
+
+  const sendEmailNotification = async (
+    reminderTitle: string, 
+    reminderDueDate: string,
+    reminderType: string = "assignment",
+    reminderPriority: string = "normal",
+    reminderDescription: string = "",
+    timingText: string = "New Reminder Created"
+  ) => {
+    const emailTo = notifyEmail || user?.email;
+    if (!emailTo) return;
     
     setSendingEmail(true);
     try {
@@ -257,16 +273,19 @@ const Reminders = () => {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
         },
         body: JSON.stringify({
-          to: user.email,
-          subject: `Reminder: ${reminderTitle}`,
-          body: `
-            <h2>🔔 New Reminder Created</h2>
-            <p><strong>Title:</strong> ${reminderTitle}</p>
-            <p><strong>Due Date:</strong> ${reminderDueDate}</p>
-            <p>Don't forget to complete this task on time!</p>
-            <br/>
-            <p>Best regards,<br/>Student Tools App</p>
-          `
+          to: emailTo,
+          reminder_title: reminderTitle,
+          reminder_type: reminderType.charAt(0).toUpperCase() + reminderType.slice(1),
+          due_date: new Date(reminderDueDate).toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          }),
+          priority_level: reminderPriority.charAt(0).toUpperCase() + reminderPriority.slice(1),
+          priority_icon: getPriorityIcon(reminderPriority),
+          description: reminderDescription || "No description provided",
+          timing_text: timingText
         })
       });
 
@@ -332,7 +351,7 @@ const Reminders = () => {
 
       // Send email if checkbox is checked
       if (sendEmail) {
-        await sendEmailNotification(title, reminderDueDate);
+        await sendEmailNotification(title, reminderDueDate, type, priority, description, "🔔 New Reminder Created");
       }
 
       setTitle("");
@@ -822,14 +841,18 @@ Example:
                     },
                     body: JSON.stringify({
                       to: notifyEmail,
-                      subject: "Test Email - Smart Reminders",
-                      body: `
-                        <h2>🔔 Test Email</h2>
-                        <p>This is a test email from Smart Reminders.</p>
-                        <p>If you received this, your email notifications are working correctly!</p>
-                        <br/>
-                        <p>Best regards,<br/>Student Tools App</p>
-                      `
+                      reminder_title: "Test Notification",
+                      reminder_type: "System",
+                      due_date: new Date().toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      }),
+                      priority_level: "Normal",
+                      priority_icon: "🟢",
+                      description: "This is a test email from Smart Reminders. If you received this, your email notifications are working correctly!",
+                      timing_text: "🔔 Test Email - Smart Reminders"
                     })
                   });
 
