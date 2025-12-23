@@ -22,6 +22,13 @@ interface Reminder {
   completed: boolean;
 }
 
+interface Exam {
+  id: string;
+  subject: string;
+  date: string;
+  startTime: string;
+}
+
 const Reminders = () => {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [messageText, setMessageText] = useState("");
@@ -39,6 +46,7 @@ const Reminders = () => {
   const [sendEmail, setSendEmail] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [showExamPopup, setShowExamPopup] = useState(true);
+  const [upcomingExam, setUpcomingExam] = useState<Exam | null>(null);
 
   useEffect(() => {
     localStorage.setItem('emailNotificationsEnabled', emailEnabled.toString());
@@ -49,6 +57,7 @@ const Reminders = () => {
   useEffect(() => {
     if (user) {
       fetchReminders();
+      fetchUpcomingExam();
     }
   }, [user]);
 
@@ -84,6 +93,35 @@ const Reminders = () => {
     }
   };
 
+  const fetchUpcomingExam = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('exams')
+        .select('id, subject, date, start_time')
+        .eq('user_id', user?.id)
+        .gte('date', today)
+        .order('date', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setUpcomingExam({
+          id: data.id,
+          subject: data.subject,
+          date: data.date,
+          startTime: data.start_time.slice(0, 5)
+        });
+      } else {
+        setUpcomingExam(null);
+      }
+    } catch (error) {
+      console.error('Error fetching upcoming exam:', error);
+    }
+  };
+
   const stats = {
     critical: reminders.filter(r => r.priority === "critical").length,
     urgent: reminders.filter(r => r.priority === "urgent").length,
@@ -94,13 +132,6 @@ const Reminders = () => {
     }).length,
     total: reminders.length
   };
-
-  // Get upcoming exams (type === 'exam' and not overdue)
-  const upcomingExams = reminders
-    .filter(r => r.type === 'exam' && new Date(r.dueDate) >= new Date())
-    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-  
-  const nextExam = upcomingExams[0];
 
   // Calculate time left for next exam
   const getTimeLeft = (dueDate: string) => {
@@ -355,7 +386,7 @@ const Reminders = () => {
     <div className="space-y-6 animate-fade-in relative">
       {/* Upcoming Exam Popup - Top Right */}
       <AnimatePresence>
-        {nextExam && showExamPopup && (
+        {upcomingExam && showExamPopup && (
           <motion.div
             initial={{ opacity: 0, x: 100, y: -20 }}
             animate={{ opacity: 1, x: 0, y: 0 }}
@@ -376,13 +407,13 @@ const Reminders = () => {
                   <GraduationCap className="w-5 h-5" />
                   <span className="text-xs font-medium uppercase tracking-wider opacity-90">Upcoming Exam</span>
                 </div>
-                <h4 className="font-bold text-lg mb-1 pr-6">{nextExam.title}</h4>
+                <h4 className="font-bold text-lg mb-1 pr-6">{upcomingExam.subject}</h4>
                 <div className="flex items-center justify-between">
                   <span className="text-sm opacity-90">
-                    {new Date(nextExam.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {new Date(upcomingExam.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {upcomingExam.startTime}
                   </span>
                   <Badge className="bg-white/20 text-white border-none">
-                    {getTimeLeft(nextExam.dueDate)}
+                    {getTimeLeft(upcomingExam.date)}
                   </Badge>
                 </div>
               </CardContent>

@@ -235,6 +235,15 @@
     color: hsl(var(--destructive));
     background: hsl(var(--destructive) / 0.15);
   }
+
+  /* Date input styling for dark mode */
+  .date-input::-webkit-calendar-picker-indicator {
+    filter: invert(0);
+  }
+
+  .dark .date-input::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
 }
 
 @layer utilities {

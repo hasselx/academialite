@@ -88,6 +88,45 @@ export type Database = {
           },
         ]
       }
+      exams: {
+        Row: {
+          code: string | null
+          created_at: string
+          date: string
+          end_time: string
+          id: string
+          room: string | null
+          start_time: string
+          subject: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string
+          date: string
+          end_time: string
+          id?: string
+          room?: string | null
+          start_time: string
+          subject: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          code?: string | null
+          created_at?: string
+          date?: string
+          end_time?: string
+          id?: string
+          room?: string | null
+          start_time?: string
+          subject?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       expenses: {
         Row: {
           amount: number

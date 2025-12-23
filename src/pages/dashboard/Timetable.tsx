@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Clock, Plus, Trash2, ChevronLeft, ChevronRight, MapPin, Calendar, GraduationCap } from "lucide-react";
+import { Clock, Plus, Trash2, ChevronLeft, ChevronRight, MapPin, Calendar, GraduationCap, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { format, addDays, subDays, startOfWeek } from "date-fns";
+import { format, addDays, subDays, startOfWeek, differenceInHours } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ClassItem {
   id: string;
@@ -57,9 +59,11 @@ const examColors = [
 ];
 
 const Timetable = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("timetable");
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [exams, setExams] = useState<ExamItem[]>([]);
+  const [isLoadingExams, setIsLoadingExams] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showAddExamDialog, setShowAddExamDialog] = useState(false);
@@ -82,6 +86,72 @@ const Timetable = () => {
     type: "Midterm" as "Midterm" | "Final" | "Quiz" | "Practical",
   });
   const { toast } = useToast();
+
+  // Fetch exams from database
+  useEffect(() => {
+    if (user) {
+      fetchExams();
+    }
+  }, [user]);
+
+  const fetchExams = async () => {
+    if (!user) return;
+    
+    setIsLoadingExams(true);
+    try {
+      const { data, error } = await supabase
+        .from('exams')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: true });
+
+      if (error) throw error;
+
+      // Filter out exams that are more than 30 hours past their date
+      const now = new Date();
+      const validExams: ExamItem[] = [];
+      const expiredExamIds: string[] = [];
+
+      data?.forEach((exam) => {
+        const examDateTime = new Date(`${exam.date}T${exam.end_time}`);
+        const hoursSinceExam = differenceInHours(now, examDateTime);
+        
+        if (hoursSinceExam > 30) {
+          expiredExamIds.push(exam.id);
+        } else {
+          validExams.push({
+            id: exam.id,
+            subject: exam.subject,
+            code: exam.code || "",
+            date: exam.date,
+            startTime: exam.start_time.slice(0, 5),
+            endTime: exam.end_time.slice(0, 5),
+            room: exam.room || "",
+            type: exam.type as "Midterm" | "Final" | "Quiz" | "Practical",
+          });
+        }
+      });
+
+      // Delete expired exams from database
+      if (expiredExamIds.length > 0) {
+        await supabase
+          .from('exams')
+          .delete()
+          .in('id', expiredExamIds);
+      }
+
+      setExams(validExams);
+    } catch (error) {
+      console.error('Error fetching exams:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load exams.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingExams(false);
+    }
+  };
 
   const getDayName = (date: Date) => {
     return format(date, "EEEE");
@@ -138,7 +208,7 @@ const Timetable = () => {
     });
   };
 
-  const handleAddExam = () => {
+  const handleAddExam = async () => {
     if (!newExam.subject || !newExam.date || !newExam.startTime || !newExam.endTime) {
       toast({
         title: "Missing information",
@@ -148,35 +218,92 @@ const Timetable = () => {
       return;
     }
 
-    const newExamItem: ExamItem = {
-      id: Date.now().toString(),
-      ...newExam,
-    };
+    if (!user) {
+      toast({
+        title: "Not authenticated",
+        description: "Please log in to add exams.",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    setExams([...exams, newExamItem]);
-    setNewExam({ 
-      subject: "", 
-      code: "",
-      date: "",
-      startTime: "09:00", 
-      endTime: "11:00", 
-      room: "",
-      type: "Midterm"
-    });
-    setShowAddExamDialog(false);
+    try {
+      const { data, error } = await supabase
+        .from('exams')
+        .insert({
+          user_id: user.id,
+          subject: newExam.subject,
+          code: newExam.code || null,
+          date: newExam.date,
+          start_time: newExam.startTime,
+          end_time: newExam.endTime,
+          room: newExam.room || null,
+          type: newExam.type,
+        })
+        .select()
+        .single();
 
-    toast({
-      title: "Exam added",
-      description: `${newExam.subject} exam has been added.`
-    });
+      if (error) throw error;
+
+      const newExamItem: ExamItem = {
+        id: data.id,
+        subject: data.subject,
+        code: data.code || "",
+        date: data.date,
+        startTime: data.start_time.slice(0, 5),
+        endTime: data.end_time.slice(0, 5),
+        room: data.room || "",
+        type: data.type as "Midterm" | "Final" | "Quiz" | "Practical",
+      };
+
+      setExams([...exams, newExamItem].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+      setNewExam({ 
+        subject: "", 
+        code: "",
+        date: "",
+        startTime: "09:00", 
+        endTime: "11:00", 
+        room: "",
+        type: "Midterm"
+      });
+      setShowAddExamDialog(false);
+
+      toast({
+        title: "Exam added",
+        description: `${newExam.subject} exam has been saved.`
+      });
+    } catch (error) {
+      console.error('Error adding exam:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add exam. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleDeleteExam = (id: string) => {
-    setExams(exams.filter(e => e.id !== id));
-    toast({
-      title: "Exam removed",
-      description: "The exam has been deleted."
-    });
+  const handleDeleteExam = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('exams')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setExams(exams.filter(e => e.id !== id));
+      toast({
+        title: "Exam removed",
+        description: "The exam has been deleted."
+      });
+    } catch (error) {
+      console.error('Error deleting exam:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete exam.",
+        variant: "destructive"
+      });
+    }
   };
 
   const getClassesForDay = (day: string) => {
@@ -493,6 +620,7 @@ const Timetable = () => {
                         type="date"
                         value={newExam.date}
                         onChange={(e) => setNewExam({ ...newExam, date: e.target.value })}
+                        className="date-input"
                       />
                     </div>
                     <div>
@@ -565,7 +693,12 @@ const Timetable = () => {
 
           {/* Exams List */}
           <div className="space-y-4">
-            {sortedExams.length === 0 ? (
+            {isLoadingExams ? (
+              <Card className="p-12 text-center">
+                <Loader2 className="w-12 h-12 text-muted-foreground mx-auto mb-4 animate-spin" />
+                <p className="text-muted-foreground">Loading exams...</p>
+              </Card>
+            ) : sortedExams.length === 0 ? (
               <Card className="p-12 text-center">
                 <GraduationCap className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">No exams scheduled</h3>
