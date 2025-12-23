@@ -476,7 +476,7 @@ Example:
 'Hi students, your Data Structures assignment is due on 20th July 2025.'"
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
-              className="min-h-[120px]"
+              className="min-h-[200px]"
             />
             <div className="flex gap-2">
               <Button onClick={handleParseMessage} className="gradient-primary flex-1" disabled={parsing}>

@@ -191,7 +191,7 @@ const DashboardLayout = () => {
 
           {/* Navigation */}
           <nav className={cn(
-            "flex-1 overflow-y-auto p-4 space-y-6",
+            "flex-1 p-4 space-y-6",
             collapsed && "px-2"
           )}>
             {/* Academic Tools */}
