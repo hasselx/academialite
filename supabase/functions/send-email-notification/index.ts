@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,8 +7,13 @@ const corsHeaders = {
 
 interface EmailRequest {
   to: string;
-  subject: string;
-  body: string;
+  reminder_title: string;
+  reminder_type: string;
+  due_date: string;
+  priority_level: string;
+  priority_icon: string;
+  description: string;
+  timing_text: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -20,50 +24,65 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { to, subject, body }: EmailRequest = await req.json();
-    console.log(`Sending email to: ${to}, subject: ${subject}`);
+    const { 
+      to, 
+      reminder_title, 
+      reminder_type, 
+      due_date, 
+      priority_level, 
+      priority_icon, 
+      description, 
+      timing_text 
+    }: EmailRequest = await req.json();
+    
+    console.log(`Sending email to: ${to}, reminder: ${reminder_title}`);
 
-    const SMTP_SERVER = Deno.env.get("SMTP_SERVER");
-    const SMTP_PORT = Deno.env.get("SMTP_PORT");
-    const SENDER_EMAIL = Deno.env.get("SENDER_EMAIL");
-    const SENDER_PASSWORD = Deno.env.get("SENDER_PASSWORD");
+    const EMAILJS_SERVICE_ID = Deno.env.get("EMAILJS_SERVICE_ID");
+    const EMAILJS_TEMPLATE_ID = Deno.env.get("EMAILJS_TEMPLATE_ID");
+    const EMAILJS_PUBLIC_KEY = Deno.env.get("EMAILJS_PUBLIC_KEY");
+    const EMAILJS_PRIVATE_KEY = Deno.env.get("EMAILJS_PRIVATE_KEY");
 
-    if (!SMTP_SERVER || !SMTP_PORT || !SENDER_EMAIL || !SENDER_PASSWORD) {
-      console.error("Missing SMTP configuration");
+    if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY || !EMAILJS_PRIVATE_KEY) {
+      console.error("Missing EmailJS configuration");
       throw new Error("Email configuration is incomplete");
     }
 
-    const client = new SmtpClient();
+    // EmailJS API endpoint
+    const emailjsUrl = "https://api.emailjs.com/api/v1.0/email/send";
 
-    const port = parseInt(SMTP_PORT);
-    const useTLS = port === 465;
+    const templateParams = {
+      email: to,
+      reminder_title,
+      reminder_type,
+      due_date,
+      priority_level,
+      priority_icon,
+      description: description || "No description provided",
+      timing_text,
+      settings_link: "https://academialite.lovable.app/dashboard/reminders"
+    };
 
-    if (useTLS) {
-      await client.connectTLS({
-        hostname: SMTP_SERVER,
-        port: port,
-        username: SENDER_EMAIL,
-        password: SENDER_PASSWORD,
-      });
-    } else {
-      await client.connect({
-        hostname: SMTP_SERVER,
-        port: port,
-        username: SENDER_EMAIL,
-        password: SENDER_PASSWORD,
-      });
-    }
-
-    await client.send({
-      from: SENDER_EMAIL,
-      to: to,
-      subject: subject,
-      content: body,
-      html: body,
+    const response = await fetch(emailjsUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        service_id: EMAILJS_SERVICE_ID,
+        template_id: EMAILJS_TEMPLATE_ID,
+        user_id: EMAILJS_PUBLIC_KEY,
+        accessToken: EMAILJS_PRIVATE_KEY,
+        template_params: templateParams,
+      }),
     });
 
-    await client.close();
-    console.log("Email sent successfully");
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("EmailJS error:", errorText);
+      throw new Error(`EmailJS failed: ${errorText}`);
+    }
+
+    console.log("Email sent successfully via EmailJS");
 
     return new Response(
       JSON.stringify({ success: true }),
