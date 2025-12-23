@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Bell, RefreshCw, Trash2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles, Calendar } from "lucide-react";
+import { Bell, RefreshCw, Trash2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles, Calendar, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,6 +32,8 @@ const Reminders = () => {
   const [emailEnabled, setEmailEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [parsing, setParsing] = useState(false);
+  const [sendEmail, setSendEmail] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -135,6 +137,52 @@ const Reminders = () => {
     }
   };
 
+  const sendEmailNotification = async (reminderTitle: string, reminderDueDate: string) => {
+    if (!user?.email) return;
+    
+    setSendingEmail(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email-notification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
+        },
+        body: JSON.stringify({
+          to: user.email,
+          subject: `Reminder: ${reminderTitle}`,
+          body: `
+            <h2>🔔 New Reminder Created</h2>
+            <p><strong>Title:</strong> ${reminderTitle}</p>
+            <p><strong>Due Date:</strong> ${reminderDueDate}</p>
+            <p>Don't forget to complete this task on time!</p>
+            <br/>
+            <p>Best regards,<br/>Student Tools App</p>
+          `
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send email');
+      }
+
+      toast({
+        title: "Email sent!",
+        description: "You'll receive a reminder email shortly."
+      });
+    } catch (error: any) {
+      console.error('Email error:', error);
+      toast({
+        title: "Failed to send email",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   const handleSaveReminder = async () => {
     if (!title.trim()) {
       toast({
@@ -146,13 +194,15 @@ const Reminders = () => {
     }
 
     try {
+      const reminderDueDate = dueDate || new Date().toISOString().split('T')[0];
+      
       const { data, error } = await supabase
         .from('reminders')
         .insert({
           user_id: user?.id,
           title,
           type,
-          due_date: dueDate || new Date().toISOString().split('T')[0],
+          due_date: reminderDueDate,
           description: description || null,
           priority,
           completed: false
@@ -172,11 +222,17 @@ const Reminders = () => {
         completed: data.completed
       }, ...reminders]);
 
+      // Send email if checkbox is checked
+      if (sendEmail) {
+        await sendEmailNotification(title, reminderDueDate);
+      }
+
       setTitle("");
       setType("assignment");
       setDueDate("");
       setDescription("");
       setPriority("normal");
+      setSendEmail(false);
       
       toast({
         title: "Reminder saved!",
@@ -264,21 +320,32 @@ const Reminders = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="text-center">
-        <div className="flex items-center justify-center gap-2 text-primary mb-2">
+      {/* Header with Refresh & Email Toggle */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-primary">
           <Bell className="w-8 h-8" />
           <h1 className="text-3xl font-bold">Smart Reminders</h1>
         </div>
-        <p className="text-muted-foreground">
-          Paste messages to automatically create smart reminders with AI
-        </p>
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" onClick={fetchReminders} className="gap-2">
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </Button>
+          <div className="flex items-center gap-2 border rounded-lg px-3 py-2">
+            <Mail className="w-4 h-4 text-primary" />
+            <span className="text-sm">Email Notifications</span>
+            <Switch checked={emailEnabled} onCheckedChange={setEmailEnabled} />
+          </div>
+        </div>
       </div>
 
-      {/* Bento Grid Layout */}
-      <div className="grid grid-cols-12 gap-4">
-        {/* Stats - Row 1 */}
-        <Card className="col-span-6 md:col-span-3 border-2 border-destructive/30">
+      <p className="text-muted-foreground text-center md:text-left">
+        Paste messages to automatically create smart reminders with AI
+      </p>
+
+      {/* 5 Summary Tiles */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <Card className="border-2 border-destructive/30">
           <CardContent className="p-4 text-center">
             <AlertTriangle className="w-8 h-8 text-destructive mx-auto mb-2" />
             <div className="text-3xl font-bold text-destructive">{stats.critical}</div>
@@ -286,7 +353,7 @@ const Reminders = () => {
           </CardContent>
         </Card>
 
-        <Card className="col-span-6 md:col-span-3 border-2 border-warning/30">
+        <Card className="border-2 border-warning/30">
           <CardContent className="p-4 text-center">
             <Clock className="w-8 h-8 text-warning mx-auto mb-2" />
             <div className="text-3xl font-bold text-warning">{stats.urgent}</div>
@@ -294,7 +361,7 @@ const Reminders = () => {
           </CardContent>
         </Card>
 
-        <Card className="col-span-6 md:col-span-3 border-2 border-destructive/30">
+        <Card className="border-2 border-destructive/30">
           <CardContent className="p-4 text-center">
             <Calendar className="w-8 h-8 text-destructive mx-auto mb-2" />
             <div className="text-3xl font-bold text-destructive">{stats.overdue}</div>
@@ -302,16 +369,89 @@ const Reminders = () => {
           </CardContent>
         </Card>
 
-        <Card className="col-span-6 md:col-span-3 border-2 border-info/30">
+        <Card className="border-2 border-warning/30 bg-gradient-to-br from-warning/10 to-warning/5">
+          <CardContent className="p-4 text-center">
+            <Calendar className="w-8 h-8 text-warning mx-auto mb-2" />
+            <div className="text-3xl font-bold text-warning">{stats.dueToday}</div>
+            <div className="text-sm text-muted-foreground">Due Today</div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-info/30 col-span-2 md:col-span-1">
           <CardContent className="p-4 text-center">
             <CheckCircle2 className="w-8 h-8 text-info mx-auto mb-2" />
             <div className="text-3xl font-bold text-info">{stats.total}</div>
             <div className="text-sm text-muted-foreground">Total</div>
           </CardContent>
         </Card>
+      </div>
 
-        {/* AI Parse Section - Large Card */}
-        <Card className="col-span-12 lg:col-span-7 overflow-hidden row-span-2">
+      {/* Active Reminders Section */}
+      <div className="space-y-3">
+        <h3 className="font-semibold text-lg flex items-center gap-2">
+          <CheckCircle2 className="w-5 h-5" />
+          Active Reminders
+        </h3>
+        
+        {reminders.length === 0 ? (
+          <Card className="p-8 text-center">
+            <Bell className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">No reminders yet. Create one below!</p>
+          </Card>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {reminders.map((reminder) => (
+              <Card key={reminder.id} className="overflow-hidden hover:shadow-soft transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Badge className={getTypeColor(reminder.type)}>
+                        {reminder.type}
+                      </Badge>
+                      <Badge variant="outline" className={getPriorityColor(reminder.priority)}>
+                        {reminder.priority}
+                      </Badge>
+                    </div>
+                  </div>
+                  <h4 className="font-semibold text-foreground mb-1">{reminder.title}</h4>
+                  {reminder.description && (
+                    <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{reminder.description}</p>
+                  )}
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Clock className="w-4 h-4" />
+                      {new Date(reminder.dueDate).toLocaleDateString()}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        className="text-success hover:text-success hover:bg-success/10"
+                        onClick={() => handleCompleteReminder(reminder.id)}
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => handleDeleteReminder(reminder.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* AI Message Parser & Create Reminder Section */}
+      <div className="grid grid-cols-12 gap-4">
+        {/* AI Parse Section */}
+        <Card className="col-span-12 lg:col-span-7 overflow-hidden">
           <CardHeader className="gradient-header py-3">
             <CardTitle className="text-primary-foreground flex items-center gap-2 text-base">
               <Sparkles className="w-5 h-5" />
@@ -352,8 +492,8 @@ Example:
           </CardContent>
         </Card>
 
-        {/* Quick Stats Card */}
-        <Card className="col-span-12 lg:col-span-5 row-span-2">
+        {/* Create Reminder Card */}
+        <Card className="col-span-12 lg:col-span-5">
           <CardHeader className="py-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Plus className="w-5 h-5" />
@@ -401,119 +541,38 @@ Example:
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
-            <Button onClick={handleSaveReminder} className="w-full bg-success hover:bg-success/90">
-              Save Reminder
+            
+            {/* Send Email Checkbox */}
+            <div className="flex items-center gap-2 p-2 border rounded-lg">
+              <input
+                type="checkbox"
+                id="sendEmail"
+                checked={sendEmail}
+                onChange={(e) => setSendEmail(e.target.checked)}
+                className="w-4 h-4 accent-primary"
+              />
+              <label htmlFor="sendEmail" className="text-sm flex items-center gap-2 cursor-pointer">
+                <Send className="w-4 h-4 text-primary" />
+                Send email notification
+              </label>
+            </div>
+
+            <Button 
+              onClick={handleSaveReminder} 
+              className="w-full bg-success hover:bg-success/90"
+              disabled={sendingEmail}
+            >
+              {sendingEmail ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Save Reminder"
+              )}
             </Button>
           </CardContent>
         </Card>
-
-        {/* Email Notifications - Small Card */}
-        <Card className="col-span-12 md:col-span-6 lg:col-span-4">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Mail className="w-6 h-6 text-primary" />
-                <div>
-                  <h3 className="font-semibold text-sm">Email Notifications</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Get email alerts
-                  </p>
-                </div>
-              </div>
-              <Switch checked={emailEnabled} onCheckedChange={setEmailEnabled} />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Refresh Button Card */}
-        <Card className="col-span-12 md:col-span-6 lg:col-span-4">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <RefreshCw className="w-6 h-6 text-info" />
-                <div>
-                  <h3 className="font-semibold text-sm">Sync Status</h3>
-                  <p className="text-xs text-muted-foreground">
-                    <Badge variant="outline" className="bg-success/10 text-success text-xs">Online</Badge>
-                  </p>
-                </div>
-              </div>
-              <Button size="sm" variant="outline" onClick={fetchReminders}>
-                Refresh
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Due Today Card */}
-        <Card className="col-span-12 lg:col-span-4 bg-gradient-to-br from-warning/10 to-warning/5 border-warning/30">
-          <CardContent className="p-4 text-center">
-            <div className="text-4xl font-bold text-warning">{stats.dueToday}</div>
-            <div className="text-sm font-medium">Due Today</div>
-          </CardContent>
-        </Card>
-
-        {/* Reminders List - Full Width */}
-        <div className="col-span-12 space-y-3">
-          <h3 className="font-semibold text-lg flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5" />
-            Active Reminders
-          </h3>
-          
-          {reminders.length === 0 ? (
-            <Card className="p-8 text-center">
-              <Bell className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No reminders yet. Create one above!</p>
-            </Card>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {reminders.map((reminder) => (
-                <Card key={reminder.id} className="overflow-hidden hover:shadow-soft transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Badge className={getTypeColor(reminder.type)}>
-                          {reminder.type}
-                        </Badge>
-                        <Badge variant="outline" className={getPriorityColor(reminder.priority)}>
-                          {reminder.priority}
-                        </Badge>
-                      </div>
-                    </div>
-                    <h4 className="font-semibold text-foreground mb-1">{reminder.title}</h4>
-                    {reminder.description && (
-                      <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{reminder.description}</p>
-                    )}
-                    <div className="flex items-center justify-between mt-3">
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Clock className="w-4 h-4" />
-                        {new Date(reminder.dueDate).toLocaleDateString()}
-                      </div>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-success"
-                          onClick={() => handleCompleteReminder(reminder.id)}
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => handleDeleteReminder(reminder.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
