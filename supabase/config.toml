@@ -2,3 +2,6 @@ project_id = "lnmndbazkzceettxvqxg"
 
 [functions.ai-motivation]
 verify_jwt = false
+
+[functions.parse-message]
+verify_jwt = false
