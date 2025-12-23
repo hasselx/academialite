@@ -111,11 +111,20 @@ const Auth = () => {
           const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
           const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
           
+          console.log("EmailJS config:", { publicKey: !!publicKey, templateId: !!templateId, serviceId: !!serviceId });
+          
           if (publicKey && templateId && serviceId) {
-            await emailjs.send(serviceId, templateId, {
+            const verificationLink = `<a href="${window.location.origin}/dashboard" style="display: inline-block; padding: 16px 32px; background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: #ffffff; text-decoration: none; font-weight: 600; font-size: 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">Get Started Now</a>`;
+            
+            const result = await emailjs.send(serviceId, templateId, {
               email: email,
               user_name: name || email.split('@')[0],
+              verification_link: verificationLink,
+              to_email: email,
             }, publicKey);
+            console.log("EmailJS result:", result);
+          } else {
+            console.warn("EmailJS not configured - missing environment variables");
           }
         } catch (emailError) {
           console.error("Email sending failed:", emailError);
