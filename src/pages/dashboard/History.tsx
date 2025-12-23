@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   History as HistoryIcon, 
   Calculator, 
@@ -18,8 +17,7 @@ import {
   Loader2,
   Eye,
   Edit2,
-  Plus,
-  BookOpen
+  Plus
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -62,7 +60,6 @@ const HistoryPage = () => {
   const [editingSemester, setEditingSemester] = useState<Semester | null>(null);
   const [editSgpa, setEditSgpa] = useState("");
   const [editCredits, setEditCredits] = useState("");
-  const [cgpaTab, setCgpaTab] = useState<"semester" | "detailed">("semester");
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -284,35 +281,17 @@ const HistoryPage = () => {
 
       {/* CGPA Calculations Section */}
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <Calculator className="w-5 h-5" />
-            CGPA Calculations
-          </h2>
-          
-          {semesters.length > 0 && (
-            <Tabs value={cgpaTab} onValueChange={(v) => setCgpaTab(v as "semester" | "detailed")}>
-              <TabsList>
-                <TabsTrigger value="semester" className="gap-2">
-                  <BarChart3 className="w-4 h-4" />
-                  Semester
-                </TabsTrigger>
-                <TabsTrigger value="detailed" className="gap-2">
-                  <BookOpen className="w-4 h-4" />
-                  Detailed
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
-        </div>
+        <h2 className="text-xl font-semibold flex items-center gap-2">
+          <Calculator className="w-5 h-5" />
+          CGPA Calculations
+        </h2>
 
         {semesters.length === 0 ? (
           <Card className="p-8 text-center">
             <Calculator className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">No CGPA records found. Add semesters in CGPA Calculator.</p>
           </Card>
-        ) : cgpaTab === "semester" ? (
-          /* Semester View - Summary Cards */
+        ) : (
           <div className="space-y-4">
             {/* Summary Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -346,10 +325,12 @@ const HistoryPage = () => {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {semesters.map((sem) => {
                 const performance = getPerformance(sem.sgpa);
+                const semesterCourses = courses.filter(c => c.semester_id === sem.id);
+                
                 return (
                   <Card 
                     key={sem.id}
-                    className="border-2 border-border hover:border-primary/30 transition-all group"
+                    className="border-2 border-border hover:border-primary/30 transition-all group cursor-pointer"
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-2">
@@ -366,6 +347,22 @@ const HistoryPage = () => {
                           <div className="text-xs text-muted-foreground">Credits</div>
                         </div>
                       </div>
+                      
+                      {/* Course details on hover */}
+                      {semesterCourses.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border opacity-0 group-hover:opacity-100 transition-opacity max-h-0 group-hover:max-h-40 overflow-hidden">
+                          <div className="text-xs text-muted-foreground mb-2">Courses:</div>
+                          <div className="space-y-1 max-h-28 overflow-y-auto">
+                            {semesterCourses.map((course) => (
+                              <div key={course.id} className="flex justify-between text-sm">
+                                <span className="truncate mr-2">{course.name}</span>
+                                <Badge variant="outline" className="text-xs shrink-0">{course.grade}</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className="flex gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button
                           variant="outline"
@@ -390,57 +387,6 @@ const HistoryPage = () => {
                 );
               })}
             </div>
-          </div>
-        ) : (
-          /* Detailed View - Course Breakdown */
-          <div className="space-y-4">
-            {semesters.map((sem) => {
-              const semesterCourses = courses.filter(c => c.semester_id === sem.id);
-              const performance = getPerformance(sem.sgpa);
-              
-              return (
-                <Card key={sem.id}>
-                  <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <CardTitle className="text-base">{sem.name}</CardTitle>
-                      <Badge className={performance.class}>{performance.text}</Badge>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm">
-                      <span className="text-muted-foreground">SGPA: <span className="font-semibold text-primary">{sem.sgpa.toFixed(2)}</span></span>
-                      <span className="text-muted-foreground">Credits: <span className="font-semibold">{sem.credits}</span></span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    {semesterCourses.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-2">No course details available for this semester.</p>
-                    ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Course Name</TableHead>
-                            <TableHead className="text-center">Credits</TableHead>
-                            <TableHead className="text-center">Grade</TableHead>
-                            <TableHead className="text-center">Grade Point</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {semesterCourses.map((course) => (
-                            <TableRow key={course.id}>
-                              <TableCell className="font-medium">{course.name}</TableCell>
-                              <TableCell className="text-center">{course.credits}</TableCell>
-                              <TableCell className="text-center">
-                                <Badge variant="outline">{course.grade}</Badge>
-                              </TableCell>
-                              <TableCell className="text-center">{course.grade_point}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
           </div>
         )}
       </div>
