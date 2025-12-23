@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   History as HistoryIcon, 
   Calculator, 
@@ -17,7 +18,8 @@ import {
   Loader2,
   Eye,
   Edit2,
-  Plus
+  Plus,
+  List
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -292,102 +294,168 @@ const HistoryPage = () => {
             <p className="text-muted-foreground">No CGPA records found. Add semesters in CGPA Calculator.</p>
           </Card>
         ) : (
-          <div className="space-y-4">
-            {/* Summary Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card className="p-4 border-2 border-primary/20">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-primary">{cgpa.toFixed(2)}</div>
-                  <div className="text-sm text-muted-foreground">Overall CGPA</div>
-                </div>
-              </Card>
-              <Card className="p-4 border-2 border-success/20">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-success">{totalCredits}</div>
-                  <div className="text-sm text-muted-foreground">Total Credits</div>
-                </div>
-              </Card>
-              <Card className="p-4 border-2 border-chart-4/20">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-chart-4">{semesters.length}</div>
-                  <div className="text-sm text-muted-foreground">Semesters</div>
-                </div>
-              </Card>
-              <Card className="p-4 border-2 border-info/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setShowAnalysis(true)}>
-                <div className="text-center">
-                  <Eye className="w-6 h-6 mx-auto text-info mb-1" />
-                  <div className="text-sm text-muted-foreground">View Analysis</div>
-                </div>
-              </Card>
-            </div>
+          <Tabs defaultValue="semester" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="semester" className="flex items-center gap-2">
+                <Calculator className="w-4 h-4" />
+                Semester
+              </TabsTrigger>
+              <TabsTrigger value="detailed" className="flex items-center gap-2">
+                <List className="w-4 h-4" />
+                Detailed
+              </TabsTrigger>
+            </TabsList>
 
-            {/* Semester Cards */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {semesters.map((sem) => {
-                const performance = getPerformance(sem.sgpa);
-                const semesterCourses = courses.filter(c => c.semester_id === sem.id);
-                
-                return (
-                  <Card 
-                    key={sem.id}
-                    className="border-2 border-border hover:border-primary/30 transition-all group cursor-pointer"
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="font-semibold text-lg">{sem.name}</div>
-                        <Badge className={performance.class}>{performance.text}</Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4 mt-3">
-                        <div>
-                          <div className="text-2xl font-bold text-primary">{sem.sgpa.toFixed(2)}</div>
-                          <div className="text-xs text-muted-foreground">SGPA</div>
+            {/* Semester View */}
+            <TabsContent value="semester" className="space-y-4">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card className="p-4 border-2 border-primary/20">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-primary">{cgpa.toFixed(2)}</div>
+                    <div className="text-sm text-muted-foreground">Overall CGPA</div>
+                  </div>
+                </Card>
+                <Card className="p-4 border-2 border-success/20">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-success">{totalCredits}</div>
+                    <div className="text-sm text-muted-foreground">Total Credits</div>
+                  </div>
+                </Card>
+                <Card className="p-4 border-2 border-chart-4/20">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-chart-4">{semesters.length}</div>
+                    <div className="text-sm text-muted-foreground">Semesters</div>
+                  </div>
+                </Card>
+                <Card className="p-4 border-2 border-info/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setShowAnalysis(true)}>
+                  <div className="text-center">
+                    <Eye className="w-6 h-6 mx-auto text-info mb-1" />
+                    <div className="text-sm text-muted-foreground">View Analysis</div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Semester Cards */}
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {semesters.map((sem) => {
+                  const performance = getPerformance(sem.sgpa);
+                  const semesterCourses = courses.filter(c => c.semester_id === sem.id);
+                  
+                  return (
+                    <Card 
+                      key={sem.id}
+                      className="border-2 border-border hover:border-primary/30 transition-all group cursor-pointer"
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="font-semibold text-lg">{sem.name}</div>
+                          <Badge className={performance.class}>{performance.text}</Badge>
                         </div>
-                        <div>
-                          <div className="text-2xl font-bold text-foreground">{sem.credits}</div>
-                          <div className="text-xs text-muted-foreground">Credits</div>
-                        </div>
-                      </div>
-                      
-                      {/* Course details on hover */}
-                      {semesterCourses.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-border opacity-0 group-hover:opacity-100 transition-opacity max-h-0 group-hover:max-h-40 overflow-hidden">
-                          <div className="text-xs text-muted-foreground mb-2">Courses:</div>
-                          <div className="space-y-1 max-h-28 overflow-y-auto">
-                            {semesterCourses.map((course) => (
-                              <div key={course.id} className="flex justify-between text-sm">
-                                <span className="truncate mr-2">{course.name}</span>
-                                <Badge variant="outline" className="text-xs shrink-0">{course.grade}</Badge>
-                              </div>
-                            ))}
+                        <div className="grid grid-cols-2 gap-4 mt-3">
+                          <div>
+                            <div className="text-2xl font-bold text-primary">{sem.sgpa.toFixed(2)}</div>
+                            <div className="text-xs text-muted-foreground">SGPA</div>
+                          </div>
+                          <div>
+                            <div className="text-2xl font-bold text-foreground">{sem.credits}</div>
+                            <div className="text-xs text-muted-foreground">Credits</div>
                           </div>
                         </div>
-                      )}
-                      
-                      <div className="flex gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => handleEditSemester(sem)}
-                        >
-                          <Edit2 className="w-3 h-3 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDeleteSemester(sem.id)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
+                        
+                        {/* Course details on hover */}
+                        {semesterCourses.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-border opacity-0 group-hover:opacity-100 transition-opacity max-h-0 group-hover:max-h-40 overflow-hidden">
+                            <div className="text-xs text-muted-foreground mb-2">Courses:</div>
+                            <div className="space-y-1 max-h-28 overflow-y-auto">
+                              {semesterCourses.map((course) => (
+                                <div key={course.id} className="flex justify-between text-sm">
+                                  <span className="truncate mr-2">{course.name}</span>
+                                  <Badge variant="outline" className="text-xs shrink-0">{course.grade}</Badge>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="flex gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => handleEditSemester(sem)}
+                          >
+                            <Edit2 className="w-3 h-3 mr-1" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteSemester(sem.id)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </TabsContent>
+
+            {/* Detailed View */}
+            <TabsContent value="detailed" className="space-y-4">
+              {semesters.map((sem) => {
+                const semesterCourses = courses.filter(c => c.semester_id === sem.id);
+                const performance = getPerformance(sem.sgpa);
+                
+                return (
+                  <Card key={sem.id} className="border-2 border-border">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">{sem.name}</CardTitle>
+                        <div className="flex items-center gap-2">
+                          <Badge className={performance.class}>{performance.text}</Badge>
+                          <span className="text-sm text-muted-foreground">SGPA: {sem.sgpa.toFixed(2)}</span>
+                        </div>
                       </div>
+                    </CardHeader>
+                    <CardContent>
+                      {semesterCourses.length > 0 ? (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Course Name</TableHead>
+                              <TableHead className="text-center">Credits</TableHead>
+                              <TableHead className="text-center">Grade</TableHead>
+                              <TableHead className="text-center">Grade Point</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {semesterCourses.map((course) => (
+                              <TableRow key={course.id}>
+                                <TableCell className="font-medium">{course.name}</TableCell>
+                                <TableCell className="text-center">{course.credits}</TableCell>
+                                <TableCell className="text-center">
+                                  <Badge variant="outline">{course.grade}</Badge>
+                                </TableCell>
+                                <TableCell className="text-center">{course.grade_point}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No course details available. Use Detailed mode in CGPA Calculator to add courses.
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 );
               })}
-            </div>
-          </div>
+            </TabsContent>
+          </Tabs>
         )}
       </div>
 
