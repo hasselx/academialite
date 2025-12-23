@@ -7,6 +7,7 @@ import { GraduationCap, Mail, Lock, Eye, EyeOff, ArrowRight, User } from "lucide
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { z } from "zod";
+import emailjs from '@emailjs/browser';
 
 const emailSchema = z.string().email("Please enter a valid email address");
 const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
@@ -92,9 +93,27 @@ const Auth = () => {
             });
           }
         } else {
+          // Send welcome email via EmailJS
+          try {
+            const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+            const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+            const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+            
+            if (publicKey && templateId && serviceId) {
+              await emailjs.send(serviceId, templateId, {
+                to_email: email,
+                to_name: name || email.split('@')[0],
+                message: "Welcome to StudySync! Your account has been successfully created."
+              }, publicKey);
+            }
+          } catch (emailError) {
+            console.error("Email sending failed:", emailError);
+            // Don't block signup if email fails
+          }
+          
           toast({
             title: "Account created!",
-            description: "Welcome to StudySync! Redirecting to your dashboard..."
+            description: "Welcome to StudySync! A verification email has been sent."
           });
           navigate("/dashboard");
         }
