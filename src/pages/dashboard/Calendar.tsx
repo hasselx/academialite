@@ -52,9 +52,11 @@ const CalendarPage = () => {
     "July", "August", "September", "October", "November", "December"
   ];
 
-  const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const monthNamesShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-  const years = ["2025", "2026"];
+  const daysOfWeek = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+  const years = ["2024", "2025", "2026", "2027"];
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -85,14 +87,16 @@ const CalendarPage = () => {
       });
     }
     
-    // Next month days
+    // Next month days (only if needed to complete the grid)
     const remainingDays = 42 - days.length;
-    for (let i = 1; i <= remainingDays; i++) {
-      days.push({
-        day: i,
-        isCurrentMonth: false,
-        date: new Date(year, month + 1, i)
-      });
+    if (remainingDays > 0 && remainingDays < 14) {
+      for (let i = 1; i <= remainingDays; i++) {
+        days.push({
+          day: i,
+          isCurrentMonth: false,
+          date: new Date(year, month + 1, i)
+        });
+      }
     }
     
     return days;
@@ -116,6 +120,14 @@ const CalendarPage = () => {
 
   const handleNextMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  };
+
+  const handleMonthChange = (month: string) => {
+    setCurrentDate(new Date(currentDate.getFullYear(), parseInt(month), 1));
+  };
+
+  const handleYearChange = (year: string) => {
+    setCurrentDate(new Date(parseInt(year), currentDate.getMonth(), 1));
   };
 
   const handleAddEvent = () => {
@@ -212,7 +224,7 @@ const CalendarPage = () => {
                 {upcomingHolidays.map((holiday) => {
                   const daysLeft = getDaysLeft(holiday.date);
                   const isPast = daysLeft < 0;
-                  const isToday = daysLeft === 0;
+                  const isTodayHoliday = daysLeft === 0;
                   
                   return (
                     <div
@@ -222,13 +234,13 @@ const CalendarPage = () => {
                       <div className="flex items-start justify-between mb-2">
                         <Star className="w-4 h-4 text-warning" />
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                          isToday 
+                          isTodayHoliday 
                             ? 'bg-success/20 text-success' 
                             : isPast 
                               ? 'bg-muted text-muted-foreground' 
                               : 'bg-primary/20 text-primary'
                         }`}>
-                          {isToday ? "Today!" : isPast ? "Passed" : `${daysLeft} days`}
+                          {isTodayHoliday ? "Today!" : isPast ? "Passed" : `${daysLeft} days`}
                         </span>
                       </div>
                       <h4 className="font-semibold text-sm text-foreground">{holiday.title}</h4>
@@ -242,29 +254,47 @@ const CalendarPage = () => {
             </CardContent>
           </Card>
 
-          {/* Main Calendar */}
-          <Card>
-            <CardHeader className="pb-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <Button variant="ghost" size="icon" onClick={handlePrevMonth}>
-                    <ChevronLeft className="w-5 h-5" />
+          {/* Main Calendar - Compact Design */}
+          <Card className="overflow-hidden">
+            <CardContent className="p-6">
+              {/* Calendar Header with Month/Year Dropdowns */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="icon" onClick={handlePrevMonth} className="h-8 w-8">
+                    <ChevronLeft className="w-4 h-4" />
                   </Button>
-                  <h2 className="text-xl font-bold min-w-[200px] text-center">
-                    {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-                  </h2>
-                  <Button variant="ghost" size="icon" onClick={handleNextMonth}>
-                    <ChevronRight className="w-5 h-5" />
+                  <Select value={currentDate.getMonth().toString()} onValueChange={handleMonthChange}>
+                    <SelectTrigger className="w-[100px] h-8 text-sm border-border">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {monthNamesShort.map((month, index) => (
+                        <SelectItem key={month} value={index.toString()}>{month}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={currentDate.getFullYear().toString()} onValueChange={handleYearChange}>
+                    <SelectTrigger className="w-[90px] h-8 text-sm border-border">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {years.map(year => (
+                        <SelectItem key={year} value={year}>{year}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="ghost" size="icon" onClick={handleNextMonth} className="h-8 w-8">
+                    <ChevronRight className="w-4 h-4" />
                   </Button>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
+                  <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())} className="h-8">
                     <CalendarIcon className="w-4 h-4 mr-2" />
                     Today
                   </Button>
                   <Dialog open={showAddEvent} onOpenChange={setShowAddEvent}>
                     <DialogTrigger asChild>
-                      <Button size="sm" className="gradient-primary">
+                      <Button size="sm" className="gradient-primary h-8">
                         <Plus className="w-4 h-4 mr-2" />
                         Add Event
                       </Button>
@@ -298,68 +328,69 @@ const CalendarPage = () => {
                   </Dialog>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
+
               {/* Days of Week Header */}
               <div className="grid grid-cols-7 mb-2">
                 {daysOfWeek.map((day) => (
                   <div 
                     key={day} 
-                    className="text-center py-3 font-semibold text-primary-foreground bg-gradient-to-r from-primary/90 to-info/90 first:rounded-tl-lg last:rounded-tr-lg"
+                    className="text-center py-2 text-sm font-medium text-muted-foreground"
                   >
                     {day}
                   </div>
                 ))}
               </div>
 
-              {/* Calendar Grid */}
-              <div className="grid grid-cols-7 border-l border-t border-border">
+              {/* Calendar Grid - Compact */}
+              <div className="grid grid-cols-7 gap-1">
                 {days.map((day, index) => {
                   const dayEvents = getEventsForDate(day.date);
                   const hasEvents = dayEvents.length > 0;
+                  const hasHoliday = dayEvents.some(e => e.type === 'holiday');
                   
                   return (
                     <div
                       key={index}
                       className={`
-                        min-h-[100px] p-2 border-r border-b border-border relative
-                        ${!day.isCurrentMonth ? 'bg-muted/30 text-muted-foreground' : ''}
-                        ${isToday(day.date) ? 'bg-primary/5 ring-2 ring-primary ring-inset' : ''}
-                        hover:bg-muted/50 transition-colors
+                        relative flex flex-col items-center justify-center p-2 rounded-lg aspect-square
+                        ${!day.isCurrentMonth ? 'text-muted-foreground/50' : ''}
+                        ${isToday(day.date) ? 'bg-foreground text-background font-semibold' : ''}
+                        ${hasHoliday && !isToday(day.date) ? 'bg-warning/10' : ''}
+                        hover:bg-muted/50 transition-colors cursor-pointer
                       `}
                     >
-                      <span className={`
-                        inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-medium
-                        ${isToday(day.date) ? 'bg-primary text-primary-foreground' : ''}
-                      `}>
-                        {day.day}
-                      </span>
-                      
-                      {hasEvents && (
-                        <div className="mt-1 space-y-1">
-                          {dayEvents.slice(0, 2).map((event) => (
+                      <span className="text-sm">{day.day}</span>
+                      {hasEvents && !isToday(day.date) && (
+                        <div className="absolute bottom-1 flex gap-0.5">
+                          {dayEvents.slice(0, 3).map((event, i) => (
                             <div
-                              key={event.id}
-                              className={`
-                                text-xs px-2 py-1 rounded truncate
-                                ${event.type === 'holiday' 
-                                  ? 'bg-warning/20 text-warning' 
-                                  : 'bg-primary/20 text-primary'}
-                              `}
-                            >
-                              {event.title}
-                            </div>
+                              key={i}
+                              className={`w-1 h-1 rounded-full ${
+                                event.type === 'holiday' ? 'bg-warning' : 'bg-primary'
+                              }`}
+                            />
                           ))}
-                          {dayEvents.length > 2 && (
-                            <div className="text-xs text-muted-foreground px-2">
-                              +{dayEvents.length - 2} more
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Legend */}
+              <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="w-2 h-2 rounded-full bg-warning" />
+                  <span>Holiday</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="w-2 h-2 rounded-full bg-primary" />
+                  <span>Event</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="w-4 h-4 rounded bg-foreground" />
+                  <span>Today</span>
+                </div>
               </div>
             </CardContent>
           </Card>
