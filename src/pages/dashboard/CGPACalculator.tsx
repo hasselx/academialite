@@ -64,12 +64,10 @@ const CGPACalculator = () => {
   const [aiLoading, setAiLoading] = useState(false);
   
   // Quick mode inputs
-  const [quickSemesterName, setQuickSemesterName] = useState("");
   const [quickCredits, setQuickCredits] = useState("");
   const [quickSgpa, setQuickSgpa] = useState("");
   
   // Detailed mode inputs
-  const [newSemesterName, setNewSemesterName] = useState("");
   const [newCourse, setNewCourse] = useState({ name: "", credits: "", grade: "O" });
   const [tempCourses, setTempCourses] = useState<Omit<Course, 'id'>[]>([]);
   
@@ -171,10 +169,10 @@ const CGPACalculator = () => {
 
   // Quick Mode Handlers
   const handleAddQuickSemester = async () => {
-    if (!quickSemesterName.trim() || !quickCredits || !quickSgpa) {
+    if (!quickCredits || !quickSgpa) {
       toast({
         title: "Invalid input",
-        description: "Please enter semester name, credits, and SGPA.",
+        description: "Please enter credits and SGPA.",
         variant: "destructive"
       });
       return;
@@ -201,12 +199,15 @@ const CGPACalculator = () => {
       return;
     }
 
+    const semesterNumber = quickSemesters.length + semesters.length + 1;
+    const semesterName = `Semester ${semesterNumber}`;
+
     try {
       const { data, error } = await supabase
         .from('semesters')
         .insert({
           user_id: user?.id,
-          name: quickSemesterName.trim(),
+          name: semesterName,
           sgpa,
           credits
         })
@@ -222,13 +223,12 @@ const CGPACalculator = () => {
         credits: data.credits
       }]);
 
-      setQuickSemesterName("");
       setQuickCredits("");
       setQuickSgpa("");
       
       toast({
         title: "Semester added",
-        description: `${quickSemesterName} has been saved.`
+        description: `${semesterName} has been saved.`
       });
     } catch (error: any) {
       toast({
@@ -297,26 +297,28 @@ const CGPACalculator = () => {
   };
 
   const handleSaveDetailedSemester = async () => {
-    if (!newSemesterName.trim() || tempCourses.length === 0) {
+    if (tempCourses.length === 0) {
       toast({
         title: "Invalid semester",
-        description: "Please enter a semester name and add at least one course.",
+        description: "Please add at least one course.",
         variant: "destructive"
       });
       return;
     }
 
     const sgpa = calculateSGPA(tempCourses);
-    const totalCredits = tempCourses.reduce((sum, c) => sum + c.credits, 0);
+    const totalCreditsForSem = tempCourses.reduce((sum, c) => sum + c.credits, 0);
+    const semesterNumber = quickSemesters.length + semesters.length + 1;
+    const semesterName = `Semester ${semesterNumber}`;
 
     try {
       const { data: semesterData, error: semError } = await supabase
         .from('semesters')
         .insert({
           user_id: user?.id,
-          name: newSemesterName.trim(),
+          name: semesterName,
           sgpa,
-          credits: totalCredits
+          credits: totalCreditsForSem
         })
         .select()
         .single();
@@ -353,11 +355,10 @@ const CGPACalculator = () => {
         }))
       }]);
 
-      setNewSemesterName("");
       setTempCourses([]);
       toast({
         title: "Semester saved",
-        description: `${newSemesterName} has been saved successfully.`
+        description: `${semesterName} has been saved successfully.`
       });
     } catch (error: any) {
       toast({
@@ -538,15 +539,6 @@ const CGPACalculator = () => {
                 </p>
 
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="font-medium">Semester Name</label>
-                    <Input
-                      placeholder="e.g., Semester 1"
-                      value={quickSemesterName}
-                      onChange={(e) => setQuickSemesterName(e.target.value)}
-                    />
-                  </div>
-
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="font-medium">Total Credits</label>
@@ -618,16 +610,6 @@ const CGPACalculator = () => {
                 <p className="text-sm text-muted-foreground">
                   Add individual courses with grades for detailed CGPA calculation and analysis.
                 </p>
-
-                {/* Semester Name */}
-                <div className="space-y-2">
-                  <label className="font-medium">Semester Name</label>
-                  <Input
-                    placeholder="e.g., Semester 1"
-                    value={newSemesterName}
-                    onChange={(e) => setNewSemesterName(e.target.value)}
-                  />
-                </div>
 
                 {/* Add Course Form */}
                 <div className="border rounded-lg p-4 space-y-4">
