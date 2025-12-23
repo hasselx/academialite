@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet, Link, useLocation } from "react-router-dom";
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   Bell, 
   Calculator, 
@@ -8,9 +8,6 @@ import {
   Clock,
   Wallet,
   History,
-  MessageSquare,
-  Users,
-  UserPlus,
   GraduationCap,
   Menu,
   X,
@@ -20,6 +17,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const navigation = {
   academic: [
@@ -38,12 +37,41 @@ const navigation = {
 const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const { toast } = useToast();
 
   const isActive = (href: string) => {
     if (href === "/dashboard") {
       return location.pathname === "/dashboard";
     }
     return location.pathname.startsWith(href);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast({
+      title: "Signed out",
+      description: "You have been signed out successfully."
+    });
+    navigate("/");
+  };
+
+  const getUserInitials = () => {
+    if (!user) return "ST";
+    const email = user.email || "";
+    return email.substring(0, 2).toUpperCase();
+  };
+
+  const getUserName = () => {
+    if (!user) return "Student";
+    return user.user_metadata?.full_name || user.email?.split('@')[0] || "Student";
+  };
+
+  const getMemberSince = () => {
+    if (!user?.created_at) return "";
+    const date = new Date(user.created_at);
+    return `Member since ${date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}`;
   };
 
   const NavItem = ({ item }: { item: typeof navigation.academic[0] }) => (
@@ -81,12 +109,12 @@ const DashboardLayout = () => {
             <Avatar className="w-12 h-12 ring-2 ring-primary/20">
               <AvatarImage src="" />
               <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-                ST
+                {getUserInitials()}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-foreground truncate">Student</h3>
-              <p className="text-sm text-muted-foreground">Member since 01/01/2024</p>
+              <h3 className="font-semibold text-foreground truncate">{getUserName()}</h3>
+              <p className="text-sm text-muted-foreground">{getMemberSince()}</p>
             </div>
             <Button 
               variant="ghost" 
@@ -124,20 +152,13 @@ const DashboardLayout = () => {
 
         {/* Footer */}
         <div className="p-4 border-t border-sidebar-border space-y-1">
-          <Link 
-            to="/dashboard/settings"
-            className="nav-link nav-link-inactive"
-          >
-            <Settings className="w-5 h-5" />
-            <span>Settings</span>
-          </Link>
-          <Link 
-            to="/"
-            className="nav-link nav-link-inactive text-destructive hover:bg-destructive/10 hover:text-destructive"
+          <button 
+            onClick={handleSignOut}
+            className="nav-link nav-link-inactive text-destructive hover:bg-destructive/10 hover:text-destructive w-full"
           >
             <LogOut className="w-5 h-5" />
             <span>Sign Out</span>
-          </Link>
+          </button>
         </div>
       </aside>
 

@@ -1,33 +1,116 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GraduationCap, Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { GraduationCap, Mail, Lock, Eye, EyeOff, ArrowRight, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { z } from "zod";
 
-const Login = () => {
+const emailSchema = z.string().email("Please enter a valid email address");
+const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
+
+const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, signIn, signUp, loading } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user && !loading) {
+      navigate("/dashboard");
+    }
+  }, [user, loading, navigate]);
+
+  const validateForm = () => {
+    const newErrors: { email?: string; password?: string } = {};
+    
+    const emailResult = emailSchema.safeParse(email);
+    if (!emailResult.success) {
+      newErrors.email = emailResult.error.errors[0].message;
+    }
+    
+    const passwordResult = passwordSchema.safeParse(password);
+    if (!passwordResult.success) {
+      newErrors.password = passwordResult.error.errors[0].message;
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Demo login - just navigate to dashboard
-    toast({
-      title: isLogin ? "Welcome back!" : "Account created!",
-      description: "Redirecting to your dashboard...",
-    });
+    if (!validateForm()) return;
     
-    setTimeout(() => {
-      navigate("/dashboard");
-    }, 1000);
+    setIsSubmitting(true);
+
+    try {
+      if (isLogin) {
+        const { error } = await signIn(email, password);
+        
+        if (error) {
+          toast({
+            title: "Login failed",
+            description: error.message === "Invalid login credentials" 
+              ? "Invalid email or password. Please try again."
+              : error.message,
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Welcome back!",
+            description: "You have been logged in successfully."
+          });
+          navigate("/dashboard");
+        }
+      } else {
+        const { error } = await signUp(email, password, name);
+        
+        if (error) {
+          if (error.message.includes("already registered")) {
+            toast({
+              title: "Account exists",
+              description: "This email is already registered. Please sign in instead.",
+              variant: "destructive"
+            });
+          } else {
+            toast({
+              title: "Sign up failed",
+              description: error.message,
+              variant: "destructive"
+            });
+          }
+        } else {
+          toast({
+            title: "Account created!",
+            description: "Welcome to StudySync! Redirecting to your dashboard..."
+          });
+          navigate("/dashboard");
+        }
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex">
@@ -59,14 +142,18 @@ const Login = () => {
             {!isLogin && (
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-foreground font-medium">Full Name</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="John Doe"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="h-12 px-4"
-                />
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="John Doe"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="h-12 pl-12"
+                    disabled={isSubmitting}
+                  />
+                </div>
               </div>
             )}
 
@@ -79,10 +166,17 @@ const Login = () => {
                   type="email"
                   placeholder="you@university.edu"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="h-12 pl-12"
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (errors.email) setErrors({ ...errors, email: undefined });
+                  }}
+                  className={`h-12 pl-12 ${errors.email ? 'border-destructive' : ''}`}
+                  disabled={isSubmitting}
                 />
               </div>
+              {errors.email && (
+                <p className="text-sm text-destructive">{errors.email}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -94,8 +188,12 @@ const Login = () => {
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-12 pl-12 pr-12"
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (errors.password) setErrors({ ...errors, password: undefined });
+                  }}
+                  className={`h-12 pl-12 pr-12 ${errors.password ? 'border-destructive' : ''}`}
+                  disabled={isSubmitting}
                 />
                 <button
                   type="button"
@@ -105,19 +203,27 @@ const Login = () => {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
+              {errors.password && (
+                <p className="text-sm text-destructive">{errors.password}</p>
+              )}
             </div>
 
-            {isLogin && (
-              <div className="flex items-center justify-end">
-                <a href="#" className="text-sm text-primary hover:underline">
-                  Forgot password?
-                </a>
-              </div>
-            )}
-
-            <Button type="submit" className="w-full h-12 gradient-primary font-semibold text-base">
-              {isLogin ? "Sign In" : "Create Account"}
-              <ArrowRight className="w-5 h-5 ml-2" />
+            <Button 
+              type="submit" 
+              className="w-full h-12 gradient-primary font-semibold text-base"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  {isLogin ? "Signing in..." : "Creating account..."}
+                </span>
+              ) : (
+                <>
+                  {isLogin ? "Sign In" : "Create Account"}
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </>
+              )}
             </Button>
           </form>
 
@@ -125,8 +231,12 @@ const Login = () => {
           <p className="text-center mt-8 text-muted-foreground">
             {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
             <button
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setErrors({});
+              }}
               className="text-primary font-semibold hover:underline"
+              disabled={isSubmitting}
             >
               {isLogin ? "Sign up" : "Sign in"}
             </button>
@@ -171,4 +281,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Auth;
