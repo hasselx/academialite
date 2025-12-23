@@ -13,7 +13,9 @@ import {
   X,
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  PanelLeftClose,
+  PanelLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -126,14 +128,14 @@ const DashboardLayout = () => {
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
           collapsed ? "w-16" : "w-72"
         )}>
-          {/* User Profile */}
+          {/* Header with User Profile & Collapse Button */}
           <div className={cn(
             "p-4 border-b border-sidebar-border",
             collapsed && "px-2"
           )}>
             <div className={cn(
               "flex items-center gap-3",
-              collapsed && "justify-center"
+              collapsed && "flex-col gap-2"
             )}>
               <Avatar className={cn(
                 "ring-2 ring-primary/20 shrink-0",
@@ -150,6 +152,27 @@ const DashboardLayout = () => {
                   <p className="text-sm text-muted-foreground truncate">{getMemberSince()}</p>
                 </div>
               )}
+              {/* Desktop Collapse Button beside header */}
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="hidden lg:flex shrink-0 h-8 w-8"
+                    onClick={() => setCollapsed(!collapsed)}
+                  >
+                    {collapsed ? (
+                      <PanelLeft className="w-4 h-4" />
+                    ) : (
+                      <PanelLeftClose className="w-4 h-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side={collapsed ? "right" : "bottom"}>
+                  {collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                </TooltipContent>
+              </Tooltip>
+              {/* Mobile Close Button */}
               <Button 
                 variant="ghost" 
                 size="icon" 
@@ -192,26 +215,6 @@ const DashboardLayout = () => {
             "p-4 border-t border-sidebar-border space-y-1",
             collapsed && "px-2"
           )}>
-            {/* Collapse Toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setCollapsed(!collapsed)}
-              className={cn(
-                "w-full hidden lg:flex items-center gap-2 text-muted-foreground hover:text-foreground",
-                collapsed && "justify-center px-2"
-              )}
-            >
-              {collapsed ? (
-                <ChevronRight className="w-5 h-5" />
-              ) : (
-                <>
-                  <ChevronLeft className="w-5 h-5" />
-                  <span>Collapse</span>
-                </>
-              )}
-            </Button>
-
             {collapsed ? (
               <Tooltip delayDuration={0}>
                 <TooltipTrigger asChild>
