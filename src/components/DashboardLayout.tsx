@@ -155,7 +155,7 @@ const DashboardLayout = () => {
         )}>
           {/* Header with User Profile */}
           <div className={cn(
-            "p-4 border-b border-sidebar-border",
+            "p-3 border-b border-sidebar-border",
             collapsed && "px-2"
           )}>
             <div className={cn(
@@ -191,13 +191,13 @@ const DashboardLayout = () => {
 
           {/* Navigation */}
           <nav className={cn(
-            "flex-1 p-4 space-y-6",
+            "flex-1 p-3 space-y-4",
             collapsed && "px-2"
           )}>
             {/* Academic Tools */}
             <div>
-              {!collapsed && <h4 className="section-header px-3 mb-3">Academic Tools</h4>}
-              <div className="space-y-1">
+              {!collapsed && <h4 className="section-header px-3 mb-2">Academic Tools</h4>}
+              <div className="space-y-0.5">
                 {navigation.academic.map((item) => (
                   <NavItem key={item.name} item={item} />
                 ))}
@@ -206,8 +206,8 @@ const DashboardLayout = () => {
 
             {/* Organization */}
             <div>
-              {!collapsed && <h4 className="section-header px-3 mb-3">Organization</h4>}
-              <div className="space-y-1">
+              {!collapsed && <h4 className="section-header px-3 mb-2">Organization</h4>}
+              <div className="space-y-0.5">
                 {navigation.organization.map((item) => (
                   <NavItem key={item.name} item={item} />
                 ))}
@@ -217,7 +217,7 @@ const DashboardLayout = () => {
 
           {/* Footer */}
           <div className={cn(
-            "p-4 border-t border-sidebar-border space-y-3",
+            "p-3 border-t border-sidebar-border space-y-2",
             collapsed && "px-2"
           )}>
             {/* Theme Toggle */}
