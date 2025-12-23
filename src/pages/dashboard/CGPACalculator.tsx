@@ -7,7 +7,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calculator, Plus, Trash2, BarChart3, TrendingUp, Target, Award, Loader2, Sparkles, Zap, BookOpen, Eye } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Calculator, Plus, Trash2, BarChart3, TrendingUp, Target, Award, Loader2, Sparkles, Zap, BookOpen, Eye, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
@@ -689,10 +700,18 @@ const CGPACalculator = () => {
                       </Select>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={handleAddCourseToTemp}>
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Course
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={handleAddCourseToTemp}>
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add Course
+                    </Button>
+                    {tempCourses.length > 0 && (
+                      <Button variant="secondary" size="sm" onClick={handleSaveDetailedSemester}>
+                        <ChevronRight className="w-4 h-4 mr-1" />
+                        Next Semester
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Temp Courses List */}
@@ -1006,13 +1025,35 @@ const ResultsCard = ({
           </Button>
 
           {totalSemesters > 0 && (
-            <Button
-              variant="ghost"
-              className="w-full text-muted-foreground"
-              onClick={onReset}
-            >
-              Reset All Data
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete All CGPA Data
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete all your
+                    semester data and CGPA calculations from your account.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={onReset}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
       )}
