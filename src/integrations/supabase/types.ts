@@ -223,6 +223,7 @@ export type Database = {
         Args: { lookup_username: string }
         Returns: string
       }
+      get_user_count: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never
