@@ -293,119 +293,33 @@ const HistoryPage = () => {
             <p className="text-muted-foreground">No CGPA records found. Add semesters in CGPA Calculator.</p>
           </Card>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Overall CGPA Card */}
-            <Card className="border-2 border-primary/30">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="text-sm text-muted-foreground">
-                    {new Date().toLocaleDateString()}
-                  </div>
-                </div>
-                <div className="text-3xl font-bold text-primary mt-2">
-                  {cgpa.toFixed(2)}
-                </div>
-                <div className="text-sm text-muted-foreground mt-2">
-                  CGPA: {cgpa.toFixed(2)}/10.0
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Total Credits: {totalCredits}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  4.0 Scale: {convert4Scale().toFixed(2)}
-                </div>
-                <Button
-                  className="w-full mt-4 bg-primary hover:bg-primary/90"
-                  size="sm"
-                  onClick={() => setShowAnalysis(true)}
-                >
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Click for detailed analysis
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Individual Semester Cards */}
-            {semesters.map((sem) => {
-              const performance = getPerformance(sem.sgpa);
-              const semesterCourses = courses.filter(c => c.semester_id === sem.id);
-              const isExpanded = expandedSemester === sem.id;
-              
-              return (
-                <Card 
-                  key={sem.id}
-                  className="border-2 border-border hover:border-primary/30 transition-all cursor-pointer"
-                  onClick={() => setExpandedSemester(isExpanded ? null : sem.id)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="text-sm text-muted-foreground">
-                        {new Date(sem.created_at).toLocaleDateString()}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:bg-destructive/10 h-8 w-8"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteSemester(sem.id);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    <div className="font-semibold text-lg mb-1">{sem.name}</div>
-                    <div className="text-2xl font-bold text-primary">
-                      {sem.sgpa.toFixed(2)}
-                    </div>
-                    <div className="text-sm text-muted-foreground mt-1">
-                      Credits: {sem.credits}
-                    </div>
-                    <Badge className={`${performance.class} mt-2`}>{performance.text}</Badge>
-                    
-                    {/* Expanded course details */}
-                    {isExpanded && semesterCourses.length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-border animate-fade-in">
-                        <div className="text-sm font-medium mb-2">Courses:</div>
-                        <div className="space-y-2">
-                          {semesterCourses.map((course) => (
-                            <div key={course.id} className="flex justify-between text-sm bg-muted/50 p-2 rounded">
-                              <span className="truncate mr-2">{course.name}</span>
-                              <div className="flex gap-2 items-center">
-                                <span className="text-muted-foreground">{course.credits} cr</span>
-                                <Badge variant="outline" className="text-xs">{course.grade}</Badge>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {isExpanded && semesterCourses.length === 0 && (
-                      <div className="mt-4 pt-4 border-t border-border text-sm text-muted-foreground">
-                        No course details available.
-                      </div>
-                    )}
-                    
-                    <div className="flex gap-2 mt-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditSemester(sem);
-                        }}
-                      >
-                        <Edit2 className="w-3 h-3 mr-1" />
-                        Edit
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          <Card className="border-2 border-primary/30 max-w-md">
+            <CardContent className="p-4">
+              <div className="text-sm text-muted-foreground">
+                {new Date().toLocaleDateString()}
+              </div>
+              <div className="text-3xl font-bold text-primary mt-2">
+                {cgpa.toFixed(2)}
+              </div>
+              <div className="text-sm text-muted-foreground mt-2">
+                CGPA: {cgpa.toFixed(2)}/10.0
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Total Credits: {totalCredits}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                4.0 Scale: {convert4Scale().toFixed(2)}
+              </div>
+              <Button
+                className="w-full mt-4 bg-primary hover:bg-primary/90"
+                size="sm"
+                onClick={() => setShowAnalysis(true)}
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Click for detailed analysis
+              </Button>
+            </CardContent>
+          </Card>
         )}
       </div>
 
