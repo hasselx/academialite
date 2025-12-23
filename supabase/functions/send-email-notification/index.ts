@@ -47,7 +47,7 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Email configuration is incomplete");
     }
 
-    // EmailJS API endpoint
+    // EmailJS REST API endpoint for server-side calls
     const emailjsUrl = "https://api.emailjs.com/api/v1.0/email/send";
 
     const templateParams = {
@@ -62,18 +62,24 @@ const handler = async (req: Request): Promise<Response> => {
       settings_link: "https://academialite.lovable.app/dashboard/reminders"
     };
 
+    const emailPayload = {
+      service_id: EMAILJS_SERVICE_ID,
+      template_id: EMAILJS_TEMPLATE_ID,
+      user_id: EMAILJS_PUBLIC_KEY,
+      accessToken: EMAILJS_PRIVATE_KEY,
+      template_params: templateParams,
+    };
+
+    console.log("Sending to EmailJS with payload:", JSON.stringify({ ...emailPayload, accessToken: "[REDACTED]" }));
+
     const response = await fetch(emailjsUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Origin": "https://academialite.lovable.app",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       },
-      body: JSON.stringify({
-        service_id: EMAILJS_SERVICE_ID,
-        template_id: EMAILJS_TEMPLATE_ID,
-        user_id: EMAILJS_PUBLIC_KEY,
-        accessToken: EMAILJS_PRIVATE_KEY,
-        template_params: templateParams,
-      }),
+      body: JSON.stringify(emailPayload),
     });
 
     if (!response.ok) {
