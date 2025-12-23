@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CheckSquare, Calculator, Save, RotateCcw, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { CheckSquare, Calculator, Save, RotateCcw, AlertTriangle, CheckCircle2, XCircle, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AttendanceRecord {
   id: string;
@@ -14,19 +16,13 @@ interface AttendanceRecord {
   required: number;
 }
 
-const mockRecords: AttendanceRecord[] = [
-  { id: "1", subject: "Data Structures", attended: 42, total: 50, required: 75 },
-  { id: "2", subject: "Machine Learning", attended: 35, total: 45, required: 75 },
-  { id: "3", subject: "Computer Networks", attended: 28, total: 40, required: 75 },
-  { id: "4", subject: "Database Systems", attended: 38, total: 48, required: 75 },
-];
-
 const Attendance = () => {
-  const [records, setRecords] = useState<AttendanceRecord[]>(mockRecords);
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [subject, setSubject] = useState("");
   const [attended, setAttended] = useState("");
   const [total, setTotal] = useState("");
   const [required, setRequired] = useState("75");
+  const [loading, setLoading] = useState(true);
   const [currentResult, setCurrentResult] = useState<{
     percentage: number;
     status: string;
@@ -34,6 +30,42 @@ const Attendance = () => {
     needToAttend: number;
   } | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      fetchRecords();
+    }
+  }, [user]);
+
+  const fetchRecords = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('attendance_records')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setRecords(data?.map(r => ({
+        id: r.id,
+        subject: r.subject,
+        attended: r.attended,
+        total: r.total,
+        required: r.required
+      })) || []);
+    } catch (error: any) {
+      toast({
+        title: "Error fetching records",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const calculateAttendance = () => {
     const attendedNum = parseInt(attended);
@@ -65,20 +97,9 @@ const Attendance = () => {
 
     if (percentage >= requiredNum) {
       status = "safe";
-      // Calculate how many can be skipped
-      // (attended / (total + x)) * 100 >= required
-      // attended * 100 >= required * (total + x)
-      // attended * 100 / required >= total + x
-      // x = (attended * 100 / required) - total
       canSkip = Math.floor((attendedNum * 100 / requiredNum) - totalNum);
     } else {
       status = "danger";
-      // Calculate how many need to be attended
-      // ((attended + x) / (total + x)) * 100 >= required
-      // (attended + x) * 100 >= required * (total + x)
-      // attended * 100 + x * 100 >= required * total + required * x
-      // x * (100 - required) >= required * total - attended * 100
-      // x >= (required * total - attended * 100) / (100 - required)
       needToAttend = Math.ceil((requiredNum * totalNum - attendedNum * 100) / (100 - requiredNum));
     }
 
@@ -90,7 +111,7 @@ const Attendance = () => {
     });
   };
 
-  const handleSaveRecord = () => {
+  const handleSaveRecord = async () => {
     if (!subject || !attended || !total) {
       toast({
         title: "Missing information",
@@ -100,22 +121,65 @@ const Attendance = () => {
       return;
     }
 
-    const newRecord: AttendanceRecord = {
-      id: Date.now().toString(),
-      subject,
-      attended: parseInt(attended),
-      total: parseInt(total),
-      required: parseInt(required)
-    };
+    try {
+      const { data, error } = await supabase
+        .from('attendance_records')
+        .insert({
+          user_id: user?.id,
+          subject,
+          attended: parseInt(attended),
+          total: parseInt(total),
+          required: parseInt(required)
+        })
+        .select()
+        .single();
 
-    setRecords([newRecord, ...records]);
-    
-    toast({
-      title: "Record saved",
-      description: `Attendance for ${subject} has been saved.`
-    });
-    
-    handleReset();
+      if (error) throw error;
+
+      setRecords([{
+        id: data.id,
+        subject: data.subject,
+        attended: data.attended,
+        total: data.total,
+        required: data.required
+      }, ...records]);
+      
+      toast({
+        title: "Record saved",
+        description: `Attendance for ${subject} has been saved.`
+      });
+      
+      handleReset();
+    } catch (error: any) {
+      toast({
+        title: "Error saving record",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteRecord = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('attendance_records')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setRecords(records.filter(r => r.id !== id));
+      toast({
+        title: "Record deleted",
+        description: "The attendance record has been removed."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error deleting record",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
   const handleReset = () => {
@@ -133,6 +197,14 @@ const Attendance = () => {
     if (percentage >= required - 5) return { color: "text-warning", bg: "bg-warning", label: "Warning" };
     return { color: "text-destructive", bg: "bg-destructive", label: "Critical" };
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -291,8 +363,16 @@ const Attendance = () => {
               const status = getAttendanceStatus(record.attended, record.total, record.required);
               
               return (
-                <Card key={record.id} className="overflow-hidden hover:shadow-soft transition-shadow">
+                <Card key={record.id} className="overflow-hidden hover:shadow-soft transition-shadow relative group">
                   <div className={`h-1 ${status.bg}`} />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => handleDeleteRecord(record.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <h4 className="font-semibold text-foreground">{record.subject}</h4>
@@ -300,7 +380,7 @@ const Attendance = () => {
                         {status.label}
                       </span>
                     </div>
-                    <div className="text-3xl font-bold mb-2" style={{ color: `hsl(var(--${status.color.replace('text-', '')}))` }}>
+                    <div className={`text-3xl font-bold mb-2 ${status.color}`}>
                       {percentage.toFixed(1)}%
                     </div>
                     <div className="text-sm text-muted-foreground">
@@ -313,6 +393,13 @@ const Attendance = () => {
             })}
           </div>
         </div>
+      )}
+
+      {records.length === 0 && !loading && (
+        <Card className="p-12 text-center">
+          <CheckSquare className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">No attendance records yet. Add your first subject above!</p>
+        </Card>
       )}
     </div>
   );
