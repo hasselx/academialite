@@ -17,12 +17,15 @@ import {
   Loader2,
   Eye,
   Edit2,
-  Plus
+  Plus,
+  Download
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, Cell } from "recharts";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface Course {
   id: string;
@@ -257,6 +260,69 @@ const HistoryPage = () => {
     SGPA: sem.sgpa,
     Credits: sem.credits
   }));
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(20);
+    doc.setTextColor(40, 40, 40);
+    doc.text("CGPA Analysis Report", 20, 20);
+    
+    // Date
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 28);
+    
+    // Summary Section
+    doc.setFontSize(14);
+    doc.setTextColor(40, 40, 40);
+    doc.text("Summary", 20, 42);
+    
+    doc.setFontSize(11);
+    doc.text(`Overall CGPA: ${cgpa.toFixed(2)} / 10.0`, 20, 52);
+    doc.text(`Total Credits: ${totalCredits}`, 20, 60);
+    doc.text(`Total Semesters: ${semesters.length}`, 20, 68);
+    doc.text(`Average SGPA: ${avgSgpa.toFixed(2)}`, 20, 76);
+    
+    // Scale Conversions
+    doc.setFontSize(14);
+    doc.text("Scale Conversions", 20, 92);
+    
+    doc.setFontSize(11);
+    doc.text(`4.0 Scale (US): ${convert4Scale().toFixed(2)}`, 20, 102);
+    doc.text(`5.0 Scale: ${(cgpa / 2).toFixed(2)}`, 20, 110);
+    doc.text(`Percentage: ${((cgpa - 0.5) * 10).toFixed(1)}%`, 20, 118);
+    
+    // Semester Table
+    doc.setFontSize(14);
+    doc.text("Semester-wise Breakdown", 20, 134);
+    
+    const tableData = semesters.map((sem) => [
+      sem.name,
+      sem.sgpa.toFixed(2),
+      sem.credits.toString(),
+      (sem.sgpa * sem.credits).toFixed(2),
+      getPerformance(sem.sgpa).text
+    ]);
+    
+    autoTable(doc, {
+      startY: 140,
+      head: [["Semester", "SGPA", "Credits", "Grade Points", "Performance"]],
+      body: tableData,
+      theme: "grid",
+      headStyles: { fillColor: [59, 130, 246] },
+      alternateRowStyles: { fillColor: [245, 247, 250] }
+    });
+    
+    // Save the PDF
+    doc.save("cgpa-analysis.pdf");
+    
+    toast({
+      title: "PDF Exported",
+      description: "Your analysis has been downloaded."
+    });
+  };
 
   if (loading) {
     return (
@@ -606,8 +672,9 @@ const HistoryPage = () => {
               <Button variant="outline" onClick={() => setShowAnalysis(false)}>
                 Close
               </Button>
-              <Button className="gradient-primary">
-                Export Analysis
+              <Button className="gradient-primary" onClick={exportToPDF}>
+                <Download className="w-4 h-4 mr-2" />
+                Export PDF
               </Button>
             </div>
           </div>

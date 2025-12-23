@@ -150,6 +150,22 @@ const Reminders = () => {
     return `${hours}h left`;
   };
 
+  // Get days left for color coding
+  const getDaysLeft = (dueDate: string) => {
+    const now = new Date();
+    const examDate = new Date(dueDate);
+    const diffMs = examDate.getTime() - now.getTime();
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  };
+
+  // Get popup color based on time left
+  const getExamPopupColor = (dueDate: string) => {
+    const days = getDaysLeft(dueDate);
+    if (days <= 1) return "from-destructive to-destructive/80"; // Red - 1 day or less
+    if (days <= 5) return "from-warning to-warning/80"; // Orange - 2-5 days
+    return "from-success to-success/80"; // Green - more than 5 days
+  };
+
   const handleParseMessage = async () => {
     if (!messageText.trim()) {
       toast({
@@ -384,59 +400,60 @@ const Reminders = () => {
 
   return (
     <div className="space-y-6 animate-fade-in relative">
-      {/* Upcoming Exam Popup - Top Right */}
-      <AnimatePresence>
-        {upcomingExam && showExamPopup && (
-          <motion.div
-            initial={{ opacity: 0, x: 100, y: -20 }}
-            animate={{ opacity: 1, x: 0, y: 0 }}
-            exit={{ opacity: 0, x: 100 }}
-            className="fixed top-20 right-4 z-50"
-          >
-            <Card className="bg-gradient-to-br from-destructive to-destructive/80 border-none shadow-lg w-64">
-              <CardContent className="p-4 text-white relative">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-1 right-1 h-6 w-6 text-white/70 hover:text-white hover:bg-white/20"
-                  onClick={() => setShowExamPopup(false)}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-                <div className="flex items-center gap-2 mb-2">
-                  <GraduationCap className="w-5 h-5" />
-                  <span className="text-xs font-medium uppercase tracking-wider opacity-90">Upcoming Exam</span>
-                </div>
-                <h4 className="font-bold text-lg mb-1 pr-6">{upcomingExam.subject}</h4>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm opacity-90">
-                    {new Date(upcomingExam.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {upcomingExam.startTime}
-                  </span>
-                  <Badge className="bg-white/20 text-white border-none">
-                    {getTimeLeft(upcomingExam.date)}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Header with Refresh & Email Toggle */}
+      {/* Header with Refresh & Email Toggle + Exam Popup above it */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-primary">
           <Bell className="w-8 h-8" />
           <h1 className="text-3xl font-bold">Smart Reminders</h1>
         </div>
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={fetchReminders} className="gap-2">
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </Button>
-          <div className="flex items-center gap-2 border rounded-lg px-3 py-2">
-            <Mail className="w-4 h-4 text-primary" />
-            <span className="text-sm">Email Notifications</span>
-            <Switch checked={emailEnabled} onCheckedChange={setEmailEnabled} />
+        <div className="flex flex-col items-end gap-2">
+          {/* Upcoming Exam Popup - Above email notifications */}
+          <AnimatePresence>
+            {upcomingExam && showExamPopup && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+              >
+                <Card className={`bg-gradient-to-br ${getExamPopupColor(upcomingExam.date)} border-none shadow-lg w-72`}>
+                  <CardContent className="p-3 text-white relative">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-1 right-1 h-5 w-5 text-white/70 hover:text-white hover:bg-white/20"
+                      onClick={() => setShowExamPopup(false)}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                    <div className="flex items-center gap-2 mb-1">
+                      <GraduationCap className="w-4 h-4" />
+                      <span className="text-xs font-medium uppercase tracking-wider opacity-90">Upcoming Exam</span>
+                    </div>
+                    <h4 className="font-bold text-base mb-1 pr-5">{upcomingExam.subject}</h4>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs opacity-90">
+                        {new Date(upcomingExam.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {upcomingExam.startTime}
+                      </span>
+                      <Badge className="bg-white/20 text-white border-none text-xs">
+                        {getTimeLeft(upcomingExam.date)}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="sm" onClick={fetchReminders} className="gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </Button>
+            <div className="flex items-center gap-2 border rounded-lg px-3 py-2">
+              <Mail className="w-4 h-4 text-primary" />
+              <span className="text-sm">Email Notifications</span>
+              <Switch checked={emailEnabled} onCheckedChange={setEmailEnabled} />
+            </div>
           </div>
         </div>
       </div>
