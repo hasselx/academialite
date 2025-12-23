@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calculator, Plus, Trash2, BarChart3, TrendingUp, Target, Award, Loader2, Sparkles, Zap, BookOpen } from "lucide-react";
+import { Calculator, Plus, Trash2, BarChart3, TrendingUp, Target, Award, Loader2, Sparkles, Zap, BookOpen, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
@@ -592,18 +592,29 @@ const CGPACalculator = () => {
               </CardContent>
             </Card>
 
-            {/* Results Section */}
-            <ResultsCard
-              showResults={showResults}
-              totalSemesters={totalSemesters}
-              cgpa={cgpa}
-              totalCredits={totalCredits}
-              percentage={percentage}
-              aiLoading={aiLoading}
-              aiMessage={aiMessage}
-              onViewAnalysis={() => setShowAnalysis(true)}
-              onReset={handleResetAll}
-            />
+            {/* Side Display - Entered Data or Results */}
+            {showResults ? (
+              <ResultsCard
+                showResults={showResults}
+                totalSemesters={totalSemesters}
+                cgpa={cgpa}
+                totalCredits={totalCredits}
+                percentage={percentage}
+                aiLoading={aiLoading}
+                aiMessage={aiMessage}
+                onViewAnalysis={() => setShowAnalysis(true)}
+                onReset={handleResetAll}
+              />
+            ) : (
+              <EnteredDataCard
+                quickSemesters={quickSemesters}
+                semesters={semesters}
+                mode="quick"
+                onDeleteQuick={handleDeleteQuickSemester}
+                onDeleteDetailed={handleDeleteDetailedSemester}
+                getPerformance={getPerformance}
+              />
+            )}
           </div>
         </TabsContent>
 
@@ -721,18 +732,29 @@ const CGPACalculator = () => {
               </CardContent>
             </Card>
 
-            {/* Results Section */}
-            <ResultsCard
-              showResults={showResults}
-              totalSemesters={totalSemesters}
-              cgpa={cgpa}
-              totalCredits={totalCredits}
-              percentage={percentage}
-              aiLoading={aiLoading}
-              aiMessage={aiMessage}
-              onViewAnalysis={() => setShowAnalysis(true)}
-              onReset={handleResetAll}
-            />
+            {/* Side Display - Entered Data or Results */}
+            {showResults ? (
+              <ResultsCard
+                showResults={showResults}
+                totalSemesters={totalSemesters}
+                cgpa={cgpa}
+                totalCredits={totalCredits}
+                percentage={percentage}
+                aiLoading={aiLoading}
+                aiMessage={aiMessage}
+                onViewAnalysis={() => setShowAnalysis(true)}
+                onReset={handleResetAll}
+              />
+            ) : (
+              <EnteredDataCard
+                quickSemesters={quickSemesters}
+                semesters={semesters}
+                mode="detailed"
+                onDeleteQuick={handleDeleteQuickSemester}
+                onDeleteDetailed={handleDeleteDetailedSemester}
+                getPerformance={getPerformance}
+              />
+            )}
           </div>
         </TabsContent>
       </Tabs>
@@ -978,5 +1000,114 @@ const ResultsCard = ({
     </CardContent>
   </Card>
 );
+
+// Entered Data Card Component - Shows entered semesters before calculating
+const EnteredDataCard = ({
+  quickSemesters,
+  semesters,
+  mode,
+  onDeleteQuick,
+  onDeleteDetailed,
+  getPerformance
+}: {
+  quickSemesters: QuickSemester[];
+  semesters: Semester[];
+  mode: "quick" | "detailed";
+  onDeleteQuick: (id: string) => void;
+  onDeleteDetailed: (id: string) => void;
+  getPerformance: (sgpa: number) => { text: string; class: string };
+}) => {
+  const allSemesters = [
+    ...quickSemesters.map((s, idx) => ({ ...s, type: 'quick' as const, displayNum: idx + 1 })),
+    ...semesters.map((s, idx) => ({ ...s, type: 'detailed' as const, displayNum: quickSemesters.length + idx + 1 }))
+  ];
+
+  const totalCredits = [...quickSemesters, ...semesters].reduce((sum, s) => sum + s.credits, 0);
+  const cgpaPreview = allSemesters.length > 0
+    ? allSemesters.reduce((sum, s) => sum + (s.sgpa * s.credits), 0) / totalCredits
+    : 0;
+
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader className="bg-gradient-to-r from-info/20 to-primary/20">
+        <CardTitle className="flex items-center gap-2">
+          <Eye className="w-5 h-5 text-primary" />
+          Entered Data
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-6">
+        {allSemesters.length === 0 ? (
+          <div className="text-center py-12">
+            <Plus className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">
+              No semesters added yet. Add semesters on the left to see them here.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Preview Stats */}
+            <div className="grid grid-cols-3 gap-3 p-4 bg-muted/50 rounded-lg">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">{cgpaPreview.toFixed(2)}</div>
+                <div className="text-xs text-muted-foreground">CGPA Preview</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-success">{totalCredits}</div>
+                <div className="text-xs text-muted-foreground">Total Credits</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-chart-4">{allSemesters.length}</div>
+                <div className="text-xs text-muted-foreground">Semesters</div>
+              </div>
+            </div>
+
+            {/* Semester List */}
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {allSemesters.map((sem) => {
+                const performance = getPerformance(sem.sgpa);
+                return (
+                  <div
+                    key={sem.id}
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-sm font-semibold text-primary">
+                        {sem.displayNum}
+                      </div>
+                      <div>
+                        <div className="font-medium text-sm">Semester {sem.displayNum}</div>
+                        <div className="text-xs text-muted-foreground">
+                          SGPA: {sem.sgpa.toFixed(2)} • {sem.credits} credits
+                          {sem.type === 'detailed' && ' • Detailed'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className={`${performance.class} text-xs`}>
+                        {performance.text}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                        onClick={() => sem.type === 'quick' ? onDeleteQuick(sem.id) : onDeleteDetailed(sem.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="text-xs text-center text-muted-foreground pt-2">
+              Click "Calculate CGPA" to see detailed results and AI insights
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 export default CGPACalculator;
