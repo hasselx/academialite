@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GraduationCap, Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { GraduationCap, AtSign, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { z } from "zod";
@@ -19,12 +19,13 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string; name?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string; name?: string; username?: string }>({});
   
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, signIn, signUp, loading } = useAuth();
+  const { user, signIn, signUp, loading, getEmailByUsername } = useAuth();
 
   // Redirect if already logged in
   useEffect(() => {
@@ -33,8 +34,24 @@ const Auth = () => {
     }
   }, [user, loading, navigate]);
 
-  const validateForm = () => {
-    const newErrors: { email?: string; password?: string; name?: string } = {};
+  const validateLoginForm = () => {
+    const newErrors: { email?: string; password?: string; name?: string; username?: string } = {};
+    
+    if (!username.trim()) {
+      newErrors.username = "Please enter your username";
+    }
+    
+    const passwordResult = passwordSchema.safeParse(password);
+    if (!passwordResult.success) {
+      newErrors.password = passwordResult.error.errors[0].message;
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const validateSignupForm = () => {
+    const newErrors: { email?: string; password?: string; name?: string; username?: string } = {};
     
     const emailResult = emailSchema.safeParse(email);
     if (!emailResult.success) {
@@ -53,18 +70,31 @@ const Auth = () => {
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) return;
+    if (!validateLoginForm()) return;
     
     setIsSubmitting(true);
 
     try {
-      const { error } = await signIn(email, password);
+      // Get email from username
+      const userEmail = await getEmailByUsername(username.toLowerCase());
+      
+      if (!userEmail) {
+        toast({
+          title: "Login failed",
+          description: "Username not found. Please check your username.",
+          variant: "destructive"
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      
+      const { error } = await signIn(userEmail, password);
       
       if (error) {
         toast({
           title: "Login failed",
           description: error.message === "Invalid login credentials" 
-            ? "Invalid email or password. Please try again."
+            ? "Invalid username or password. Please try again."
             : error.message,
           variant: "destructive"
         });
@@ -83,12 +113,12 @@ const Auth = () => {
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) return;
+    if (!validateSignupForm()) return;
     
     setIsSubmitting(true);
 
     try {
-      const { error } = await signUp(email, password, name);
+      const { error } = await signUp(email, password, name, username);
       
       if (error) {
         if (error.message.includes("already registered")) {
@@ -171,31 +201,31 @@ const Auth = () => {
                   Welcome back
                 </h1>
                 <p className="text-muted-foreground">
-                  Enter your credentials to access your dashboard
+                  Enter your username and password to sign in
                 </p>
               </div>
 
               {/* Login Form */}
               <form onSubmit={handleLoginSubmit} className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-foreground font-medium">Email</Label>
+                  <Label htmlFor="login-username" className="text-foreground font-medium">Username</Label>
                   <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                     <Input
-                      id="email"
-                      type="email"
-                      placeholder="you@university.edu"
-                      value={email}
+                      id="login-username"
+                      type="text"
+                      placeholder="johndoe"
+                      value={username}
                       onChange={(e) => {
-                        setEmail(e.target.value);
-                        if (errors.email) setErrors({ ...errors, email: undefined });
+                        setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''));
+                        if (errors.username) setErrors({ ...errors, username: undefined });
                       }}
-                      className={`h-12 pl-12 ${errors.email ? 'border-destructive' : ''}`}
+                      className={`h-12 pl-12 ${errors.username ? 'border-destructive' : ''}`}
                       disabled={isSubmitting}
                     />
                   </div>
-                  {errors.email && (
-                    <p className="text-sm text-destructive">{errors.email}</p>
+                  {errors.username && (
+                    <p className="text-sm text-destructive">{errors.username}</p>
                   )}
                 </div>
 
@@ -257,6 +287,7 @@ const Auth = () => {
                     setEmail("");
                     setPassword("");
                     setName("");
+                    setUsername("");
                   }}
                   className="text-primary font-semibold hover:underline"
                   disabled={isSubmitting}
@@ -281,6 +312,8 @@ const Auth = () => {
               <SignupStepper
                 name={name}
                 setName={setName}
+                username={username}
+                setUsername={setUsername}
                 email={email}
                 setEmail={setEmail}
                 password={password}
@@ -295,6 +328,7 @@ const Auth = () => {
                   setEmail("");
                   setPassword("");
                   setName("");
+                  setUsername("");
                 }}
               />
             </>
