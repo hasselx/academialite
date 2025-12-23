@@ -10,8 +10,7 @@ import {
   CheckCircle2,
   ArrowRight,
   Sparkles,
-  Users,
-  Activity
+  Users
 } from "lucide-react";
 import { AnimatedTooltip } from "@/components/ui/animated-tooltip";
 import { useEffect, useState } from "react";
@@ -216,25 +215,14 @@ const Index = () => {
               <p className="text-sm text-muted-foreground">Hover to see profile</p>
             </div>
 
-            {/* Stats Cards */}
-            <div className="flex flex-col sm:flex-row gap-6">
-              <div className="card-elevated p-6 min-w-[180px] text-center">
-                <div className="flex items-center justify-center gap-2 mb-3">
-                  <Users className="w-5 h-5 text-accent" />
-                  <span className="text-muted-foreground font-medium">Active Users</span>
-                </div>
-                <div className="text-4xl font-bold text-foreground mb-1">{userCount}</div>
-                <p className="text-sm text-muted-foreground">and growing</p>
+            {/* Stats Card */}
+            <div className="card-elevated p-6 min-w-[180px] text-center">
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <Users className="w-5 h-5 text-accent" />
+                <span className="text-muted-foreground font-medium">Active Users</span>
               </div>
-
-              <div className="card-elevated p-6 min-w-[180px] text-center">
-                <div className="flex items-center justify-center gap-2 mb-3">
-                  <Activity className="w-5 h-5 text-success" />
-                  <span className="text-muted-foreground font-medium">System Status</span>
-                </div>
-                <div className="text-4xl font-bold text-foreground mb-1">100%</div>
-                <p className="text-sm text-success">All Systems Operational</p>
-              </div>
+              <div className="text-4xl font-bold text-foreground mb-1">{userCount}</div>
+              <p className="text-sm text-muted-foreground">and growing</p>
             </div>
           </div>
         </div>
