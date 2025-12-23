@@ -2,6 +2,17 @@ import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -150,6 +161,39 @@ const HistoryPage = () => {
     : 0;
 
   const convert4Scale = () => (cgpa - 5) * 4 / 5;
+
+  const handleDeleteAllCGPA = async () => {
+    try {
+      // Delete all courses first (due to foreign key)
+      const { error: coursesError } = await supabase
+        .from('courses')
+        .delete()
+        .eq('user_id', user?.id);
+
+      if (coursesError) throw coursesError;
+
+      // Then delete all semesters
+      const { error: semestersError } = await supabase
+        .from('semesters')
+        .delete()
+        .eq('user_id', user?.id);
+
+      if (semestersError) throw semestersError;
+
+      setSemesters([]);
+      setCourses([]);
+      toast({
+        title: "All CGPA data deleted",
+        description: "Your semester and course records have been removed."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error deleting data",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
 
   const handleDeleteSemester = async (id: string) => {
     try {
@@ -392,10 +436,41 @@ const HistoryPage = () => {
             <p className="text-muted-foreground">No CGPA records found. Add semesters in CGPA Calculator.</p>
           </Card>
         ) : (
-          <Card className="border-2 border-primary/30 max-w-md">
+          <Card className="border-2 border-primary/30 max-w-md group hover:shadow-soft transition-all">
             <CardContent className="p-4">
-              <div className="text-sm text-muted-foreground">
-                {new Date().toLocaleDateString()}
+              <div className="flex items-start justify-between">
+                <div className="text-sm text-muted-foreground">
+                  {new Date().toLocaleDateString()}
+                </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity -mt-1 -mr-1"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete all CGPA data?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete all your
+                        semester data, courses, and CGPA calculations from your account.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDeleteAllCGPA}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
               <div className="text-3xl font-bold text-primary mt-2">
                 {cgpa.toFixed(2)}
