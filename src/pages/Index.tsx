@@ -70,9 +70,13 @@ const Index = () => {
             <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
               <GraduationCap className="w-6 h-6 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-foreground">StudySync</span>
+            <span className="text-xl font-bold text-foreground">Academia</span>
           </Link>
           <div className="flex items-center gap-4">
+            <Button variant="outline" size="sm" className="hidden sm:flex">
+              <Bell className="w-4 h-4 mr-2" />
+              Notifications
+            </Button>
             <Link to="/login">
               <Button variant="ghost" className="font-medium">Sign In</Button>
             </Link>
@@ -178,7 +182,7 @@ const Index = () => {
                 Ready to Excel?
               </h2>
               <p className="text-xl text-primary-foreground/80 max-w-2xl mx-auto mb-10">
-                Join thousands of students who are already using StudySync to manage their academic life more effectively.
+                Join thousands of students who are already using Academia to manage their academic life more effectively.
               </p>
               <Link to="/login">
                 <Button size="lg" variant="secondary" className="text-lg px-8 py-6 font-semibold">
@@ -199,10 +203,10 @@ const Index = () => {
               <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
                 <GraduationCap className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span className="font-bold text-foreground">StudySync</span>
+              <span className="font-bold text-foreground">Academia</span>
             </div>
             <p className="text-muted-foreground text-sm">
-              © 2024 StudySync. Built for students, by students.
+              © 2024 Academia. Built for students, by students.
             </p>
             <div className="flex items-center gap-6">
               <a href="#" className="text-muted-foreground hover:text-foreground transition-colors text-sm">Privacy</a>
