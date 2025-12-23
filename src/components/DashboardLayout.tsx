@@ -173,8 +173,8 @@ const DashboardLayout = () => {
               </Avatar>
               {!collapsed && (
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-foreground truncate">{getUserName()}</h3>
-                  <p className="text-sm text-muted-foreground truncate">{getMemberSince()}</p>
+                  <h3 className="font-semibold text-sidebar-foreground truncate">{getUserName()}</h3>
+                  <p className="text-sm text-sidebar-foreground/70 truncate">{getMemberSince()}</p>
                 </div>
               )}
               {/* Mobile Close Button */}
