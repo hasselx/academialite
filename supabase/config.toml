@@ -1,1 +1,4 @@
 project_id = "lnmndbazkzceettxvqxg"
+
+[functions.ai-motivation]
+verify_jwt = false
