@@ -353,54 +353,7 @@ const Attendance = () => {
         </Card>
       </div>
 
-      {/* Saved Records */}
-      {records.length > 0 && (
-        <div className="space-y-4">
-          <h3 className="text-xl font-semibold">Saved Records</h3>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {records.map((record) => {
-              const percentage = (record.attended / record.total) * 100;
-              const status = getAttendanceStatus(record.attended, record.total, record.required);
-              
-              return (
-                <Card key={record.id} className="overflow-hidden hover:shadow-soft transition-shadow relative group">
-                  <div className={`h-1 ${status.bg}`} />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => handleDeleteRecord(record.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <h4 className="font-semibold text-foreground">{record.subject}</h4>
-                      <span className={`text-xs px-2 py-1 rounded-full ${status.bg}/10 ${status.color}`}>
-                        {status.label}
-                      </span>
-                    </div>
-                    <div className={`text-3xl font-bold mb-2 ${status.color}`}>
-                      {percentage.toFixed(1)}%
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {record.attended} / {record.total} classes
-                    </div>
-                    <Progress value={percentage} className="h-2 mt-3" />
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {records.length === 0 && !loading && (
-        <Card className="p-12 text-center">
-          <CheckSquare className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">No attendance records yet. Add your first subject above!</p>
-        </Card>
-      )}
+      {/* Note: Saved attendance records are available in the History tab */}
     </div>
   );
 };
