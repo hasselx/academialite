@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Bell, RefreshCw, Trash2, Edit2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2 } from "lucide-react";
+import { Bell, RefreshCw, Trash2, Edit2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +31,7 @@ const Reminders = () => {
   const [priority, setPriority] = useState<string>("normal");
   const [emailEnabled, setEmailEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [parsing, setParsing] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -83,7 +84,7 @@ const Reminders = () => {
     total: reminders.length
   };
 
-  const handleParseMessage = () => {
+  const handleParseMessage = async () => {
     if (!messageText.trim()) {
       toast({
         title: "No message to parse",
@@ -93,19 +94,45 @@ const Reminders = () => {
       return;
     }
 
-    // Simple parsing logic demo
-    const parsed = {
-      title: "Parsed Reminder",
-      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    };
-    
-    setTitle(parsed.title);
-    setDueDate(parsed.dueDate);
-    
-    toast({
-      title: "Message Parsed!",
-      description: "Review the extracted information below."
-    });
+    setParsing(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
+        },
+        body: JSON.stringify({ message: messageText })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to parse message');
+      }
+
+      const data = await response.json();
+      const parsed = data.parsed;
+
+      setTitle(parsed.title || '');
+      setType(parsed.type || 'assignment');
+      setDueDate(parsed.dueDate || '');
+      setPriority(parsed.priority || 'normal');
+      setDescription(parsed.description || '');
+
+      toast({
+        title: "Message Parsed with AI!",
+        description: "Review the extracted information below."
+      });
+    } catch (error: any) {
+      console.error('Parse error:', error);
+      toast({
+        title: "Failed to parse message",
+        description: error.message || "Please try again or enter details manually.",
+        variant: "destructive"
+      });
+    } finally {
+      setParsing(false);
+    }
   };
 
   const handleSaveReminder = async () => {
@@ -306,11 +333,20 @@ Example:
                 className="min-h-[150px]"
               />
               <div className="flex gap-2">
-                <Button onClick={handleParseMessage} className="gradient-primary">
-                  <Edit2 className="w-4 h-4 mr-2" />
-                  Parse Message
+                <Button onClick={handleParseMessage} className="gradient-primary" disabled={parsing}>
+                  {parsing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Parsing with AI...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Parse with AI
+                    </>
+                  )}
                 </Button>
-                <Button variant="outline" onClick={() => setMessageText("")}>
+                <Button variant="outline" onClick={() => setMessageText("")} disabled={parsing}>
                   Clear
                 </Button>
               </div>
