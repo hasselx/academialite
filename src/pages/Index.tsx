@@ -10,9 +10,13 @@ import {
   CheckCircle2,
   ArrowRight,
   Sparkles,
-  BarChart3,
-  Users
+  Users,
+  Activity
 } from "lucide-react";
+import { AnimatedTooltip } from "@/components/ui/animated-tooltip";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import creatorAvatar from "@/assets/creator-avatar.jpg";
 
 const features = [
   {
@@ -37,7 +41,7 @@ const features = [
     icon: Calendar,
     title: "Holiday Calendar",
     description: "Keep track of academic holidays and important dates throughout the year.",
-    color: "bg-warning/10 text-warning"
+    color: "bg-accent/10 text-accent"
   },
   {
     icon: Wallet,
@@ -60,7 +64,30 @@ const stats = [
   { value: "24/7", label: "Available" }
 ];
 
+const creator = [
+  {
+    id: 1,
+    name: "Naveen Krishnan R",
+    designation: "@hasselx",
+    image: creatorAvatar,
+    verified: true,
+    link: "https://heypage.vercel.app/hasselx"
+  }
+];
+
 const Index = () => {
+  const [userCount, setUserCount] = useState<number>(0);
+
+  useEffect(() => {
+    const fetchUserCount = async () => {
+      const { count } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true });
+      setUserCount(count || 0);
+    };
+    fetchUserCount();
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
@@ -74,10 +101,10 @@ const Index = () => {
           </Link>
           <div className="flex items-center gap-4">
             <Link to="/login">
-              <Button variant="ghost" className="font-medium">Sign In</Button>
+              <Button variant="ghost" className="font-medium text-foreground">Sign In</Button>
             </Link>
             <Link to="/login">
-              <Button className="gradient-primary font-medium">
+              <Button className="gradient-primary font-medium text-primary-foreground">
                 Get Started
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
@@ -108,13 +135,13 @@ const Index = () => {
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-slide-up" style={{ animationDelay: "0.2s" }}>
             <Link to="/login">
-              <Button size="lg" className="gradient-primary text-lg px-8 py-6 shadow-glow">
+              <Button size="lg" className="gradient-primary text-lg px-8 py-6 shadow-glow text-primary-foreground">
                 Start Free Today
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             </Link>
             <Link to="/dashboard">
-              <Button size="lg" variant="outline" className="text-lg px-8 py-6">
+              <Button size="lg" variant="outline" className="text-lg px-8 py-6 text-foreground border-border">
                 View Demo
               </Button>
             </Link>
@@ -168,24 +195,46 @@ const Index = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* Community Section */}
       <section className="py-24 px-6">
         <div className="container mx-auto">
-          <div className="gradient-primary rounded-3xl p-12 md:p-16 text-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-grid-pattern opacity-10" />
-            <div className="relative z-10">
-              <h2 className="text-4xl md:text-5xl font-bold text-primary-foreground mb-6">
-                Ready to Excel?
-              </h2>
-              <p className="text-xl text-primary-foreground/80 max-w-2xl mx-auto mb-10">
-                Join thousands of students who are already using Academia to manage their academic life more effectively.
-              </p>
-              <Link to="/login">
-                <Button size="lg" variant="secondary" className="text-lg px-8 py-6 font-semibold">
-                  Get Started for Free
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </Link>
+          <div className="text-center mb-12">
+            <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
+              Meet the Creator
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Built with passion for students worldwide
+            </p>
+          </div>
+
+          <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
+            {/* Creator Avatar */}
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex flex-row items-center justify-center">
+                <AnimatedTooltip items={creator} />
+              </div>
+              <p className="text-sm text-muted-foreground">Hover to see profile</p>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="flex flex-col sm:flex-row gap-6">
+              <div className="card-elevated p-6 min-w-[180px] text-center">
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <Users className="w-5 h-5 text-accent" />
+                  <span className="text-muted-foreground font-medium">Active Users</span>
+                </div>
+                <div className="text-4xl font-bold text-foreground mb-1">{userCount}</div>
+                <p className="text-sm text-muted-foreground">and growing</p>
+              </div>
+
+              <div className="card-elevated p-6 min-w-[180px] text-center">
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <Activity className="w-5 h-5 text-success" />
+                  <span className="text-muted-foreground font-medium">System Status</span>
+                </div>
+                <div className="text-4xl font-bold text-foreground mb-1">100%</div>
+                <p className="text-sm text-success">All Systems Operational</p>
+              </div>
             </div>
           </div>
         </div>
