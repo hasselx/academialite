@@ -355,18 +355,6 @@ const Auth = () => {
             attendance, expenses, and deadlines.
           </p>
           
-          <div className="mt-12 grid grid-cols-3 gap-6">
-            {[
-              { value: "10K+", label: "Students" },
-              { value: "98%", label: "Satisfaction" },
-              { value: "4.9★", label: "Rating" }
-            ].map((stat, index) => (
-              <div key={index} className="bg-primary-foreground/10 backdrop-blur-lg rounded-xl p-4">
-                <div className="text-2xl font-bold">{stat.value}</div>
-                <div className="text-sm text-primary-foreground/70">{stat.label}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </div>

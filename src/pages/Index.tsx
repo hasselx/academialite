@@ -133,13 +133,8 @@ const Index = () => {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-slide-up" style={{ animationDelay: "0.2s" }}>
             <Link to="/login">
               <Button size="lg" className="gradient-primary text-lg px-8 py-6 shadow-glow text-primary-foreground">
-                Start Free Today
+                Get Started
                 <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </Link>
-            <Link to="/dashboard">
-              <Button size="lg" variant="outline" className="text-lg px-8 py-6 text-foreground border-border">
-                View Demo
               </Button>
             </Link>
           </div>
