@@ -6,10 +6,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Bell, RefreshCw, Trash2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles, Calendar, Send } from "lucide-react";
+import { Bell, RefreshCw, Trash2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles, Calendar, Send, GraduationCap, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Reminder {
   id: string;
@@ -37,6 +38,7 @@ const Reminders = () => {
   const [parsing, setParsing] = useState(false);
   const [sendEmail, setSendEmail] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [showExamPopup, setShowExamPopup] = useState(true);
 
   useEffect(() => {
     localStorage.setItem('emailNotificationsEnabled', emailEnabled.toString());
@@ -91,6 +93,30 @@ const Reminders = () => {
       return r.dueDate === today;
     }).length,
     total: reminders.length
+  };
+
+  // Get upcoming exams (type === 'exam' and not overdue)
+  const upcomingExams = reminders
+    .filter(r => r.type === 'exam' && new Date(r.dueDate) >= new Date())
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+  
+  const nextExam = upcomingExams[0];
+
+  // Calculate time left for next exam
+  const getTimeLeft = (dueDate: string) => {
+    const now = new Date();
+    const examDate = new Date(dueDate);
+    const diffMs = examDate.getTime() - now.getTime();
+    
+    if (diffMs <= 0) return "Now!";
+    
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    
+    if (days > 0) {
+      return `${days}d ${hours}h left`;
+    }
+    return `${hours}h left`;
   };
 
   const handleParseMessage = async () => {
@@ -326,7 +352,45 @@ const Reminders = () => {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in relative">
+      {/* Upcoming Exam Popup - Top Right */}
+      <AnimatePresence>
+        {nextExam && showExamPopup && (
+          <motion.div
+            initial={{ opacity: 0, x: 100, y: -20 }}
+            animate={{ opacity: 1, x: 0, y: 0 }}
+            exit={{ opacity: 0, x: 100 }}
+            className="fixed top-20 right-4 z-50"
+          >
+            <Card className="bg-gradient-to-br from-destructive to-destructive/80 border-none shadow-lg w-64">
+              <CardContent className="p-4 text-white relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-1 right-1 h-6 w-6 text-white/70 hover:text-white hover:bg-white/20"
+                  onClick={() => setShowExamPopup(false)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+                <div className="flex items-center gap-2 mb-2">
+                  <GraduationCap className="w-5 h-5" />
+                  <span className="text-xs font-medium uppercase tracking-wider opacity-90">Upcoming Exam</span>
+                </div>
+                <h4 className="font-bold text-lg mb-1 pr-6">{nextExam.title}</h4>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm opacity-90">
+                    {new Date(nextExam.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                  <Badge className="bg-white/20 text-white border-none">
+                    {getTimeLeft(nextExam.dueDate)}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header with Refresh & Email Toggle */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-primary">
