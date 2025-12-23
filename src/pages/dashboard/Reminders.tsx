@@ -6,7 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Bell, RefreshCw, Trash2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles, Calendar, Send, GraduationCap, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Bell, RefreshCw, Trash2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles, Calendar, Send, GraduationCap, X, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -47,12 +48,39 @@ const Reminders = () => {
   const [sendingEmail, setSendingEmail] = useState(false);
   const [showExamPopup, setShowExamPopup] = useState(true);
   const [upcomingExam, setUpcomingExam] = useState<Exam | null>(null);
+  const { toast } = useToast();
+  const { user } = useAuth();
+  
+  // Email settings state
+  const [notifyEmail, setNotifyEmail] = useState("");
+  const [notify24Hours, setNotify24Hours] = useState(() => {
+    const saved = localStorage.getItem('notify24Hours');
+    return saved !== 'false'; // Default true
+  });
+  const [notify1Hour, setNotify1Hour] = useState(() => {
+    const saved = localStorage.getItem('notify1Hour');
+    return saved !== 'false'; // Default true
+  });
+  const [notifyOverdue, setNotifyOverdue] = useState(() => {
+    const saved = localStorage.getItem('notifyOverdue');
+    return saved !== 'false'; // Default true
+  });
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
+  const [checkingNotifications, setCheckingNotifications] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('emailNotificationsEnabled', emailEnabled.toString());
-  }, [emailEnabled]);
-  const { toast } = useToast();
-  const { user } = useAuth();
+    localStorage.setItem('notify24Hours', notify24Hours.toString());
+    localStorage.setItem('notify1Hour', notify1Hour.toString());
+    localStorage.setItem('notifyOverdue', notifyOverdue.toString());
+  }, [emailEnabled, notify24Hours, notify1Hour, notifyOverdue]);
+  
+  useEffect(() => {
+    if (user?.email && !notifyEmail) {
+      setNotifyEmail(user.email);
+    }
+  }, [user?.email]);
 
   useEffect(() => {
     if (user) {
@@ -693,6 +721,178 @@ Example:
           </CardContent>
         </Card>
       </div>
+
+      {/* Email Settings Section */}
+      <Card className="border-2 border-primary/20">
+        <CardHeader className="py-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Settings className="w-5 h-5 text-primary" />
+            Email Notification Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 space-y-4">
+          <div>
+            <Input
+              type="email"
+              placeholder="Email address for notifications"
+              value={notifyEmail}
+              onChange={(e) => setNotifyEmail(e.target.value)}
+              className="w-full"
+            />
+          </div>
+          
+          <div className="space-y-1">
+            <h4 className="font-medium text-sm">Notification Timing</h4>
+            <div className="space-y-3 mt-2">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="notify24h"
+                  checked={notify24Hours}
+                  onCheckedChange={(checked) => setNotify24Hours(checked as boolean)}
+                />
+                <label htmlFor="notify24h" className="text-sm cursor-pointer">
+                  24 hours before due date
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="notify1h"
+                  checked={notify1Hour}
+                  onCheckedChange={(checked) => setNotify1Hour(checked as boolean)}
+                />
+                <label htmlFor="notify1h" className="text-sm cursor-pointer">
+                  1 hour before due date
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="notifyOverdue"
+                  checked={notifyOverdue}
+                  onCheckedChange={(checked) => setNotifyOverdue(checked as boolean)}
+                />
+                <label htmlFor="notifyOverdue" className="text-sm cursor-pointer">
+                  When overdue
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => {
+                setSavingSettings(true);
+                localStorage.setItem('notifyEmail', notifyEmail);
+                setTimeout(() => {
+                  setSavingSettings(false);
+                  toast({
+                    title: "Settings saved",
+                    description: "Your email notification preferences have been saved."
+                  });
+                }, 500);
+              }}
+              className="bg-success hover:bg-success/90"
+              disabled={savingSettings}
+            >
+              {savingSettings ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+              )}
+              Save Settings
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!notifyEmail) {
+                  toast({
+                    title: "Email required",
+                    description: "Please enter an email address first.",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+                setSendingTestEmail(true);
+                try {
+                  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email-notification`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
+                    },
+                    body: JSON.stringify({
+                      to: notifyEmail,
+                      subject: "Test Email - Smart Reminders",
+                      body: `
+                        <h2>🔔 Test Email</h2>
+                        <p>This is a test email from Smart Reminders.</p>
+                        <p>If you received this, your email notifications are working correctly!</p>
+                        <br/>
+                        <p>Best regards,<br/>Student Tools App</p>
+                      `
+                    })
+                  });
+
+                  if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to send test email');
+                  }
+
+                  toast({
+                    title: "Test email sent!",
+                    description: `A test email was sent to ${notifyEmail}`
+                  });
+                } catch (error: any) {
+                  toast({
+                    title: "Failed to send test email",
+                    description: error.message,
+                    variant: "destructive"
+                  });
+                } finally {
+                  setSendingTestEmail(false);
+                }
+              }}
+              disabled={sendingTestEmail}
+            >
+              {sendingTestEmail ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4 mr-2" />
+              )}
+              Send Test Email
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCheckingNotifications(true);
+                setTimeout(() => {
+                  setCheckingNotifications(false);
+                  const activeSettings = [];
+                  if (notify24Hours) activeSettings.push("24h before");
+                  if (notify1Hour) activeSettings.push("1h before");
+                  if (notifyOverdue) activeSettings.push("on overdue");
+                  
+                  toast({
+                    title: "Notification Status",
+                    description: emailEnabled 
+                      ? `Email notifications enabled for: ${notifyEmail || "No email set"}. Timing: ${activeSettings.length > 0 ? activeSettings.join(", ") : "None selected"}`
+                      : "Email notifications are currently disabled. Enable them using the toggle above."
+                  });
+                }, 500);
+              }}
+              disabled={checkingNotifications}
+            >
+              {checkingNotifications ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Bell className="w-4 h-4 mr-2" />
+              )}
+              Check Email Notifications
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
