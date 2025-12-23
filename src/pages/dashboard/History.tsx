@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   History as HistoryIcon, 
   Calculator, 
@@ -17,12 +18,22 @@ import {
   Loader2,
   Eye,
   Edit2,
-  Plus
+  Plus,
+  BookOpen
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, Cell } from "recharts";
+
+interface Course {
+  id: string;
+  name: string;
+  credits: number;
+  grade: string;
+  grade_point: number;
+  semester_id: string;
+}
 
 interface Semester {
   id: string;
@@ -30,6 +41,7 @@ interface Semester {
   sgpa: number;
   credits: number;
   created_at: string;
+  courses?: Course[];
 }
 
 interface AttendanceRecord {
@@ -43,12 +55,14 @@ interface AttendanceRecord {
 
 const HistoryPage = () => {
   const [semesters, setSemesters] = useState<Semester[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [editingSemester, setEditingSemester] = useState<Semester | null>(null);
   const [editSgpa, setEditSgpa] = useState("");
   const [editCredits, setEditCredits] = useState("");
+  const [cgpaTab, setCgpaTab] = useState<"semester" | "detailed">("semester");
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -61,7 +75,7 @@ const HistoryPage = () => {
   const fetchHistory = async () => {
     try {
       setLoading(true);
-      const [semesterRes, attendanceRes] = await Promise.all([
+      const [semesterRes, attendanceRes, coursesRes] = await Promise.all([
         supabase
           .from('semesters')
           .select('*')
@@ -71,11 +85,16 @@ const HistoryPage = () => {
           .from('attendance_records')
           .select('*')
           .eq('user_id', user?.id)
-          .order('updated_at', { ascending: false })
+          .order('updated_at', { ascending: false }),
+        supabase
+          .from('courses')
+          .select('*')
+          .eq('user_id', user?.id)
       ]);
 
       if (semesterRes.error) throw semesterRes.error;
       if (attendanceRes.error) throw attendanceRes.error;
+      if (coursesRes.error) throw coursesRes.error;
 
       setSemesters(semesterRes.data?.map(s => ({
         id: s.id,
@@ -83,6 +102,15 @@ const HistoryPage = () => {
         sgpa: Number(s.sgpa),
         credits: s.credits,
         created_at: s.created_at
+      })) || []);
+
+      setCourses(coursesRes.data?.map(c => ({
+        id: c.id,
+        name: c.name,
+        credits: c.credits,
+        grade: c.grade,
+        grade_point: c.grade_point,
+        semester_id: c.semester_id
       })) || []);
 
       setAttendance(attendanceRes.data?.map(a => ({
@@ -256,63 +284,163 @@ const HistoryPage = () => {
 
       {/* CGPA Calculations Section */}
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold flex items-center gap-2">
-          <Calculator className="w-5 h-5" />
-          CGPA Calculations
-        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Calculator className="w-5 h-5" />
+            CGPA Calculations
+          </h2>
+          
+          {semesters.length > 0 && (
+            <Tabs value={cgpaTab} onValueChange={(v) => setCgpaTab(v as "semester" | "detailed")}>
+              <TabsList>
+                <TabsTrigger value="semester" className="gap-2">
+                  <BarChart3 className="w-4 h-4" />
+                  Semester
+                </TabsTrigger>
+                <TabsTrigger value="detailed" className="gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  Detailed
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
+        </div>
 
         {semesters.length === 0 ? (
           <Card className="p-8 text-center">
             <Calculator className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">No CGPA records found. Add semesters in CGPA Calculator.</p>
           </Card>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Summary Card */}
-            <Card 
-              className="border-2 border-primary/30 hover:border-primary/50 transition-all cursor-pointer group relative overflow-hidden"
-              onClick={() => setShowAnalysis(true)}
-            >
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    {new Date().toLocaleDateString()}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Could add bulk delete here
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+        ) : cgpaTab === "semester" ? (
+          /* Semester View - Summary Cards */
+          <div className="space-y-4">
+            {/* Summary Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card className="p-4 border-2 border-primary/20">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-primary">{cgpa.toFixed(2)}</div>
+                  <div className="text-sm text-muted-foreground">Overall CGPA</div>
                 </div>
-                
-                <div className="mt-2">
-                  <div className="text-4xl font-bold text-primary">{cgpa.toFixed(2)}</div>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    CGPA: {cgpa.toFixed(2)}/10.0
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Total Credits: {totalCredits}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    4.0 Scale: {convert4Scale().toFixed(2)}
-                  </div>
+              </Card>
+              <Card className="p-4 border-2 border-success/20">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-success">{totalCredits}</div>
+                  <div className="text-sm text-muted-foreground">Total Credits</div>
                 </div>
+              </Card>
+              <Card className="p-4 border-2 border-chart-4/20">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-chart-4">{semesters.length}</div>
+                  <div className="text-sm text-muted-foreground">Semesters</div>
+                </div>
+              </Card>
+              <Card className="p-4 border-2 border-info/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setShowAnalysis(true)}>
+                <div className="text-center">
+                  <Eye className="w-6 h-6 mx-auto text-info mb-1" />
+                  <div className="text-sm text-muted-foreground">View Analysis</div>
+                </div>
+              </Card>
+            </div>
 
-                <Button 
-                  className="w-full mt-4 gradient-primary opacity-0 group-hover:opacity-100 transition-opacity"
-                  size="sm"
-                >
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Click for detailed analysis
-                </Button>
-              </CardContent>
-            </Card>
+            {/* Semester Cards */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {semesters.map((sem) => {
+                const performance = getPerformance(sem.sgpa);
+                return (
+                  <Card 
+                    key={sem.id}
+                    className="border-2 border-border hover:border-primary/30 transition-all group"
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="font-semibold text-lg">{sem.name}</div>
+                        <Badge className={performance.class}>{performance.text}</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 mt-3">
+                        <div>
+                          <div className="text-2xl font-bold text-primary">{sem.sgpa.toFixed(2)}</div>
+                          <div className="text-xs text-muted-foreground">SGPA</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-bold text-foreground">{sem.credits}</div>
+                          <div className="text-xs text-muted-foreground">Credits</div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleEditSemester(sem)}
+                        >
+                          <Edit2 className="w-3 h-3 mr-1" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteSemester(sem.id)}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          /* Detailed View - Course Breakdown */
+          <div className="space-y-4">
+            {semesters.map((sem) => {
+              const semesterCourses = courses.filter(c => c.semester_id === sem.id);
+              const performance = getPerformance(sem.sgpa);
+              
+              return (
+                <Card key={sem.id}>
+                  <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <CardTitle className="text-base">{sem.name}</CardTitle>
+                      <Badge className={performance.class}>{performance.text}</Badge>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm">
+                      <span className="text-muted-foreground">SGPA: <span className="font-semibold text-primary">{sem.sgpa.toFixed(2)}</span></span>
+                      <span className="text-muted-foreground">Credits: <span className="font-semibold">{sem.credits}</span></span>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {semesterCourses.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-2">No course details available for this semester.</p>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Course Name</TableHead>
+                            <TableHead className="text-center">Credits</TableHead>
+                            <TableHead className="text-center">Grade</TableHead>
+                            <TableHead className="text-center">Grade Point</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {semesterCourses.map((course) => (
+                            <TableRow key={course.id}>
+                              <TableCell className="font-medium">{course.name}</TableCell>
+                              <TableCell className="text-center">{course.credits}</TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant="outline">{course.grade}</Badge>
+                              </TableCell>
+                              <TableCell className="text-center">{course.grade_point}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>

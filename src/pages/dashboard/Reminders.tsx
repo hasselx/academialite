@@ -29,11 +29,18 @@ const Reminders = () => {
   const [dueDate, setDueDate] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<string>("normal");
-  const [emailEnabled, setEmailEnabled] = useState(false);
+  const [emailEnabled, setEmailEnabled] = useState(() => {
+    const saved = localStorage.getItem('emailNotificationsEnabled');
+    return saved === 'true';
+  });
   const [loading, setLoading] = useState(true);
   const [parsing, setParsing] = useState(false);
   const [sendEmail, setSendEmail] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('emailNotificationsEnabled', emailEnabled.toString());
+  }, [emailEnabled]);
   const { toast } = useToast();
   const { user } = useAuth();
 
