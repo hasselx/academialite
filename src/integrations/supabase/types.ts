@@ -258,6 +258,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_email_available: {
+        Args: { lookup_email: string }
+        Returns: boolean
+      }
+      check_username_available: {
+        Args: { lookup_username: string }
+        Returns: boolean
+      }
       get_email_by_username: {
         Args: { lookup_username: string }
         Returns: string
