@@ -66,25 +66,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const checkUsernameExists = async (username: string): Promise<boolean> => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('username')
-      .eq('username', username.toLowerCase())
-      .maybeSingle();
+    const { data, error } = await supabase.rpc('check_username_available', { 
+      lookup_username: username.toLowerCase() 
+    });
     
-    if (error) return false;
-    return !!data;
+    if (error) {
+      console.error('Error checking username:', error);
+      return false;
+    }
+    // Returns true if username exists (opposite of available)
+    return data === false;
   };
 
   const checkEmailExists = async (email: string): Promise<boolean> => {
-    // Check if email exists by trying to get email by username lookup
-    // We'll use the profiles table indirectly through the RPC function
-    const { data, error } = await supabase.rpc('get_email_by_username', { lookup_username: email });
-    if (data) return true;
+    const { data, error } = await supabase.rpc('check_email_available', { 
+      lookup_email: email.toLowerCase() 
+    });
     
-    // Also check by attempting to get profiles by email
-    // Since we don't have direct access to auth.users, we'll rely on signup error
-    return false;
+    if (error) {
+      console.error('Error checking email:', error);
+      return false;
+    }
+    // Returns true if email exists (opposite of available)
+    return data === false;
   };
 
   const signIn = async (email: string, password: string) => {
