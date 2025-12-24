@@ -30,7 +30,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Fetch all incomplete reminders
     const { data: reminders, error: remindersError } = await supabase
       .from('reminders')
-      .select('*, profiles!reminders_user_id_fkey(full_name)')
+      .select('*')
       .eq('completed', false);
 
     if (remindersError) {
