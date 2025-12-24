@@ -21,30 +21,47 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { to, user_name, verification_link }: VerificationEmailRequest = await req.json();
     
+    // Validate required fields
+    if (!to || !user_name) {
+      throw new Error("Missing required fields: to and user_name are required");
+    }
+    
     console.log(`Sending verification email to: ${to}, user: ${user_name}`);
 
     const EMAILJS_SERVICE_ID = Deno.env.get("EMAILJS_SERVICE_ID");
-    const EMAILJS_VERIFICATION_TEMPLATE_ID = Deno.env.get("EMAILJS_VERIFICATION_TEMPLATE_ID") || Deno.env.get("EMAILJS_TEMPLATE_ID");
+    const EMAILJS_TEMPLATE_ID = Deno.env.get("EMAILJS_TEMPLATE_ID");
     const EMAILJS_PUBLIC_KEY = Deno.env.get("EMAILJS_PUBLIC_KEY");
     const EMAILJS_PRIVATE_KEY = Deno.env.get("EMAILJS_PRIVATE_KEY");
 
-    if (!EMAILJS_SERVICE_ID || !EMAILJS_VERIFICATION_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY || !EMAILJS_PRIVATE_KEY) {
+    if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY || !EMAILJS_PRIVATE_KEY) {
       console.error("Missing EmailJS configuration");
       throw new Error("Email configuration is incomplete");
     }
 
     const emailjsUrl = "https://api.emailjs.com/api/v1.0/email/send";
 
+    // Template params matching the reminder template structure but with welcome content
     const templateParams = {
       email: to,
       to_email: to,
-      user_name: user_name,
-      verification_link: verification_link,
+      reminder_title: `Welcome to Academia, ${user_name}!`,
+      reminder_type: "Account Verification",
+      due_date: new Date().toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      }),
+      priority_level: "Important",
+      priority_icon: "✉️",
+      description: `Your account has been created successfully. Please click the link below to verify your email and start using Academia.\n\nVerification Link: ${verification_link}`,
+      timing_text: "🎉 Welcome to Academia!",
+      settings_link: verification_link,
     };
 
     const emailPayload = {
       service_id: EMAILJS_SERVICE_ID,
-      template_id: EMAILJS_VERIFICATION_TEMPLATE_ID,
+      template_id: EMAILJS_TEMPLATE_ID,
       user_id: EMAILJS_PUBLIC_KEY,
       accessToken: EMAILJS_PRIVATE_KEY,
       template_params: templateParams,

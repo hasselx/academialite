@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, AtSign, Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, Check } from "lucide-react";
+import { User, AtSign, Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, Check, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SignupStepperProps {
   name: string;
@@ -44,9 +45,59 @@ export const SignupStepper = ({
 }: SignupStepperProps) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
+  const [usernameChecking, setUsernameChecking] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [emailChecking, setEmailChecking] = useState(false);
+  const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
+  
+  const { checkUsernameExists, checkEmailExists } = useAuth();
 
-  const canProceedStep1 = name.trim().length >= 2 && username.trim().length >= 3;
-  const canProceedStep2 = email.includes("@") && email.includes(".");
+  // Debounced username check
+  useEffect(() => {
+    if (username.length < 3) {
+      setUsernameAvailable(null);
+      return;
+    }
+
+    setUsernameChecking(true);
+    const timer = setTimeout(async () => {
+      const exists = await checkUsernameExists(username);
+      setUsernameAvailable(!exists);
+      setUsernameChecking(false);
+      if (exists) {
+        setErrors({ ...errors, username: "This username is already taken" });
+      } else {
+        setErrors({ ...errors, username: undefined });
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [username]);
+
+  // Debounced email check
+  useEffect(() => {
+    if (!email.includes("@") || !email.includes(".")) {
+      setEmailAvailable(null);
+      return;
+    }
+
+    setEmailChecking(true);
+    const timer = setTimeout(async () => {
+      const exists = await checkEmailExists(email);
+      setEmailAvailable(!exists);
+      setEmailChecking(false);
+      if (exists) {
+        setErrors({ ...errors, email: "An account with this email already exists" });
+      } else {
+        setErrors({ ...errors, email: undefined });
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [email]);
+
+  const canProceedStep1 = name.trim().length >= 2 && username.trim().length >= 3 && usernameAvailable === true;
+  const canProceedStep2 = email.includes("@") && email.includes(".") && !errors.email;
   const canProceedStep3 = password.length >= 6;
 
   const handleNext = () => {
@@ -155,15 +206,32 @@ export const SignupStepper = ({
                   value={username}
                   onChange={(e) => {
                     setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''));
-                    if (errors.username) setErrors({ ...errors, username: undefined });
                   }}
                   onKeyDown={handleKeyDown}
-                  className={cn("h-12 pl-12", errors.username && "border-destructive")}
+                  className={cn(
+                    "h-12 pl-12 pr-12",
+                    errors.username && "border-destructive",
+                    usernameAvailable === true && "border-green-500"
+                  )}
                 />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                  {usernameChecking && (
+                    <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+                  )}
+                  {!usernameChecking && usernameAvailable === true && (
+                    <Check className="w-5 h-5 text-green-500" />
+                  )}
+                  {!usernameChecking && usernameAvailable === false && (
+                    <X className="w-5 h-5 text-destructive" />
+                  )}
+                </div>
               </div>
               <p className="text-xs text-muted-foreground">Use this to sign in later (letters, numbers, underscores only)</p>
               {errors.username && (
                 <p className="text-sm text-destructive">{errors.username}</p>
+              )}
+              {usernameAvailable === true && !errors.username && (
+                <p className="text-sm text-green-500">Username is available!</p>
               )}
             </div>
           </div>
@@ -187,12 +255,23 @@ export const SignupStepper = ({
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
-                    if (errors.email) setErrors({ ...errors, email: undefined });
                   }}
                   onKeyDown={handleKeyDown}
-                  className={cn("h-12 pl-12", errors.email && "border-destructive")}
+                  className={cn(
+                    "h-12 pl-12 pr-12",
+                    errors.email && "border-destructive",
+                    emailAvailable === true && "border-green-500"
+                  )}
                   autoFocus
                 />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                  {emailChecking && (
+                    <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+                  )}
+                  {!emailChecking && emailAvailable === false && (
+                    <X className="w-5 h-5 text-destructive" />
+                  )}
+                </div>
               </div>
               {errors.email && (
                 <p className="text-sm text-destructive">{errors.email}</p>

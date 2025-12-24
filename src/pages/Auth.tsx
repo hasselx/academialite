@@ -136,7 +136,7 @@ const Auth = () => {
       } else {
         // Send welcome/verification email via edge function
         try {
-          const verificationLink = `${window.location.origin}/dashboard`;
+          const verificationLink = `${window.location.origin}/auth`;
           
           const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verification-email`, {
             method: 'POST',
@@ -162,10 +162,16 @@ const Auth = () => {
         }
         
         toast({
-          title: "Account created!",
-          description: "Welcome to Academia! A verification email has been sent."
+          title: "Check your email!",
+          description: "We've sent a verification link to your email. Please verify to continue."
         });
-        navigate("/dashboard");
+        
+        // Don't navigate to dashboard - user needs to verify email first
+        setIsLogin(true);
+        setEmail("");
+        setPassword("");
+        setName("");
+        setUsername("");
       }
     } finally {
       setIsSubmitting(false);
