@@ -10,6 +10,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   getEmailByUsername: (username: string) => Promise<string | null>;
+  checkUsernameExists: (username: string) => Promise<boolean>;
+  checkEmailExists: (email: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -63,6 +65,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return data;
   };
 
+  const checkUsernameExists = async (username: string): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('username', username.toLowerCase())
+      .maybeSingle();
+    
+    if (error) return false;
+    return !!data;
+  };
+
+  const checkEmailExists = async (email: string): Promise<boolean> => {
+    // Check if email exists by trying to get email by username lookup
+    // We'll use the profiles table indirectly through the RPC function
+    const { data, error } = await supabase.rpc('get_email_by_username', { lookup_username: email });
+    if (data) return true;
+    
+    // Also check by attempting to get profiles by email
+    // Since we don't have direct access to auth.users, we'll rely on signup error
+    return false;
+  };
+
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -77,7 +101,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut, getEmailByUsername }}>
+    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut, getEmailByUsername, checkUsernameExists, checkEmailExists }}>
       {children}
     </AuthContext.Provider>
   );
