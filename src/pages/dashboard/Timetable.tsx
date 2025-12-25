@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format, addDays, subDays, startOfWeek, differenceInHours } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTimeSettings } from "@/hooks/useTimeSettings";
 
 interface ClassItem {
   id: string;
@@ -61,6 +62,7 @@ const examColors = [
 
 const Timetable = () => {
   const { user } = useAuth();
+  const { formatTime, formatTimeRange } = useTimeSettings();
   const [activeTab, setActiveTab] = useState("timetable");
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [exams, setExams] = useState<ExamItem[]>([]);
@@ -595,10 +597,10 @@ const Timetable = () => {
                       </div>
                       <div className="flex-1 text-white">
                         <div className="flex items-baseline gap-2 mb-1">
-                          <span className="text-lg font-bold">{classItem.startTime}</span>
+                          <span className="text-lg font-bold">{formatTime(classItem.startTime)}</span>
                           <span className="text-sm opacity-80">to</span>
                         </div>
-                        <div className="text-sm opacity-80 mb-3">{classItem.endTime}</div>
+                        <div className="text-sm opacity-80 mb-3">{formatTime(classItem.endTime)}</div>
                         <h3 className="text-xl font-bold uppercase mb-1">{classItem.subject}</h3>
                         {classItem.code && (
                           <p className="text-sm opacity-90 mb-2">{classItem.code}</p>
@@ -830,7 +832,7 @@ const Timetable = () => {
                           <div className="flex items-center gap-4 text-sm opacity-90 mb-2">
                             <div className="flex items-center gap-1">
                               <Clock className="w-4 h-4" />
-                              {exam.startTime} - {exam.endTime}
+                              {formatTimeRange(exam.startTime, exam.endTime)}
                             </div>
                             {exam.room && (
                               <div className="flex items-center gap-1">
