@@ -18,6 +18,18 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Try to get timezone offset from request body
+    let timezoneOffset = 5.5; // Default to IST (UTC+5:30)
+    try {
+      const body = await req.json();
+      if (body.timezoneOffset !== undefined && typeof body.timezoneOffset === 'number') {
+        timezoneOffset = body.timezoneOffset;
+        console.log(`Using timezone offset from request: ${timezoneOffset}`);
+      }
+    } catch {
+      console.log(`Using default timezone offset: ${timezoneOffset}`);
+    }
+
     const now = new Date();
     const nowISO = now.toISOString();
     
@@ -25,13 +37,9 @@ const handler = async (req: Request): Promise<Response> => {
     const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
 
-    // Get user's timezone offset - defaulting to IST (UTC+5:30) for Indian users
-    // The reminders store local time (user's timezone), so we need to compare correctly
-    const USER_TIMEZONE_OFFSET_HOURS = 5.5; // IST is UTC+5:30
-    
     // Convert current UTC time to user's local time for comparison
-    const nowInUserTZ = new Date(now.getTime() + USER_TIMEZONE_OFFSET_HOURS * 60 * 60 * 1000);
-    console.log(`Checking reminders. UTC time: ${nowISO}, User local time: ${nowInUserTZ.toISOString()}`);
+    const nowInUserTZ = new Date(now.getTime() + timezoneOffset * 60 * 60 * 1000);
+    console.log(`Checking reminders. UTC time: ${nowISO}, User local time: ${nowInUserTZ.toISOString()}, Offset: ${timezoneOffset}h`);
 
     // Fetch all incomplete reminders
     const { data: reminders, error: remindersError } = await supabase

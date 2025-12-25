@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTimeSettings } from "@/hooks/useTimeSettings";
 
 interface Reminder {
   id: string;
@@ -33,15 +34,6 @@ interface Exam {
   date: string;
   startTime: string;
 }
-
-// Helper to format time in 12-hour format
-const formatTime12Hour = (time: string): string => {
-  if (!time) return '';
-  const [hours, minutes] = time.split(':').map(Number);
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hour12 = hours % 12 || 12;
-  return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
-};
 
 const Reminders = () => {
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -72,6 +64,7 @@ const Reminders = () => {
   
   const { toast } = useToast();
   const { user } = useAuth();
+  const { formatTime, timezoneOffset } = useTimeSettings();
   
   // Email settings state
   const [notifyEmail, setNotifyEmail] = useState("");
@@ -552,7 +545,7 @@ const Reminders = () => {
                     <h4 className="font-bold text-base mb-1 pr-5">{upcomingExam.subject}</h4>
                     <div className="flex items-center justify-between">
                       <span className="text-xs opacity-90">
-                        {new Date(upcomingExam.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {formatTime12Hour(upcomingExam.startTime)}
+                        {new Date(upcomingExam.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {formatTime(upcomingExam.startTime)}
                       </span>
                       <Badge className="bg-white/20 text-white border-none text-xs">
                         {getTimeLeft(upcomingExam.date)}
@@ -660,7 +653,7 @@ const Reminders = () => {
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Clock className="w-4 h-4" />
                       {new Date(reminder.dueDate).toLocaleDateString()}
-                      {reminder.dueTime && ` at ${formatTime12Hour(reminder.dueTime)}`}
+                      {reminder.dueTime && ` at ${formatTime(reminder.dueTime)}`}
                     </div>
                     <div className="flex gap-1">
                       <Button 
