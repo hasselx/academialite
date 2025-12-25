@@ -17,7 +17,9 @@ import {
   PanelLeftClose,
   PanelLeft,
   Sun,
-  Moon
+  Moon,
+  Settings,
+  Globe
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -26,6 +28,23 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const navigation = {
   academic: [
@@ -41,9 +60,23 @@ const navigation = {
   ],
 };
 
+const countries = [
+  { name: "India", code: "IN", offset: 5.5 },
+  { name: "Germany", code: "DE", offset: 1 },
+  { name: "United States (EST)", code: "US-EST", offset: -5 },
+  { name: "United States (PST)", code: "US-PST", offset: -8 },
+  { name: "United Kingdom", code: "GB", offset: 0 },
+  { name: "Japan", code: "JP", offset: 9 },
+  { name: "Australia (Sydney)", code: "AU-SYD", offset: 11 },
+  { name: "Singapore", code: "SG", offset: 8 },
+  { name: "UAE", code: "AE", offset: 4 },
+  { name: "Canada (Toronto)", code: "CA-TOR", offset: -5 },
+];
+
 const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [timeSheetOpen, setTimeSheetOpen] = useState(false);
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('theme');
@@ -51,6 +84,18 @@ const DashboardLayout = () => {
       return document.documentElement.classList.contains('dark');
     }
     return false;
+  });
+  const [timeFormat, setTimeFormat] = useState<'12hr' | '24hr'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('timeFormat') as '12hr' | '24hr') || '12hr';
+    }
+    return '12hr';
+  });
+  const [selectedCountry, setSelectedCountry] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('userCountry') || 'IN';
+    }
+    return 'IN';
   });
   const location = useLocation();
   const navigate = useNavigate();
@@ -67,8 +112,25 @@ const DashboardLayout = () => {
     }
   }, [isDark]);
 
+  useEffect(() => {
+    localStorage.setItem('timeFormat', timeFormat);
+  }, [timeFormat]);
+
+  useEffect(() => {
+    localStorage.setItem('userCountry', selectedCountry);
+  }, [selectedCountry]);
+
   const toggleTheme = () => {
     setIsDark(!isDark);
+  };
+
+  const handleSaveTimeSettings = () => {
+    const country = countries.find(c => c.code === selectedCountry);
+    toast({
+      title: "Time settings saved",
+      description: `${timeFormat === '12hr' ? '12-hour' : '24-hour'} format, ${country?.name || 'Unknown'} timezone`
+    });
+    setTimeSheetOpen(false);
   };
 
   const isActive = (href: string) => {
@@ -211,6 +273,99 @@ const DashboardLayout = () => {
                 {navigation.organization.map((item) => (
                   <NavItem key={item.name} item={item} />
                 ))}
+                
+                {/* Time Settings Button */}
+                <Sheet open={timeSheetOpen} onOpenChange={setTimeSheetOpen}>
+                  <SheetTrigger asChild>
+                    {collapsed ? (
+                      <Tooltip delayDuration={0}>
+                        <TooltipTrigger asChild>
+                          <button
+                            className="nav-link nav-link-inactive w-full justify-center px-2"
+                          >
+                            <Settings className="w-5 h-5 shrink-0" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="font-medium">
+                          Time Settings
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <button
+                        className="nav-link nav-link-inactive w-full"
+                      >
+                        <Settings className="w-5 h-5 shrink-0" />
+                        <span>Time</span>
+                      </button>
+                    )}
+                  </SheetTrigger>
+                  <SheetContent side="right" className="w-[350px] sm:w-[400px]">
+                    <SheetHeader>
+                      <SheetTitle className="flex items-center gap-2">
+                        <Clock className="w-5 h-5" />
+                        Time Settings
+                      </SheetTitle>
+                      <SheetDescription>
+                        Configure your time format and timezone preferences
+                      </SheetDescription>
+                    </SheetHeader>
+                    
+                    <div className="mt-6 space-y-6">
+                      {/* Time Format */}
+                      <div className="space-y-3">
+                        <Label className="text-sm font-medium">Time Format</Label>
+                        <RadioGroup
+                          value={timeFormat}
+                          onValueChange={(value) => setTimeFormat(value as '12hr' | '24hr')}
+                          className="flex flex-col gap-3"
+                        >
+                          <div className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer">
+                            <RadioGroupItem value="12hr" id="12hr" />
+                            <Label htmlFor="12hr" className="flex-1 cursor-pointer">
+                              <span className="font-medium">12-hour</span>
+                              <p className="text-sm text-muted-foreground">Example: 2:30 PM</p>
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer">
+                            <RadioGroupItem value="24hr" id="24hr" />
+                            <Label htmlFor="24hr" className="flex-1 cursor-pointer">
+                              <span className="font-medium">24-hour</span>
+                              <p className="text-sm text-muted-foreground">Example: 14:30</p>
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
+
+                      {/* Country/Timezone */}
+                      <div className="space-y-3">
+                        <Label className="text-sm font-medium flex items-center gap-2">
+                          <Globe className="w-4 h-4" />
+                          Country / Timezone
+                        </Label>
+                        <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select your country" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {countries.map((country) => (
+                              <SelectItem key={country.code} value={country.code}>
+                                {country.name} (UTC{country.offset >= 0 ? '+' : ''}{country.offset})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          This will be used for reminder notifications timing
+                        </p>
+                      </div>
+
+                      {/* Save Button */}
+                      <Button onClick={handleSaveTimeSettings} className="w-full">
+                        Save Settings
+                      </Button>
+                    </div>
+                  </SheetContent>
+                </Sheet>
               </div>
             </div>
           </nav>
