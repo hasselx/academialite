@@ -25,7 +25,13 @@ const handler = async (req: Request): Promise<Response> => {
     const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
 
-    console.log(`Checking reminders. Current time: ${nowISO}`);
+    // Get user's timezone offset - defaulting to IST (UTC+5:30) for Indian users
+    // The reminders store local time (user's timezone), so we need to compare correctly
+    const USER_TIMEZONE_OFFSET_HOURS = 5.5; // IST is UTC+5:30
+    
+    // Convert current UTC time to user's local time for comparison
+    const nowInUserTZ = new Date(now.getTime() + USER_TIMEZONE_OFFSET_HOURS * 60 * 60 * 1000);
+    console.log(`Checking reminders. UTC time: ${nowISO}, User local time: ${nowInUserTZ.toISOString()}`);
 
     // Fetch all incomplete reminders
     const { data: reminders, error: remindersError } = await supabase
@@ -43,12 +49,28 @@ const handler = async (req: Request): Promise<Response> => {
     const emailsSent: string[] = [];
 
     for (const reminder of reminders || []) {
-      const reminderDateTime = reminder.due_time 
-        ? new Date(`${reminder.due_date}T${reminder.due_time}`)
-        : new Date(`${reminder.due_date}T09:00:00`);
-
-      const timeDiff = reminderDateTime.getTime() - now.getTime();
+      // Parse the reminder time - stored in user's local timezone
+      const dueTime = reminder.due_time || '09:00:00';
+      const [hours, minutes] = dueTime.split(':').map(Number);
+      
+      // Create date in user's local timezone context
+      const reminderDate = new Date(reminder.due_date + 'T00:00:00');
+      reminderDate.setHours(hours, minutes, 0, 0);
+      
+      // Calculate time difference using user's local time
+      const userLocalNow = new Date(
+        nowInUserTZ.getFullYear(),
+        nowInUserTZ.getMonth(),
+        nowInUserTZ.getDate(),
+        nowInUserTZ.getHours(),
+        nowInUserTZ.getMinutes(),
+        nowInUserTZ.getSeconds()
+      );
+      
+      const timeDiff = reminderDate.getTime() - userLocalNow.getTime();
       const hoursUntilDue = timeDiff / (1000 * 60 * 60);
+      
+      console.log(`Reminder "${reminder.title}": Due at ${reminder.due_date} ${dueTime}, User local now: ${userLocalNow.toISOString()}, Hours until due: ${hoursUntilDue.toFixed(2)}`);
 
       // Get user email
       const { data: userData, error: userError } = await supabase.auth.admin.getUserById(reminder.user_id);
