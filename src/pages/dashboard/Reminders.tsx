@@ -42,6 +42,7 @@ const Reminders = () => {
   const [type, setType] = useState<string>("assignment");
   const [dueDate, setDueDate] = useState("");
   const [dueTime, setDueTime] = useState("");
+  const [dueTimePeriod, setDueTimePeriod] = useState<'AM' | 'PM'>('AM');
   const [description, setDescription] = useState("");
   const [emailSettingsOpen, setEmailSettingsOpen] = useState(false);
   const [priority, setPriority] = useState<string>("normal");
@@ -58,13 +59,33 @@ const Reminders = () => {
   
   // Edit/Delete state
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  const [editTimePeriod, setEditTimePeriod] = useState<'AM' | 'PM'>('AM');
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [deleteReminderId, setDeleteReminderId] = useState<string | null>(null);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   
   const { toast } = useToast();
   const { user } = useAuth();
-  const { formatTime, timezoneOffset } = useTimeSettings();
+  const { formatTime, timezoneOffset, timeFormat } = useTimeSettings();
+  
+  // Helper: Convert 24hr time to 12hr format for input
+  const to12HourFormat = (time24: string): { time12: string; period: 'AM' | 'PM' } => {
+    if (!time24) return { time12: '', period: 'AM' };
+    const [hours, minutes] = time24.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    return { time12: `${hour12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`, period };
+  };
+  
+  // Helper: Convert 12hr time + period to 24hr format for storage
+  const to24HourFormat = (time12: string, period: 'AM' | 'PM'): string => {
+    if (!time12) return '';
+    const [hours, minutes] = time12.split(':').map(Number);
+    let hour24 = hours;
+    if (period === 'PM' && hours !== 12) hour24 = hours + 12;
+    if (period === 'AM' && hours === 12) hour24 = 0;
+    return `${hour24.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
   
   // Email settings state
   const [notifyEmail, setNotifyEmail] = useState("");
@@ -252,7 +273,16 @@ const Reminders = () => {
       setTitle(parsed.title || '');
       setType(parsed.type || 'assignment');
       setDueDate(parsed.dueDate || '');
-      setDueTime(parsed.dueTime || '');
+      
+      // Handle time based on format preference
+      if (parsed.dueTime && timeFormat === '12hr') {
+        const { time12, period } = to12HourFormat(parsed.dueTime);
+        setDueTime(time12);
+        setDueTimePeriod(period);
+      } else {
+        setDueTime(parsed.dueTime || '');
+      }
+      
       setPriority(parsed.priority || 'normal');
       setDescription(parsed.description || '');
 
@@ -352,6 +382,11 @@ const Reminders = () => {
     try {
       const reminderDueDate = dueDate || new Date().toISOString().split('T')[0];
       
+      // Convert time to 24hr format for storage if using 12hr format
+      const timeToSave = timeFormat === '12hr' && dueTime 
+        ? to24HourFormat(dueTime, dueTimePeriod) 
+        : dueTime;
+      
       const { data, error } = await supabase
         .from('reminders')
         .insert({
@@ -359,7 +394,7 @@ const Reminders = () => {
           title,
           type,
           due_date: reminderDueDate,
-          due_time: dueTime || null,
+          due_time: timeToSave || null,
           description: description || null,
           priority,
           completed: false
@@ -382,13 +417,14 @@ const Reminders = () => {
 
       // Send email if checkbox is checked
       if (sendEmail) {
-        await sendEmailNotification(title, reminderDueDate, type, priority, description, "🔔 New Reminder Created", dueTime || null);
+        await sendEmailNotification(title, reminderDueDate, type, priority, description, "🔔 New Reminder Created", timeToSave || null);
       }
 
       setTitle("");
       setType("assignment");
       setDueDate("");
       setDueTime("");
+      setDueTimePeriod('AM');
       setDescription("");
       setPriority("normal");
       setSendEmail(false);
@@ -435,13 +471,18 @@ const Reminders = () => {
     if (!editingReminder) return;
     
     try {
+      // Convert time to 24hr format for storage if using 12hr format
+      const timeToSave = timeFormat === '12hr' && editingReminder.dueTime 
+        ? to24HourFormat(editingReminder.dueTime, editTimePeriod) 
+        : editingReminder.dueTime;
+      
       const { error } = await supabase
         .from('reminders')
         .update({
           title: editingReminder.title,
           type: editingReminder.type,
           due_date: editingReminder.dueDate,
-          due_time: editingReminder.dueTime || null,
+          due_time: timeToSave || null,
           description: editingReminder.description || null,
           priority: editingReminder.priority,
         })
@@ -449,7 +490,9 @@ const Reminders = () => {
 
       if (error) throw error;
 
-      setReminders(reminders.map(r => r.id === editingReminder.id ? editingReminder : r));
+      // Store the 24hr version in local state
+      const updatedReminder = { ...editingReminder, dueTime: timeToSave || null };
+      setReminders(reminders.map(r => r.id === editingReminder.id ? updatedReminder : r));
       setShowEditDialog(false);
       setEditingReminder(null);
       toast({
@@ -466,7 +509,14 @@ const Reminders = () => {
   };
 
   const openEditDialog = (reminder: Reminder) => {
-    setEditingReminder({ ...reminder });
+    if (timeFormat === '12hr' && reminder.dueTime) {
+      const { time12, period } = to12HourFormat(reminder.dueTime);
+      setEditingReminder({ ...reminder, dueTime: time12 });
+      setEditTimePeriod(period);
+    } else {
+      setEditingReminder({ ...reminder });
+      setEditTimePeriod('AM');
+    }
     setShowEditDialog(true);
   };
 
@@ -781,12 +831,25 @@ Example:
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Input 
-                type="time"
-                value={dueTime}
-                onChange={(e) => setDueTime(e.target.value)}
-                className="date-input"
-              />
+              <div className="flex gap-1">
+                <Input 
+                  type="time"
+                  value={dueTime}
+                  onChange={(e) => setDueTime(e.target.value)}
+                  className="date-input flex-1"
+                />
+                {timeFormat === '12hr' && (
+                  <Select value={dueTimePeriod} onValueChange={(val) => setDueTimePeriod(val as 'AM' | 'PM')}>
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="AM">AM</SelectItem>
+                      <SelectItem value="PM">PM</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
               <Select value={priority} onValueChange={setPriority}>
                 <SelectTrigger>
                   <SelectValue />
@@ -1106,12 +1169,25 @@ Example:
                 </div>
                 <div>
                   <label className="font-medium mb-2 block text-sm">Time</label>
-                  <Input 
-                    type="time"
-                    value={editingReminder.dueTime || ''}
-                    onChange={(e) => setEditingReminder({ ...editingReminder, dueTime: e.target.value || null })}
-                    className="date-input"
-                  />
+                  <div className="flex gap-1">
+                    <Input 
+                      type="time"
+                      value={editingReminder.dueTime || ''}
+                      onChange={(e) => setEditingReminder({ ...editingReminder, dueTime: e.target.value || null })}
+                      className="date-input flex-1"
+                    />
+                    {timeFormat === '12hr' && (
+                      <Select value={editTimePeriod} onValueChange={(val) => setEditTimePeriod(val as 'AM' | 'PM')}>
+                        <SelectTrigger className="w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="AM">AM</SelectItem>
+                          <SelectItem value="PM">PM</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
                 </div>
               </div>
               <div>
