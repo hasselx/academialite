@@ -23,8 +23,13 @@ serve(async (req) => {
     1. title: A clear, concise title for the reminder
     2. type: One of "assignment", "exam", "project", or "other"
     3. dueDate: The due date in YYYY-MM-DD format. If only a day/month is mentioned, assume the current or next year.
-    4. dueTime: The time in HH:MM format (24-hour). Extract from phrases like "1pm", "2:30 PM", "at 10", "by noon", etc. 
-       IMPORTANT: If no AM/PM is specified (e.g., "at 2.30" or "at 3"), ALWAYS assume AM. Return null if no time mentioned at all.
+    4. dueTime: The time in HH:MM format (24-hour). 
+       TIME PARSING RULES (CRITICAL - FOLLOW EXACTLY):
+       - If user says "pm", "PM", "afternoon", "evening", or "night" -> use PM time (add 12 to hour if < 12)
+       - If user says "am", "AM", or "morning" -> use AM time (hour as-is)
+       - If NO AM/PM indicator is present AT ALL (e.g., "at 1.30", "at 2", "at 3:00") -> ALWAYS use AM (hour as-is, do NOT add 12)
+       - Examples: "at 1.30" = 01:30, "at 2" = 02:00, "at 10" = 10:00, "at 2.30 pm" = 14:30
+       - Return null if no time mentioned at all.
     5. priority: "critical" for exams/finals, "urgent" for assignments due within 3 days, "normal" otherwise
     6. description: Any additional relevant details (room number, location, etc.)
     
