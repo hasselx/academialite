@@ -18,24 +18,39 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Try to get timezone offset from request body
+    // Try to get timezone offset and time format from request body
     let timezoneOffset = 5.5; // Default to IST (UTC+5:30)
+    let timeFormat: '12hr' | '24hr' = '12hr'; // Default to 12hr
     try {
       const body = await req.json();
       if (body.timezoneOffset !== undefined && typeof body.timezoneOffset === 'number') {
         timezoneOffset = body.timezoneOffset;
         console.log(`Using timezone offset from request: ${timezoneOffset}`);
       }
+      if (body.timeFormat === '24hr') {
+        timeFormat = '24hr';
+      }
     } catch {
       console.log(`Using default timezone offset: ${timezoneOffset}`);
     }
 
+    // Helper function to format time based on user preference
+    const formatTimeForEmail = (time: string): string => {
+      if (!time) return '';
+      const [hours, minutes] = time.split(':').map(Number);
+      
+      if (timeFormat === '24hr') {
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+      }
+      
+      // 12-hour format
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const hour12 = hours % 12 || 12;
+      return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
+    };
+
     const now = new Date();
     const nowISO = now.toISOString();
-    
-    // Get reminders that are due within the next 24 hours or 1 hour
-    const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
 
     // Convert current UTC time to user's local time for comparison
     const nowInUserTZ = new Date(now.getTime() + timezoneOffset * 60 * 60 * 1000);
@@ -92,8 +107,18 @@ const handler = async (req: Request): Promise<Response> => {
       let timingText = "";
       let shouldSend = false;
 
+      // Check if we should send 72h (3 days) notification (between 71-73 hours)
+      if (hoursUntilDue >= 71 && hoursUntilDue <= 73) {
+        timingText = "📅 3 Days Until Due";
+        shouldSend = true;
+      }
+      // Check if we should send 48h (2 days) notification (between 47-49 hours)
+      else if (hoursUntilDue >= 47 && hoursUntilDue <= 49) {
+        timingText = "📆 2 Days Until Due";
+        shouldSend = true;
+      }
       // Check if we should send 24h notification (between 23-25 hours)
-      if (hoursUntilDue >= 23 && hoursUntilDue <= 25) {
+      else if (hoursUntilDue >= 23 && hoursUntilDue <= 25) {
         timingText = "⏰ 24 Hours Until Due";
         shouldSend = true;
       }
@@ -123,6 +148,7 @@ const handler = async (req: Request): Promise<Response> => {
         }
 
         const priorityIcon = reminder.priority === "critical" ? "🔴" : reminder.priority === "urgent" ? "🟠" : "🟢";
+        const formattedDueTime = reminder.due_time ? formatTimeForEmail(reminder.due_time) : '';
 
         const templateParams = {
           email: userEmail,
@@ -133,7 +159,7 @@ const handler = async (req: Request): Promise<Response> => {
             year: 'numeric', 
             month: 'long', 
             day: 'numeric' 
-          }) + (reminder.due_time ? ` at ${reminder.due_time}` : ''),
+          }) + (formattedDueTime ? ` at ${formattedDueTime}` : ''),
           priority_level: reminder.priority.charAt(0).toUpperCase() + reminder.priority.slice(1),
           priority_icon: priorityIcon,
           description: reminder.description || "No description provided",
