@@ -10,6 +10,7 @@ interface EmailRequest {
   reminder_title: string;
   reminder_type: string;
   due_date: string;
+  due_time?: string;
   priority_level: string;
   priority_icon: string;
   description: string;
@@ -28,7 +29,8 @@ const handler = async (req: Request): Promise<Response> => {
       to, 
       reminder_title, 
       reminder_type, 
-      due_date, 
+      due_date,
+      due_time,
       priority_level, 
       priority_icon, 
       description, 
@@ -54,7 +56,7 @@ const handler = async (req: Request): Promise<Response> => {
       email: to,
       reminder_title,
       reminder_type,
-      due_date,
+      due_date: due_time ? `${due_date} at ${due_time}` : due_date,
       priority_level,
       priority_icon,
       description: description || "No description provided",

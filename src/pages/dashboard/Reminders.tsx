@@ -80,6 +80,14 @@ const Reminders = () => {
     const saved = localStorage.getItem('notifyOverdue');
     return saved !== 'false'; // Default true
   });
+  const [notify48Hours, setNotify48Hours] = useState(() => {
+    const saved = localStorage.getItem('notify48Hours');
+    return saved === 'true'; // Default false
+  });
+  const [notify72Hours, setNotify72Hours] = useState(() => {
+    const saved = localStorage.getItem('notify72Hours');
+    return saved === 'true'; // Default false
+  });
   const [savingSettings, setSavingSettings] = useState(false);
   const [sendingTestEmail, setSendingTestEmail] = useState(false);
   const [checkingNotifications, setCheckingNotifications] = useState(false);
@@ -89,7 +97,9 @@ const Reminders = () => {
     localStorage.setItem('notify24Hours', notify24Hours.toString());
     localStorage.setItem('notify1Hour', notify1Hour.toString());
     localStorage.setItem('notifyOverdue', notifyOverdue.toString());
-  }, [emailEnabled, notify24Hours, notify1Hour, notifyOverdue]);
+    localStorage.setItem('notify48Hours', notify48Hours.toString());
+    localStorage.setItem('notify72Hours', notify72Hours.toString());
+  }, [emailEnabled, notify24Hours, notify1Hour, notifyOverdue, notify48Hours, notify72Hours]);
   
   useEffect(() => {
     if (user?.email && !notifyEmail) {
@@ -276,7 +286,8 @@ const Reminders = () => {
     reminderType: string = "assignment",
     reminderPriority: string = "normal",
     reminderDescription: string = "",
-    timingText: string = "New Reminder Created"
+    timingText: string = "New Reminder Created",
+    reminderDueTime: string | null = null
   ) => {
     const emailTo = notifyEmail || user?.email;
     if (!emailTo) return;
@@ -299,6 +310,7 @@ const Reminders = () => {
             month: 'long', 
             day: 'numeric' 
           }),
+          due_time: reminderDueTime ? formatTime(reminderDueTime) : undefined,
           priority_level: reminderPriority.charAt(0).toUpperCase() + reminderPriority.slice(1),
           priority_icon: getPriorityIcon(reminderPriority),
           description: reminderDescription || "No description provided",
@@ -370,7 +382,7 @@ const Reminders = () => {
 
       // Send email if checkbox is checked
       if (sendEmail) {
-        await sendEmailNotification(title, reminderDueDate, type, priority, description, "🔔 New Reminder Created");
+        await sendEmailNotification(title, reminderDueDate, type, priority, description, "🔔 New Reminder Created", dueTime || null);
       }
 
       setTitle("");
@@ -855,6 +867,26 @@ Example:
               <div className="space-y-1">
                 <h4 className="font-medium text-sm">Notification Timing</h4>
                 <div className="space-y-3 mt-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="notify72h"
+                      checked={notify72Hours}
+                      onCheckedChange={(checked) => setNotify72Hours(checked as boolean)}
+                    />
+                    <label htmlFor="notify72h" className="text-sm cursor-pointer">
+                      3 days before due date
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="notify48h"
+                      checked={notify48Hours}
+                      onCheckedChange={(checked) => setNotify48Hours(checked as boolean)}
+                    />
+                    <label htmlFor="notify48h" className="text-sm cursor-pointer">
+                      2 days before due date
+                    </label>
+                  </div>
                   <div className="flex items-center gap-2">
                     <Checkbox
                       id="notify24h"
