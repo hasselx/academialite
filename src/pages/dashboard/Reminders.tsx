@@ -10,12 +10,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Bell, RefreshCw, Trash2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles, Calendar, Send, GraduationCap, X, Settings, ChevronDown, Pencil } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Bell, RefreshCw, Trash2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles, Calendar, Send, GraduationCap, X, Settings, ChevronDown, Pencil, PieChart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTimeSettings } from "@/hooks/useTimeSettings";
+import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
 interface Reminder {
   id: string;
@@ -207,6 +209,21 @@ const Reminders = () => {
     }).length,
     total: reminders.length
   };
+
+  // Type-based statistics for pie chart
+  const typeStats = {
+    assignment: reminders.filter(r => r.type === "assignment").length,
+    exam: reminders.filter(r => r.type === "exam").length,
+    project: reminders.filter(r => r.type === "project").length,
+    other: reminders.filter(r => r.type === "other").length,
+  };
+
+  const pieChartData = [
+    { name: "Assignments", value: typeStats.assignment, color: "hsl(var(--primary))" },
+    { name: "Exams", value: typeStats.exam, color: "hsl(var(--destructive))" },
+    { name: "Projects", value: typeStats.project, color: "hsl(var(--success))" },
+    { name: "Other", value: typeStats.other, color: "hsl(var(--muted-foreground))" },
+  ].filter(item => item.value > 0);
 
   // Calculate time left for next exam
   const getTimeLeft = (dueDate: string) => {
@@ -620,6 +637,97 @@ const Reminders = () => {
           </AnimatePresence>
           
           <div className="flex items-center gap-4">
+            {/* Record Button with Sheet */}
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <PieChart className="w-4 h-4" />
+                  Record
+                </Button>
+              </SheetTrigger>
+              <SheetContent className="w-[400px] sm:w-[540px]">
+                <SheetHeader>
+                  <SheetTitle className="flex items-center gap-2">
+                    <PieChart className="w-5 h-5 text-primary" />
+                    Reminder Records
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="mt-6 space-y-6">
+                  {/* Pie Chart */}
+                  {pieChartData.length > 0 ? (
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPieChart>
+                          <Pie
+                            data={pieChartData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={90}
+                            paddingAngle={3}
+                            dataKey="value"
+                            label={({ name, value }) => `${name}: ${value}`}
+                          >
+                            {pieChartData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'hsl(var(--background))', 
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '8px'
+                            }}
+                          />
+                          <Legend />
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="h-64 flex items-center justify-center">
+                      <p className="text-muted-foreground">No reminders to display</p>
+                    </div>
+                  )}
+
+                  {/* Statistics Cards */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <Card className="border-primary/30">
+                      <CardContent className="p-4 text-center">
+                        <div className="text-3xl font-bold text-primary">{typeStats.assignment}</div>
+                        <div className="text-sm text-muted-foreground">Assignments</div>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-destructive/30">
+                      <CardContent className="p-4 text-center">
+                        <div className="text-3xl font-bold text-destructive">{typeStats.exam}</div>
+                        <div className="text-sm text-muted-foreground">Exams</div>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-success/30">
+                      <CardContent className="p-4 text-center">
+                        <div className="text-3xl font-bold text-success">{typeStats.project}</div>
+                        <div className="text-sm text-muted-foreground">Projects</div>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-muted-foreground/30">
+                      <CardContent className="p-4 text-center">
+                        <div className="text-3xl font-bold text-muted-foreground">{typeStats.other}</div>
+                        <div className="text-sm text-muted-foreground">Other</div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Total */}
+                  <Card className="border-info/30 bg-gradient-to-br from-info/10 to-info/5">
+                    <CardContent className="p-4 text-center">
+                      <div className="text-4xl font-bold text-info">{stats.total}</div>
+                      <div className="text-sm text-muted-foreground">Total Active Reminders</div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </SheetContent>
+            </Sheet>
+
             <Button variant="outline" size="sm" onClick={fetchReminders} className="gap-2">
               <RefreshCw className="w-4 h-4" />
               Refresh
