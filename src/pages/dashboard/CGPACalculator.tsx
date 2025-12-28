@@ -18,14 +18,22 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Calculator, Plus, Trash2, BarChart3, TrendingUp, Target, Award, Loader2, Sparkles, Zap, BookOpen, Eye, ChevronRight } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { Calculator, Plus, Trash2, BarChart3, TrendingUp, Target, Award, Loader2, Sparkles, Zap, BookOpen, Eye, ChevronRight, Settings, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Grade scale mapping
-const gradePoints: Record<string, number> = {
+// Default grade scale mapping
+const defaultGradePoints: Record<string, number> = {
   "O": 10,
   "A+": 9.5,
   "A": 9,
@@ -39,7 +47,31 @@ const gradePoints: Record<string, number> = {
   "FA": 0
 };
 
-const gradeOptions = Object.keys(gradePoints);
+// Load custom grade points from localStorage
+const loadCustomGradePoints = (): Record<string, number> => {
+  try {
+    const saved = localStorage.getItem('customGradePoints');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('Error loading custom grade points:', e);
+  }
+  return { ...defaultGradePoints };
+};
+
+// Load custom max CGPA from localStorage
+const loadMaxCGPA = (): number => {
+  try {
+    const saved = localStorage.getItem('maxCGPA');
+    if (saved) {
+      return parseFloat(saved);
+    }
+  } catch (e) {
+    console.error('Error loading max CGPA:', e);
+  }
+  return 10;
+};
 
 interface Course {
   id: string;
@@ -74,6 +106,15 @@ const CGPACalculator = () => {
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   
+  // Grade system customization
+  const [gradePoints, setGradePoints] = useState<Record<string, number>>(loadCustomGradePoints);
+  const [maxCGPA, setMaxCGPA] = useState<number>(loadMaxCGPA);
+  const [editGradePoints, setEditGradePoints] = useState<Record<string, number>>({});
+  const [editMaxCGPA, setEditMaxCGPA] = useState<number>(10);
+  const [newGradeName, setNewGradeName] = useState("");
+  const [newGradeValue, setNewGradeValue] = useState("");
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
   // Session-only entered data (not yet calculated/saved to history view)
   const [sessionQuickSemesters, setSessionQuickSemesters] = useState<QuickSemester[]>([]);
   const [sessionDetailedSemesters, setSessionDetailedSemesters] = useState<Semester[]>([]);
@@ -85,6 +126,9 @@ const CGPACalculator = () => {
   // Detailed mode inputs
   const [newCourse, setNewCourse] = useState({ name: "", credits: "", grade: "O" });
   const [tempCourses, setTempCourses] = useState<Omit<Course, 'id'>[]>([]);
+  
+  // Compute gradeOptions from current gradePoints
+  const gradeOptions = Object.keys(gradePoints);
   
   const { toast } = useToast();
   const { user } = useAuth();
@@ -180,6 +224,68 @@ const CGPACalculator = () => {
     if (sgpa >= 7.0) return { text: "GOOD", class: "bg-info text-info-foreground" };
     if (sgpa >= 6.0) return { text: "AVERAGE", class: "bg-warning text-warning-foreground" };
     return { text: "NEEDS IMPROVEMENT", class: "bg-destructive text-destructive-foreground" };
+  };
+
+  // Grade Settings Handlers
+  const handleOpenSettings = () => {
+    setEditGradePoints({ ...gradePoints });
+    setEditMaxCGPA(maxCGPA);
+    setNewGradeName("");
+    setNewGradeValue("");
+    setIsSettingsOpen(true);
+  };
+
+  const handleSaveSettings = () => {
+    setGradePoints(editGradePoints);
+    setMaxCGPA(editMaxCGPA);
+    localStorage.setItem('customGradePoints', JSON.stringify(editGradePoints));
+    localStorage.setItem('maxCGPA', editMaxCGPA.toString());
+    setIsSettingsOpen(false);
+    toast({
+      title: "Settings saved",
+      description: "Your grade system has been updated."
+    });
+  };
+
+  const handleResetToDefault = () => {
+    setEditGradePoints({ ...defaultGradePoints });
+    setEditMaxCGPA(10);
+  };
+
+  const handleUpdateGradeValue = (grade: string, value: string) => {
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue >= 0) {
+      setEditGradePoints({ ...editGradePoints, [grade]: numValue });
+    }
+  };
+
+  const handleDeleteGrade = (grade: string) => {
+    const updated = { ...editGradePoints };
+    delete updated[grade];
+    setEditGradePoints(updated);
+  };
+
+  const handleAddNewGrade = () => {
+    if (!newGradeName.trim() || !newGradeValue) {
+      toast({
+        title: "Invalid input",
+        description: "Please enter both grade name and value.",
+        variant: "destructive"
+      });
+      return;
+    }
+    const numValue = parseFloat(newGradeValue);
+    if (isNaN(numValue) || numValue < 0) {
+      toast({
+        title: "Invalid value",
+        description: "Grade value must be a positive number.",
+        variant: "destructive"
+      });
+      return;
+    }
+    setEditGradePoints({ ...editGradePoints, [newGradeName.trim().toUpperCase()]: numValue });
+    setNewGradeName("");
+    setNewGradeValue("");
   };
 
   // Quick Mode Handlers
@@ -524,6 +630,104 @@ const CGPACalculator = () => {
           <Calculator className="w-8 h-8" />
           <h1 className="text-3xl font-bold">CGPA Calculator</h1>
         </div>
+        <Sheet open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+          <SheetTrigger asChild>
+            <Button variant="outline" onClick={handleOpenSettings}>
+              <Settings className="w-4 h-4 mr-2" />
+              Grade Settings
+            </Button>
+          </SheetTrigger>
+          <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Grade System Settings</SheetTitle>
+              <SheetDescription>
+                Customize your grade scale and CGPA formula
+              </SheetDescription>
+            </SheetHeader>
+            <div className="space-y-6 mt-6">
+              {/* Max CGPA Setting */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Maximum CGPA Scale</label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  max="10"
+                  value={editMaxCGPA}
+                  onChange={(e) => setEditMaxCGPA(parseFloat(e.target.value) || 10)}
+                  placeholder="e.g., 10"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Set the maximum CGPA scale (e.g., 10 for 10-point, 4 for 4-point)
+                </p>
+              </div>
+
+              {/* Grade Points List */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium">Grade Points</label>
+                <div className="border rounded-lg divide-y max-h-[300px] overflow-y-auto">
+                  {Object.entries(editGradePoints).map(([grade, points]) => (
+                    <div key={grade} className="flex items-center gap-3 p-3">
+                      <span className="font-medium w-12">{grade}</span>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={points}
+                        onChange={(e) => handleUpdateGradeValue(grade, e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteGrade(grade)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Add New Grade */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium">Add New Grade</label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Grade (e.g., S)"
+                    value={newGradeName}
+                    onChange={(e) => setNewGradeName(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    placeholder="Points"
+                    value={newGradeValue}
+                    onChange={(e) => setNewGradeValue(e.target.value)}
+                    className="w-24"
+                  />
+                  <Button variant="outline" size="icon" onClick={handleAddNewGrade}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-2 pt-4">
+                <Button onClick={handleSaveSettings} className="w-full">
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Changes
+                </Button>
+                <Button variant="outline" onClick={handleResetToDefault} className="w-full">
+                  Reset to Default
+                </Button>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
 
       <p className="text-muted-foreground text-center md:text-left">
@@ -546,7 +750,7 @@ const CGPACalculator = () => {
             ))}
           </div>
           <p className="text-sm text-muted-foreground mt-3">
-            <strong>Formula:</strong> CGPA = Σ(Credits × SGPA) / Σ(Credits) | <strong>Percentage:</strong> CGPA × 10
+            <strong>Formula:</strong> CGPA = Σ(Credits × SGPA) / Σ(Credits) | <strong>Percentage:</strong> CGPA × {maxCGPA}
           </p>
         </CardContent>
       </Card>
