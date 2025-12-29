@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,7 +17,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTimeSettings } from "@/hooks/useTimeSettings";
-import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Label, Sector } from "recharts";
+import { ChartContainer, ChartConfig } from "@/components/ui/chart";
+import type { PieSectorDataItem } from "recharts/types/polar/Pie";
 
 interface Reminder {
   id: string;
@@ -247,12 +249,44 @@ const Reminders = () => {
     total: completedReminders.length,
   };
 
+  // Type-based statistics for ongoing reminders
+  const ongoingTypeStats = {
+    assignment: reminders.filter(r => r.type === "assignment").length,
+    exam: reminders.filter(r => r.type === "exam").length,
+    project: reminders.filter(r => r.type === "project").length,
+    other: reminders.filter(r => r.type === "other").length,
+    total: reminders.length,
+  };
+
+  // State for record view
+  const [recordViewType, setRecordViewType] = useState<"completed" | "ongoing">("completed");
+  const [activeType, setActiveType] = useState<string>("assignment");
+
+  // Get current stats based on view type
+  const currentTypeStats = recordViewType === "completed" ? completedTypeStats : ongoingTypeStats;
+
+  // Chart config for interactive pie
+  const chartConfig = {
+    count: { label: "Count" },
+    assignment: { label: "Assignments", color: "hsl(var(--primary))" },
+    exam: { label: "Exams", color: "hsl(var(--destructive))" },
+    project: { label: "Projects", color: "hsl(var(--success))" },
+    other: { label: "Other", color: "hsl(var(--muted-foreground))" },
+  } satisfies ChartConfig;
+
   const pieChartData = [
-    { name: "Assignments", value: completedTypeStats.assignment, color: "hsl(var(--primary))" },
-    { name: "Exams", value: completedTypeStats.exam, color: "hsl(var(--destructive))" },
-    { name: "Projects", value: completedTypeStats.project, color: "hsl(var(--success))" },
-    { name: "Other", value: completedTypeStats.other, color: "hsl(var(--muted-foreground))" },
-  ].filter(item => item.value > 0);
+    { type: "assignment", count: currentTypeStats.assignment, fill: "var(--color-assignment)" },
+    { type: "exam", count: currentTypeStats.exam, fill: "var(--color-exam)" },
+    { type: "project", count: currentTypeStats.project, fill: "var(--color-project)" },
+    { type: "other", count: currentTypeStats.other, fill: "var(--color-other)" },
+  ].filter(item => item.count > 0);
+
+  const activeIndex = React.useMemo(
+    () => pieChartData.findIndex((item) => item.type === activeType),
+    [activeType, pieChartData]
+  );
+
+  const types = React.useMemo(() => pieChartData.map((item) => item.type), [pieChartData]);
 
   // Calculate time left for next exam
   const getTimeLeft = (dueDate: string) => {
@@ -682,43 +716,111 @@ const Reminders = () => {
                 <SheetHeader>
                   <SheetTitle className="flex items-center gap-2">
                     <PieChart className="w-5 h-5 text-primary" />
-                    Completed Tasks Record
+                    Tasks Record
                   </SheetTitle>
                 </SheetHeader>
                 <div className="mt-6 space-y-6">
-                  {/* Pie Chart */}
+                  {/* View Type Selector */}
+                  <Select value={recordViewType} onValueChange={(v) => setRecordViewType(v as "completed" | "ongoing")}>
+                    <SelectTrigger className="w-full" aria-label="Select view type">
+                      <SelectValue placeholder="Select view" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="completed">Completed Reminders</SelectItem>
+                      <SelectItem value="ongoing">Ongoing</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Interactive Pie Chart */}
                   {pieChartData.length > 0 ? (
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RechartsPieChart>
-                          <Pie
-                            data={pieChartData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={90}
-                            paddingAngle={3}
-                            dataKey="value"
-                            label={({ name, value }) => `${name}: ${value}`}
-                          >
-                            {pieChartData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip 
-                            contentStyle={{ 
-                              backgroundColor: 'hsl(var(--background))', 
-                              border: '1px solid hsl(var(--border))',
-                              borderRadius: '8px'
-                            }}
-                          />
-                          <Legend />
-                        </RechartsPieChart>
-                      </ResponsiveContainer>
-                    </div>
+                    <Card className="flex flex-col">
+                      <CardHeader className="items-center pb-0">
+                        <CardTitle className="text-lg">
+                          {recordViewType === "completed" ? "Completed Tasks" : "Ongoing Tasks"}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="flex flex-1 justify-center pb-0">
+                        <ChartContainer
+                          config={chartConfig}
+                          className="mx-auto aspect-square w-full max-w-[300px]"
+                        >
+                          <RechartsPieChart>
+                            <Pie
+                              data={pieChartData}
+                              dataKey="count"
+                              nameKey="type"
+                              innerRadius={60}
+                              outerRadius={100}
+                              strokeWidth={5}
+                              activeIndex={activeIndex}
+                              activeShape={({ outerRadius = 0, ...props }: PieSectorDataItem) => (
+                                <Sector {...props} outerRadius={outerRadius + 10} />
+                              )}
+                            >
+                              <Label
+                                content={({ viewBox }) => {
+                                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                                    const activeData = pieChartData[activeIndex >= 0 ? activeIndex : 0];
+                                    return (
+                                      <text
+                                        x={viewBox.cx}
+                                        y={viewBox.cy}
+                                        textAnchor="middle"
+                                        dominantBaseline="middle"
+                                      >
+                                        <tspan
+                                          x={viewBox.cx}
+                                          y={viewBox.cy}
+                                          className="fill-foreground text-3xl font-bold"
+                                        >
+                                          {activeData?.count?.toLocaleString() || currentTypeStats.total}
+                                        </tspan>
+                                        <tspan
+                                          x={viewBox.cx}
+                                          y={(viewBox.cy || 0) + 24}
+                                          className="fill-muted-foreground text-sm"
+                                        >
+                                          {chartConfig[activeData?.type as keyof typeof chartConfig]?.label || "Total"}
+                                        </tspan>
+                                      </text>
+                                    );
+                                  }
+                                }}
+                              />
+                            </Pie>
+                          </RechartsPieChart>
+                        </ChartContainer>
+                      </CardContent>
+                      <CardContent className="pb-4">
+                        <Select value={activeType} onValueChange={setActiveType}>
+                          <SelectTrigger className="w-full" aria-label="Select type">
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {types.map((key) => {
+                              const config = chartConfig[key as keyof typeof chartConfig];
+                              if (!config) return null;
+                              return (
+                                <SelectItem key={key} value={key}>
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className="h-3 w-3 shrink-0 rounded-sm"
+                                      style={{ backgroundColor: 'color' in config ? config.color : undefined }}
+                                    />
+                                    {config?.label}
+                                  </div>
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </CardContent>
+                    </Card>
                   ) : (
                     <div className="h-64 flex items-center justify-center">
-                      <p className="text-muted-foreground">No completed tasks yet</p>
+                      <p className="text-muted-foreground">
+                        {recordViewType === "completed" ? "No completed tasks yet" : "No ongoing tasks"}
+                      </p>
                     </div>
                   )}
 
@@ -726,25 +828,25 @@ const Reminders = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <Card className="border-primary/30">
                       <CardContent className="p-4 text-center">
-                        <div className="text-3xl font-bold text-primary">{completedTypeStats.assignment}</div>
+                        <div className="text-3xl font-bold text-primary">{currentTypeStats.assignment}</div>
                         <div className="text-sm text-muted-foreground">Assignments</div>
                       </CardContent>
                     </Card>
                     <Card className="border-destructive/30">
                       <CardContent className="p-4 text-center">
-                        <div className="text-3xl font-bold text-destructive">{completedTypeStats.exam}</div>
+                        <div className="text-3xl font-bold text-destructive">{currentTypeStats.exam}</div>
                         <div className="text-sm text-muted-foreground">Exams</div>
                       </CardContent>
                     </Card>
                     <Card className="border-success/30">
                       <CardContent className="p-4 text-center">
-                        <div className="text-3xl font-bold text-success">{completedTypeStats.project}</div>
+                        <div className="text-3xl font-bold text-success">{currentTypeStats.project}</div>
                         <div className="text-sm text-muted-foreground">Projects</div>
                       </CardContent>
                     </Card>
                     <Card className="border-muted-foreground/30">
                       <CardContent className="p-4 text-center">
-                        <div className="text-3xl font-bold text-muted-foreground">{completedTypeStats.other}</div>
+                        <div className="text-3xl font-bold text-muted-foreground">{currentTypeStats.other}</div>
                         <div className="text-sm text-muted-foreground">Other</div>
                       </CardContent>
                     </Card>
@@ -753,8 +855,10 @@ const Reminders = () => {
                   {/* Total */}
                   <Card className="border-info/30 bg-gradient-to-br from-info/10 to-info/5">
                     <CardContent className="p-4 text-center">
-                      <div className="text-4xl font-bold text-info">{completedTypeStats.total}</div>
-                      <div className="text-sm text-muted-foreground">Total Completed Tasks</div>
+                      <div className="text-4xl font-bold text-info">{currentTypeStats.total}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {recordViewType === "completed" ? "Total Completed" : "Total Ongoing"}
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
