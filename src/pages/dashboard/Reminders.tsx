@@ -39,6 +39,7 @@ interface Exam {
 
 const Reminders = () => {
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [completedReminders, setCompletedReminders] = useState<Reminder[]>([]);
   const [messageText, setMessageText] = useState("");
   const [title, setTitle] = useState("");
   const [type, setType] = useState<string>("assignment");
@@ -133,9 +134,36 @@ const Reminders = () => {
   useEffect(() => {
     if (user) {
       fetchReminders();
+      fetchCompletedReminders();
       fetchUpcomingExam();
     }
   }, [user]);
+
+  const fetchCompletedReminders = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('reminders')
+        .select('*')
+        .eq('user_id', user?.id)
+        .eq('completed', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setCompletedReminders(data?.map(r => ({
+        id: r.id,
+        title: r.title,
+        description: r.description || "",
+        type: r.type as Reminder['type'],
+        dueDate: r.due_date,
+        dueTime: r.due_time || null,
+        priority: r.priority as Reminder['priority'],
+        completed: r.completed
+      })) || []);
+    } catch (error: any) {
+      console.error("Error fetching completed reminders:", error.message);
+    }
+  };
 
   const fetchReminders = async () => {
     try {
@@ -210,19 +238,20 @@ const Reminders = () => {
     total: reminders.length
   };
 
-  // Type-based statistics for pie chart
-  const typeStats = {
-    assignment: reminders.filter(r => r.type === "assignment").length,
-    exam: reminders.filter(r => r.type === "exam").length,
-    project: reminders.filter(r => r.type === "project").length,
-    other: reminders.filter(r => r.type === "other").length,
+  // Type-based statistics for pie chart (completed reminders)
+  const completedTypeStats = {
+    assignment: completedReminders.filter(r => r.type === "assignment").length,
+    exam: completedReminders.filter(r => r.type === "exam").length,
+    project: completedReminders.filter(r => r.type === "project").length,
+    other: completedReminders.filter(r => r.type === "other").length,
+    total: completedReminders.length,
   };
 
   const pieChartData = [
-    { name: "Assignments", value: typeStats.assignment, color: "hsl(var(--primary))" },
-    { name: "Exams", value: typeStats.exam, color: "hsl(var(--destructive))" },
-    { name: "Projects", value: typeStats.project, color: "hsl(var(--success))" },
-    { name: "Other", value: typeStats.other, color: "hsl(var(--muted-foreground))" },
+    { name: "Assignments", value: completedTypeStats.assignment, color: "hsl(var(--primary))" },
+    { name: "Exams", value: completedTypeStats.exam, color: "hsl(var(--destructive))" },
+    { name: "Projects", value: completedTypeStats.project, color: "hsl(var(--success))" },
+    { name: "Other", value: completedTypeStats.other, color: "hsl(var(--muted-foreground))" },
   ].filter(item => item.value > 0);
 
   // Calculate time left for next exam
@@ -551,6 +580,10 @@ const Reminders = () => {
 
       if (error) throw error;
 
+      const completedReminder = reminders.find(r => r.id === id);
+      if (completedReminder) {
+        setCompletedReminders(prev => [{ ...completedReminder, completed: true }, ...prev]);
+      }
       setReminders(reminders.filter(r => r.id !== id));
       toast({
         title: "Reminder completed!",
@@ -649,7 +682,7 @@ const Reminders = () => {
                 <SheetHeader>
                   <SheetTitle className="flex items-center gap-2">
                     <PieChart className="w-5 h-5 text-primary" />
-                    Reminder Records
+                    Completed Tasks Record
                   </SheetTitle>
                 </SheetHeader>
                 <div className="mt-6 space-y-6">
@@ -685,7 +718,7 @@ const Reminders = () => {
                     </div>
                   ) : (
                     <div className="h-64 flex items-center justify-center">
-                      <p className="text-muted-foreground">No reminders to display</p>
+                      <p className="text-muted-foreground">No completed tasks yet</p>
                     </div>
                   )}
 
@@ -693,25 +726,25 @@ const Reminders = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <Card className="border-primary/30">
                       <CardContent className="p-4 text-center">
-                        <div className="text-3xl font-bold text-primary">{typeStats.assignment}</div>
+                        <div className="text-3xl font-bold text-primary">{completedTypeStats.assignment}</div>
                         <div className="text-sm text-muted-foreground">Assignments</div>
                       </CardContent>
                     </Card>
                     <Card className="border-destructive/30">
                       <CardContent className="p-4 text-center">
-                        <div className="text-3xl font-bold text-destructive">{typeStats.exam}</div>
+                        <div className="text-3xl font-bold text-destructive">{completedTypeStats.exam}</div>
                         <div className="text-sm text-muted-foreground">Exams</div>
                       </CardContent>
                     </Card>
                     <Card className="border-success/30">
                       <CardContent className="p-4 text-center">
-                        <div className="text-3xl font-bold text-success">{typeStats.project}</div>
+                        <div className="text-3xl font-bold text-success">{completedTypeStats.project}</div>
                         <div className="text-sm text-muted-foreground">Projects</div>
                       </CardContent>
                     </Card>
                     <Card className="border-muted-foreground/30">
                       <CardContent className="p-4 text-center">
-                        <div className="text-3xl font-bold text-muted-foreground">{typeStats.other}</div>
+                        <div className="text-3xl font-bold text-muted-foreground">{completedTypeStats.other}</div>
                         <div className="text-sm text-muted-foreground">Other</div>
                       </CardContent>
                     </Card>
@@ -720,8 +753,8 @@ const Reminders = () => {
                   {/* Total */}
                   <Card className="border-info/30 bg-gradient-to-br from-info/10 to-info/5">
                     <CardContent className="p-4 text-center">
-                      <div className="text-4xl font-bold text-info">{stats.total}</div>
-                      <div className="text-sm text-muted-foreground">Total Active Reminders</div>
+                      <div className="text-4xl font-bold text-info">{completedTypeStats.total}</div>
+                      <div className="text-sm text-muted-foreground">Total Completed Tasks</div>
                     </CardContent>
                   </Card>
                 </div>
