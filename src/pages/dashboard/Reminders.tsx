@@ -712,14 +712,14 @@ const Reminders = () => {
                   Record
                 </Button>
               </SheetTrigger>
-              <SheetContent className="w-[400px] sm:w-[540px]">
+              <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
                 <SheetHeader>
                   <SheetTitle className="flex items-center gap-2">
                     <PieChart className="w-5 h-5 text-primary" />
                     Tasks Record
                   </SheetTitle>
                 </SheetHeader>
-                <div className="mt-6 space-y-6">
+                <div className="mt-6 space-y-6 pb-8">
                   {/* View Type Selector */}
                   <Select value={recordViewType} onValueChange={(v) => setRecordViewType(v as "completed" | "ongoing")}>
                     <SelectTrigger className="w-full" aria-label="Select view type">
