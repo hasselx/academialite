@@ -11,8 +11,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Bell, RefreshCw, Trash2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles, Calendar, Send, GraduationCap, X, Settings, ChevronDown, Pencil, PieChart, CalendarDays } from "lucide-react";
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
+import { Bell, RefreshCw, Trash2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles, Calendar, Send, GraduationCap, X, Settings, ChevronDown, Pencil, PieChart, CalendarDays, Search } from "lucide-react";
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO, isBefore, isAfter, format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +31,7 @@ interface Reminder {
   description: string;
   priority: "critical" | "urgent" | "normal";
   completed: boolean;
+  updatedAt?: string;
 }
 
 interface Exam {
@@ -161,7 +162,8 @@ const Reminders = () => {
         dueDate: r.due_date,
         dueTime: r.due_time || null,
         priority: r.priority as Reminder['priority'],
-        completed: r.completed
+        completed: r.completed,
+        updatedAt: r.created_at // Use created_at as completion timestamp proxy
       })) || []);
     } catch (error: any) {
       console.error("Error fetching completed reminders:", error.message);
@@ -265,6 +267,7 @@ const Reminders = () => {
   const [dateRangeFilter, setDateRangeFilter] = useState<"all" | "week" | "month" | "custom">("all");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
+  const [showInspect, setShowInspect] = useState(false);
 
   // Filter reminders by date range
   const filterByDateRange = (remindersList: Reminder[]) => {
@@ -296,6 +299,28 @@ const Reminders = () => {
   // Filtered reminders based on date range
   const filteredCompletedReminders = filterByDateRange(completedReminders);
   const filteredOngoingReminders = filterByDateRange(reminders);
+
+  // Calculate on-time vs late completion stats
+  const completionStats = useMemo(() => {
+    let onTime = 0;
+    let late = 0;
+    
+    filteredCompletedReminders.forEach(reminder => {
+      const dueDate = parseISO(reminder.dueDate);
+      const completedAt = reminder.updatedAt ? new Date(reminder.updatedAt) : new Date();
+      
+      // Set due date to end of day for fair comparison
+      dueDate.setHours(23, 59, 59, 999);
+      
+      if (isAfter(completedAt, dueDate)) {
+        late++;
+      } else {
+        onTime++;
+      }
+    });
+    
+    return { onTime, late, total: onTime + late };
+  }, [filteredCompletedReminders]);
 
   // Get current stats based on view type with date filter
   const currentTypeStats = recordViewType === "completed" 
@@ -769,6 +794,61 @@ const Reminders = () => {
                   </SheetTitle>
                 </SheetHeader>
                 <div className="mt-6 space-y-6 pb-8">
+                  {/* Inspect Button */}
+                  <Button
+                    variant={showInspect ? "default" : "outline"}
+                    size="sm"
+                    className="w-full gap-2"
+                    onClick={() => setShowInspect(!showInspect)}
+                  >
+                    <Search className="w-4 h-4" />
+                    Inspect Completion Timing
+                  </Button>
+
+                  {/* Inspect Panel */}
+                  {showInspect && (
+                    <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-primary" />
+                          Completion Analysis
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="text-center p-3 rounded-lg bg-success/10 border border-success/20">
+                            <div className="text-2xl font-bold text-success">{completionStats.onTime}</div>
+                            <div className="text-xs text-muted-foreground">On Time</div>
+                          </div>
+                          <div className="text-center p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                            <div className="text-2xl font-bold text-destructive">{completionStats.late}</div>
+                            <div className="text-xs text-muted-foreground">After Due</div>
+                          </div>
+                        </div>
+                        {completionStats.total > 0 && (
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">On-time rate</span>
+                              <span className="font-medium">
+                                {Math.round((completionStats.onTime / completionStats.total) * 100)}%
+                              </span>
+                            </div>
+                            <div className="h-2 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-success rounded-full transition-all duration-300"
+                                style={{ width: `${(completionStats.onTime / completionStats.total) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {completionStats.total === 0 && (
+                          <p className="text-sm text-muted-foreground text-center py-2">
+                            No completed tasks to analyze
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
                   {/* View Type & Date Range Selectors */}
                   <div className="grid grid-cols-2 gap-3">
                     <Select value={recordViewType} onValueChange={(v) => setRecordViewType(v as "completed" | "ongoing")}>
