@@ -11,7 +11,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Bell, RefreshCw, Trash2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles, Calendar, Send, GraduationCap, X, Settings, ChevronDown, Pencil, PieChart } from "lucide-react";
+import { Bell, RefreshCw, Trash2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles, Calendar, Send, GraduationCap, X, Settings, ChevronDown, Pencil, PieChart, CalendarDays } from "lucide-react";
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -261,9 +262,57 @@ const Reminders = () => {
   // State for record view
   const [recordViewType, setRecordViewType] = useState<"completed" | "ongoing">("completed");
   const [activeType, setActiveType] = useState<string>("assignment");
+  const [dateRangeFilter, setDateRangeFilter] = useState<"all" | "week" | "month" | "custom">("all");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
 
-  // Get current stats based on view type
-  const currentTypeStats = recordViewType === "completed" ? completedTypeStats : ongoingTypeStats;
+  // Filter reminders by date range
+  const filterByDateRange = (remindersList: Reminder[]) => {
+    if (dateRangeFilter === "all") return remindersList;
+    
+    const today = new Date();
+    let startDate: Date;
+    let endDate: Date;
+    
+    if (dateRangeFilter === "week") {
+      startDate = startOfWeek(today, { weekStartsOn: 1 });
+      endDate = endOfWeek(today, { weekStartsOn: 1 });
+    } else if (dateRangeFilter === "month") {
+      startDate = startOfMonth(today);
+      endDate = endOfMonth(today);
+    } else if (dateRangeFilter === "custom" && customStartDate && customEndDate) {
+      startDate = parseISO(customStartDate);
+      endDate = parseISO(customEndDate);
+    } else {
+      return remindersList;
+    }
+    
+    return remindersList.filter(r => {
+      const reminderDate = parseISO(r.dueDate);
+      return isWithinInterval(reminderDate, { start: startDate, end: endDate });
+    });
+  };
+
+  // Filtered reminders based on date range
+  const filteredCompletedReminders = filterByDateRange(completedReminders);
+  const filteredOngoingReminders = filterByDateRange(reminders);
+
+  // Get current stats based on view type with date filter
+  const currentTypeStats = recordViewType === "completed" 
+    ? {
+        assignment: filteredCompletedReminders.filter(r => r.type === "assignment").length,
+        exam: filteredCompletedReminders.filter(r => r.type === "exam").length,
+        project: filteredCompletedReminders.filter(r => r.type === "project").length,
+        other: filteredCompletedReminders.filter(r => r.type === "other").length,
+        total: filteredCompletedReminders.length,
+      }
+    : {
+        assignment: filteredOngoingReminders.filter(r => r.type === "assignment").length,
+        exam: filteredOngoingReminders.filter(r => r.type === "exam").length,
+        project: filteredOngoingReminders.filter(r => r.type === "project").length,
+        other: filteredOngoingReminders.filter(r => r.type === "other").length,
+        total: filteredOngoingReminders.length,
+      };
 
   // Chart config for interactive pie
   const chartConfig = {
@@ -720,16 +769,55 @@ const Reminders = () => {
                   </SheetTitle>
                 </SheetHeader>
                 <div className="mt-6 space-y-6 pb-8">
-                  {/* View Type Selector */}
-                  <Select value={recordViewType} onValueChange={(v) => setRecordViewType(v as "completed" | "ongoing")}>
-                    <SelectTrigger className="w-full" aria-label="Select view type">
-                      <SelectValue placeholder="Select view" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="completed">Completed Reminders</SelectItem>
-                      <SelectItem value="ongoing">Ongoing</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {/* View Type & Date Range Selectors */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select value={recordViewType} onValueChange={(v) => setRecordViewType(v as "completed" | "ongoing")}>
+                      <SelectTrigger aria-label="Select view type">
+                        <SelectValue placeholder="Select view" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="ongoing">Ongoing</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    <Select value={dateRangeFilter} onValueChange={(v) => setDateRangeFilter(v as "all" | "week" | "month" | "custom")}>
+                      <SelectTrigger aria-label="Select date range">
+                        <CalendarDays className="w-4 h-4 mr-2" />
+                        <SelectValue placeholder="Date range" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Time</SelectItem>
+                        <SelectItem value="week">This Week</SelectItem>
+                        <SelectItem value="month">This Month</SelectItem>
+                        <SelectItem value="custom">Custom Range</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Custom Date Range Inputs */}
+                  {dateRangeFilter === "custom" && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">Start Date</label>
+                        <Input
+                          type="date"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground">End Date</label>
+                        <Input
+                          type="date"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {/* Interactive Pie Chart */}
                   {pieChartData.length > 0 ? (
