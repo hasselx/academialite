@@ -752,15 +752,10 @@ const Reminders = () => {
                               innerRadius={60}
                               outerRadius={100}
                               strokeWidth={5}
-                              activeIndex={activeIndex}
-                              activeShape={({ outerRadius = 0, ...props }: PieSectorDataItem) => (
-                                <Sector {...props} outerRadius={outerRadius + 10} />
-                              )}
                             >
                               <Label
                                 content={({ viewBox }) => {
                                   if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                                    const activeData = pieChartData[activeIndex >= 0 ? activeIndex : 0];
                                     return (
                                       <text
                                         x={viewBox.cx}
@@ -773,14 +768,14 @@ const Reminders = () => {
                                           y={viewBox.cy}
                                           className="fill-foreground text-3xl font-bold"
                                         >
-                                          {activeData?.count?.toLocaleString() || currentTypeStats.total}
+                                          {currentTypeStats.total.toLocaleString()}
                                         </tspan>
                                         <tspan
                                           x={viewBox.cx}
                                           y={(viewBox.cy || 0) + 24}
                                           className="fill-muted-foreground text-sm"
                                         >
-                                          {chartConfig[activeData?.type as keyof typeof chartConfig]?.label || "Total"}
+                                          {recordViewType === "completed" ? "Completed" : "Ongoing"}
                                         </tspan>
                                       </text>
                                     );
@@ -790,30 +785,6 @@ const Reminders = () => {
                             </Pie>
                           </RechartsPieChart>
                         </ChartContainer>
-                      </CardContent>
-                      <CardContent className="pb-4">
-                        <Select value={activeType} onValueChange={setActiveType}>
-                          <SelectTrigger className="w-full" aria-label="Select type">
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {types.map((key) => {
-                              const config = chartConfig[key as keyof typeof chartConfig];
-                              if (!config) return null;
-                              return (
-                                <SelectItem key={key} value={key}>
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className="h-3 w-3 shrink-0 rounded-sm"
-                                      style={{ backgroundColor: 'color' in config ? config.color : undefined }}
-                                    />
-                                    {config?.label}
-                                  </div>
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
                       </CardContent>
                     </Card>
                   ) : (
