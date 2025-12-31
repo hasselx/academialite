@@ -842,7 +842,7 @@ const Reminders = () => {
                           type="date"
                           value={customStartDate}
                           onChange={(e) => setCustomStartDate(e.target.value)}
-                          className="w-full"
+                          className="w-full date-input"
                         />
                       </div>
                       <div className="space-y-1">
@@ -851,7 +851,7 @@ const Reminders = () => {
                           type="date"
                           value={customEndDate}
                           onChange={(e) => setCustomEndDate(e.target.value)}
-                          className="w-full"
+                          className="w-full date-input"
                         />
                       </div>
                     </div>
