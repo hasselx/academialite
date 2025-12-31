@@ -262,7 +262,7 @@ const Reminders = () => {
   };
 
   // State for record view
-  const [recordViewType, setRecordViewType] = useState<"completed" | "ongoing">("completed");
+  const [recordViewType, setRecordViewType] = useState<"completed" | "ongoing" | "inspect">("completed");
   const [activeType, setActiveType] = useState<string>("assignment");
   const [dateRangeFilter, setDateRangeFilter] = useState<"all" | "week" | "month" | "custom">("all");
   const [customStartDate, setCustomStartDate] = useState("");
@@ -323,20 +323,20 @@ const Reminders = () => {
   }, [filteredCompletedReminders]);
 
   // Get current stats based on view type with date filter
-  const currentTypeStats = recordViewType === "completed" 
+  const currentTypeStats = recordViewType === "ongoing" 
     ? {
-        assignment: filteredCompletedReminders.filter(r => r.type === "assignment").length,
-        exam: filteredCompletedReminders.filter(r => r.type === "exam").length,
-        project: filteredCompletedReminders.filter(r => r.type === "project").length,
-        other: filteredCompletedReminders.filter(r => r.type === "other").length,
-        total: filteredCompletedReminders.length,
-      }
-    : {
         assignment: filteredOngoingReminders.filter(r => r.type === "assignment").length,
         exam: filteredOngoingReminders.filter(r => r.type === "exam").length,
         project: filteredOngoingReminders.filter(r => r.type === "project").length,
         other: filteredOngoingReminders.filter(r => r.type === "other").length,
         total: filteredOngoingReminders.length,
+      }
+    : {
+        assignment: filteredCompletedReminders.filter(r => r.type === "assignment").length,
+        exam: filteredCompletedReminders.filter(r => r.type === "exam").length,
+        project: filteredCompletedReminders.filter(r => r.type === "project").length,
+        other: filteredCompletedReminders.filter(r => r.type === "other").length,
+        total: filteredCompletedReminders.length,
       };
 
   // Chart config for interactive pie
@@ -794,70 +794,28 @@ const Reminders = () => {
                   </SheetTitle>
                 </SheetHeader>
                 <div className="mt-6 space-y-6 pb-8">
-                  {/* Inspect Button */}
-                  <Button
-                    variant={showInspect ? "default" : "outline"}
-                    size="sm"
-                    className="w-full gap-2"
-                    onClick={() => setShowInspect(!showInspect)}
-                  >
-                    <Search className="w-4 h-4" />
-                    Inspect Completion Timing
-                  </Button>
-
-                  {/* Inspect Panel */}
-                  {showInspect && (
-                    <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-primary" />
-                          Completion Analysis
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="text-center p-3 rounded-lg bg-success/10 border border-success/20">
-                            <div className="text-2xl font-bold text-success">{completionStats.onTime}</div>
-                            <div className="text-xs text-muted-foreground">On Time</div>
-                          </div>
-                          <div className="text-center p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                            <div className="text-2xl font-bold text-destructive">{completionStats.late}</div>
-                            <div className="text-xs text-muted-foreground">After Due</div>
-                          </div>
-                        </div>
-                        {completionStats.total > 0 && (
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">On-time rate</span>
-                              <span className="font-medium">
-                                {Math.round((completionStats.onTime / completionStats.total) * 100)}%
-                              </span>
-                            </div>
-                            <div className="h-2 bg-muted rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-success rounded-full transition-all duration-300"
-                                style={{ width: `${(completionStats.onTime / completionStats.total) * 100}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-                        {completionStats.total === 0 && (
-                          <p className="text-sm text-muted-foreground text-center py-2">
-                            No completed tasks to analyze
-                          </p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )}
                   {/* View Type & Date Range Selectors */}
                   <div className="grid grid-cols-2 gap-3">
-                    <Select value={recordViewType} onValueChange={(v) => setRecordViewType(v as "completed" | "ongoing")}>
+                    <Select value={recordViewType} onValueChange={(v) => {
+                      setRecordViewType(v as "completed" | "ongoing" | "inspect");
+                      if (v === "inspect") {
+                        setShowInspect(true);
+                      } else {
+                        setShowInspect(false);
+                      }
+                    }}>
                       <SelectTrigger aria-label="Select view type">
                         <SelectValue placeholder="Select view" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="completed">Completed</SelectItem>
                         <SelectItem value="ongoing">Ongoing</SelectItem>
+                        <SelectItem value="inspect">
+                          <span className="flex items-center gap-2">
+                            <Search className="w-3 h-3" />
+                            Inspect
+                          </span>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     
@@ -903,11 +861,12 @@ const Reminders = () => {
                   {pieChartData.length > 0 ? (
                     <Card className="flex flex-col">
                       <CardHeader className="items-center pb-0">
-                        <CardTitle className="text-lg">
-                          {recordViewType === "completed" ? "Completed Tasks" : "Ongoing Tasks"}
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          {recordViewType === "inspect" && <Clock className="w-5 h-5 text-primary" />}
+                          {recordViewType === "completed" ? "Completed Tasks" : recordViewType === "ongoing" ? "Ongoing Tasks" : "Completion Analysis"}
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="flex flex-1 justify-center pb-0">
+                      <CardContent className="flex flex-1 flex-col items-center pb-4">
                         <ChartContainer
                           config={chartConfig}
                           className="mx-auto aspect-square w-full max-w-[300px]"
@@ -943,7 +902,7 @@ const Reminders = () => {
                                           y={(viewBox.cy || 0) + 24}
                                           className="fill-muted-foreground text-sm"
                                         >
-                                          {recordViewType === "completed" ? "Completed" : "Ongoing"}
+                                          {recordViewType === "ongoing" ? "Ongoing" : "Completed"}
                                         </tspan>
                                       </text>
                                     );
@@ -953,53 +912,94 @@ const Reminders = () => {
                             </Pie>
                           </RechartsPieChart>
                         </ChartContainer>
+
+                        {/* Completion Analysis (shown for inspect mode) */}
+                        {recordViewType === "inspect" && (
+                          <div className="w-full space-y-4 pt-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="text-center p-4 rounded-xl bg-success/10 border border-success/30">
+                                <div className="text-4xl font-bold text-success">{completionStats.onTime}</div>
+                                <div className="text-sm text-muted-foreground mt-1">On Time</div>
+                              </div>
+                              <div className="text-center p-4 rounded-xl bg-destructive/10 border border-destructive/30">
+                                <div className="text-4xl font-bold text-destructive">{completionStats.late}</div>
+                                <div className="text-sm text-muted-foreground mt-1">After Due</div>
+                              </div>
+                            </div>
+                            {completionStats.total > 0 && (
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">On-time rate</span>
+                                  <span className="font-semibold">
+                                    {Math.round((completionStats.onTime / completionStats.total) * 100)}%
+                                  </span>
+                                </div>
+                                <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                                  <div 
+                                    className="h-full bg-success rounded-full transition-all duration-300"
+                                    style={{ width: `${(completionStats.onTime / completionStats.total) * 100}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                            {completionStats.total === 0 && (
+                              <p className="text-sm text-muted-foreground text-center py-2">
+                                No completed tasks to analyze
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ) : (
                     <div className="h-64 flex items-center justify-center">
                       <p className="text-muted-foreground">
-                        {recordViewType === "completed" ? "No completed tasks yet" : "No ongoing tasks"}
+                        {recordViewType === "ongoing" ? "No ongoing tasks" : "No completed tasks yet"}
                       </p>
                     </div>
                   )}
 
-                  {/* Statistics Cards */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <Card className="border-primary/30">
-                      <CardContent className="p-4 text-center">
-                        <div className="text-3xl font-bold text-primary">{currentTypeStats.assignment}</div>
-                        <div className="text-sm text-muted-foreground">Assignments</div>
-                      </CardContent>
-                    </Card>
-                    <Card className="border-destructive/30">
-                      <CardContent className="p-4 text-center">
-                        <div className="text-3xl font-bold text-destructive">{currentTypeStats.exam}</div>
-                        <div className="text-sm text-muted-foreground">Exams</div>
-                      </CardContent>
-                    </Card>
-                    <Card className="border-success/30">
-                      <CardContent className="p-4 text-center">
-                        <div className="text-3xl font-bold text-success">{currentTypeStats.project}</div>
-                        <div className="text-sm text-muted-foreground">Projects</div>
-                      </CardContent>
-                    </Card>
-                    <Card className="border-muted-foreground/30">
-                      <CardContent className="p-4 text-center">
-                        <div className="text-3xl font-bold text-muted-foreground">{currentTypeStats.other}</div>
-                        <div className="text-sm text-muted-foreground">Other</div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Total */}
-                  <Card className="border-info/30 bg-gradient-to-br from-info/10 to-info/5">
-                    <CardContent className="p-4 text-center">
-                      <div className="text-4xl font-bold text-info">{currentTypeStats.total}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {recordViewType === "completed" ? "Total Completed" : "Total Ongoing"}
+                  {/* Statistics Cards (hidden for inspect mode) */}
+                  {recordViewType !== "inspect" && (
+                    <>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Card className="border-primary/30">
+                          <CardContent className="p-4 text-center">
+                            <div className="text-3xl font-bold text-primary">{currentTypeStats.assignment}</div>
+                            <div className="text-sm text-muted-foreground">Assignments</div>
+                          </CardContent>
+                        </Card>
+                        <Card className="border-destructive/30">
+                          <CardContent className="p-4 text-center">
+                            <div className="text-3xl font-bold text-destructive">{currentTypeStats.exam}</div>
+                            <div className="text-sm text-muted-foreground">Exams</div>
+                          </CardContent>
+                        </Card>
+                        <Card className="border-success/30">
+                          <CardContent className="p-4 text-center">
+                            <div className="text-3xl font-bold text-success">{currentTypeStats.project}</div>
+                            <div className="text-sm text-muted-foreground">Projects</div>
+                          </CardContent>
+                        </Card>
+                        <Card className="border-muted-foreground/30">
+                          <CardContent className="p-4 text-center">
+                            <div className="text-3xl font-bold text-muted-foreground">{currentTypeStats.other}</div>
+                            <div className="text-sm text-muted-foreground">Other</div>
+                          </CardContent>
+                        </Card>
                       </div>
-                    </CardContent>
-                  </Card>
+
+                      {/* Total */}
+                      <Card className="border-info/30 bg-gradient-to-br from-info/10 to-info/5">
+                        <CardContent className="p-4 text-center">
+                          <div className="text-4xl font-bold text-info">{currentTypeStats.total}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {recordViewType === "completed" ? "Total Completed" : "Total Ongoing"}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </>
+                  )}
                 </div>
               </SheetContent>
             </Sheet>
