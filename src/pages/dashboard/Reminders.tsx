@@ -346,14 +346,21 @@ const Reminders = () => {
     exam: { label: "Exams", color: "hsl(var(--destructive))" },
     project: { label: "Projects", color: "hsl(var(--success))" },
     other: { label: "Other", color: "hsl(var(--muted-foreground))" },
+    onTime: { label: "On Time", color: "hsl(var(--success))" },
+    afterDue: { label: "After Due", color: "hsl(var(--destructive))" },
   } satisfies ChartConfig;
 
-  const pieChartData = [
-    { type: "assignment", count: currentTypeStats.assignment, fill: "var(--color-assignment)" },
-    { type: "exam", count: currentTypeStats.exam, fill: "var(--color-exam)" },
-    { type: "project", count: currentTypeStats.project, fill: "var(--color-project)" },
-    { type: "other", count: currentTypeStats.other, fill: "var(--color-other)" },
-  ].filter(item => item.count > 0);
+  const pieChartData = recordViewType === "inspect" 
+    ? [
+        { type: "onTime", count: completionStats.onTime, fill: "var(--color-onTime)" },
+        { type: "afterDue", count: completionStats.late, fill: "var(--color-afterDue)" },
+      ].filter(item => item.count > 0)
+    : [
+        { type: "assignment", count: currentTypeStats.assignment, fill: "var(--color-assignment)" },
+        { type: "exam", count: currentTypeStats.exam, fill: "var(--color-exam)" },
+        { type: "project", count: currentTypeStats.project, fill: "var(--color-project)" },
+        { type: "other", count: currentTypeStats.other, fill: "var(--color-other)" },
+      ].filter(item => item.count > 0);
 
   const activeIndex = React.useMemo(
     () => pieChartData.findIndex((item) => item.type === activeType),
@@ -732,14 +739,14 @@ const Reminders = () => {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in relative">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in relative overflow-x-hidden">
       {/* Header with Refresh & Email Toggle + Exam Popup above it */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4">
         <div className="flex items-center gap-2 text-primary">
-          <Bell className="w-8 h-8" />
-          <h1 className="text-3xl font-bold">Smart Reminders</h1>
+          <Bell className="w-6 h-6 sm:w-8 sm:h-8 shrink-0" />
+          <h1 className="text-xl sm:text-3xl font-bold">Smart Reminders</h1>
         </div>
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-col sm:items-end gap-2">
           {/* Upcoming Exam Popup - Above email notifications */}
           <AnimatePresence>
             {upcomingExam && showExamPopup && (
@@ -747,8 +754,9 @@ const Reminders = () => {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
+                className="w-full sm:w-auto"
               >
-                <Card className={`bg-gradient-to-br ${getExamPopupColor(upcomingExam.date)} border-none shadow-lg w-72`}>
+                <Card className={`bg-gradient-to-br ${getExamPopupColor(upcomingExam.date)} border-none shadow-lg w-full sm:w-72`}>
                   <CardContent className="p-3 text-white relative">
                     <Button
                       variant="ghost"
@@ -777,16 +785,16 @@ const Reminders = () => {
             )}
           </AnimatePresence>
           
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             {/* Record Button with Sheet */}
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <PieChart className="w-4 h-4" />
-                  Record
+                <Button variant="outline" size="sm" className="gap-1 sm:gap-2 text-xs sm:text-sm">
+                  <PieChart className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden xs:inline">Record</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
+              <SheetContent className="w-full sm:w-[400px] md:w-[540px] overflow-y-auto">
                 <SheetHeader>
                   <SheetTitle className="flex items-center gap-2">
                     <PieChart className="w-5 h-5 text-primary" />
@@ -883,6 +891,14 @@ const Reminders = () => {
                               <Label
                                 content={({ viewBox }) => {
                                   if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                                    const centerValue = recordViewType === "inspect" 
+                                      ? completionStats.total 
+                                      : currentTypeStats.total;
+                                    const centerLabel = recordViewType === "inspect" 
+                                      ? "Analyzed" 
+                                      : recordViewType === "ongoing" 
+                                        ? "Ongoing" 
+                                        : "Completed";
                                     return (
                                       <text
                                         x={viewBox.cx}
@@ -895,14 +911,14 @@ const Reminders = () => {
                                           y={viewBox.cy}
                                           className="fill-foreground text-3xl font-bold"
                                         >
-                                          {currentTypeStats.total.toLocaleString()}
+                                          {centerValue.toLocaleString()}
                                         </tspan>
                                         <tspan
                                           x={viewBox.cx}
                                           y={(viewBox.cy || 0) + 24}
                                           className="fill-muted-foreground text-sm"
                                         >
-                                          {recordViewType === "ongoing" ? "Ongoing" : "Completed"}
+                                          {centerLabel}
                                         </tspan>
                                       </text>
                                     );
@@ -1004,62 +1020,63 @@ const Reminders = () => {
               </SheetContent>
             </Sheet>
 
-            <Button variant="outline" size="sm" onClick={fetchReminders} className="gap-2">
-              <RefreshCw className="w-4 h-4" />
-              Refresh
+            <Button variant="outline" size="sm" onClick={fetchReminders} className="gap-1 sm:gap-2 text-xs sm:text-sm">
+              <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden xs:inline">Refresh</span>
             </Button>
-            <div className="flex items-center gap-2 border rounded-lg px-3 py-2">
-              <Mail className="w-4 h-4 text-primary" />
-              <span className="text-sm">Email Notifications</span>
-              <Switch checked={emailEnabled} onCheckedChange={setEmailEnabled} />
+            <div className="flex items-center gap-1.5 sm:gap-2 border rounded-lg px-2 sm:px-3 py-1.5 sm:py-2">
+              <Mail className="w-3 h-3 sm:w-4 sm:h-4 text-primary shrink-0" />
+              <span className="text-xs sm:text-sm hidden sm:inline">Email Notifications</span>
+              <span className="text-xs sm:hidden">Email</span>
+              <Switch checked={emailEnabled} onCheckedChange={setEmailEnabled} className="scale-90 sm:scale-100" />
             </div>
           </div>
         </div>
       </div>
 
-      <p className="text-muted-foreground text-center md:text-left">
+      <p className="text-muted-foreground text-center sm:text-left text-sm sm:text-base">
         Paste messages to automatically create smart reminders with AI
       </p>
 
       {/* 5 Summary Tiles */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-4">
         <Card className="border-2 border-destructive/30">
-          <CardContent className="p-4 text-center">
-            <AlertTriangle className="w-8 h-8 text-destructive mx-auto mb-2" />
-            <div className="text-3xl font-bold text-destructive">{stats.critical}</div>
-            <div className="text-sm text-muted-foreground">Critical</div>
+          <CardContent className="p-2 sm:p-4 text-center">
+            <AlertTriangle className="w-5 h-5 sm:w-8 sm:h-8 text-destructive mx-auto mb-1 sm:mb-2" />
+            <div className="text-xl sm:text-3xl font-bold text-destructive">{stats.critical}</div>
+            <div className="text-xs sm:text-sm text-muted-foreground">Critical</div>
           </CardContent>
         </Card>
 
         <Card className="border-2 border-warning/30">
-          <CardContent className="p-4 text-center">
-            <Clock className="w-8 h-8 text-warning mx-auto mb-2" />
-            <div className="text-3xl font-bold text-warning">{stats.urgent}</div>
-            <div className="text-sm text-muted-foreground">Urgent</div>
+          <CardContent className="p-2 sm:p-4 text-center">
+            <Clock className="w-5 h-5 sm:w-8 sm:h-8 text-warning mx-auto mb-1 sm:mb-2" />
+            <div className="text-xl sm:text-3xl font-bold text-warning">{stats.urgent}</div>
+            <div className="text-xs sm:text-sm text-muted-foreground">Urgent</div>
           </CardContent>
         </Card>
 
         <Card className="border-2 border-destructive/30">
-          <CardContent className="p-4 text-center">
-            <Calendar className="w-8 h-8 text-destructive mx-auto mb-2" />
-            <div className="text-3xl font-bold text-destructive">{stats.overdue}</div>
-            <div className="text-sm text-muted-foreground">Overdue</div>
+          <CardContent className="p-2 sm:p-4 text-center">
+            <Calendar className="w-5 h-5 sm:w-8 sm:h-8 text-destructive mx-auto mb-1 sm:mb-2" />
+            <div className="text-xl sm:text-3xl font-bold text-destructive">{stats.overdue}</div>
+            <div className="text-xs sm:text-sm text-muted-foreground">Overdue</div>
           </CardContent>
         </Card>
 
         <Card className="border-2 border-warning/30 bg-gradient-to-br from-warning/10 to-warning/5">
-          <CardContent className="p-4 text-center">
-            <Calendar className="w-8 h-8 text-warning mx-auto mb-2" />
-            <div className="text-3xl font-bold text-warning">{stats.dueToday}</div>
-            <div className="text-sm text-muted-foreground">Due Today</div>
+          <CardContent className="p-2 sm:p-4 text-center">
+            <Calendar className="w-5 h-5 sm:w-8 sm:h-8 text-warning mx-auto mb-1 sm:mb-2" />
+            <div className="text-xl sm:text-3xl font-bold text-warning">{stats.dueToday}</div>
+            <div className="text-xs sm:text-sm text-muted-foreground">Due Today</div>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-info/30 col-span-2 md:col-span-1">
-          <CardContent className="p-4 text-center">
-            <CheckCircle2 className="w-8 h-8 text-info mx-auto mb-2" />
-            <div className="text-3xl font-bold text-info">{stats.total}</div>
-            <div className="text-sm text-muted-foreground">Total</div>
+        <Card className="border-2 border-info/30 col-span-2 sm:col-span-1">
+          <CardContent className="p-2 sm:p-4 text-center">
+            <CheckCircle2 className="w-5 h-5 sm:w-8 sm:h-8 text-info mx-auto mb-1 sm:mb-2" />
+            <div className="text-xl sm:text-3xl font-bold text-info">{stats.total}</div>
+            <div className="text-xs sm:text-sm text-muted-foreground">Total</div>
           </CardContent>
         </Card>
       </div>
