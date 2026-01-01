@@ -26,7 +26,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Calculator, Plus, Trash2, BarChart3, TrendingUp, Target, Award, Loader2, Sparkles, Zap, BookOpen, Eye, ChevronRight, Settings, Save } from "lucide-react";
+import { Calculator, Plus, Trash2, BarChart3, TrendingUp, Target, Award, Loader2, Sparkles, Zap, BookOpen, Eye, ChevronRight, Settings, Save, Crosshair } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
@@ -118,6 +118,12 @@ const CGPACalculator = () => {
   // Session-only entered data (not yet calculated/saved to history view)
   const [sessionQuickSemesters, setSessionQuickSemesters] = useState<QuickSemester[]>([]);
   const [sessionDetailedSemesters, setSessionDetailedSemesters] = useState<Semester[]>([]);
+  
+  // Target CGPA mode
+  const [targetMode, setTargetMode] = useState(false);
+  const [totalSemestersTarget, setTotalSemestersTarget] = useState("");
+  const [targetCGPA, setTargetCGPA] = useState("");
+  const [predictionResult, setPredictionResult] = useState<{ requiredSGPA: number; remainingSemesters: number; achievable: boolean } | null>(null);
   
   // Quick mode inputs
   const [quickCredits, setQuickCredits] = useState("");
@@ -592,6 +598,55 @@ const CGPACalculator = () => {
       });
       return;
     }
+    
+    // Target mode prediction
+    if (targetMode) {
+      const totalSems = parseInt(totalSemestersTarget);
+      const target = parseFloat(targetCGPA);
+      
+      if (isNaN(totalSems) || totalSems <= totalSemesters) {
+        toast({
+          title: "Invalid total semesters",
+          description: `Total semesters must be greater than current semesters (${totalSemesters}).`,
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (isNaN(target) || target <= 0 || target > maxCGPA) {
+        toast({
+          title: "Invalid target CGPA",
+          description: `Target CGPA must be between 0 and ${maxCGPA}.`,
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Calculate required SGPA for remaining semesters
+      // Assuming equal credits per semester (using average)
+      const avgCreditsPerSem = totalCredits / totalSemesters;
+      const remainingSems = totalSems - totalSemesters;
+      const remainingCredits = avgCreditsPerSem * remainingSems;
+      const totalCreditsAtEnd = totalCredits + remainingCredits;
+      
+      // Target CGPA = (currentWeighted + remainingWeighted) / totalCredits
+      // target * totalCreditsAtEnd = cgpa * totalCredits + requiredSGPA * remainingCredits
+      // requiredSGPA = (target * totalCreditsAtEnd - cgpa * totalCredits) / remainingCredits
+      const currentWeighted = cgpa * totalCredits;
+      const requiredWeighted = target * totalCreditsAtEnd - currentWeighted;
+      const requiredSGPA = requiredWeighted / remainingCredits;
+      
+      const achievable = requiredSGPA <= maxCGPA && requiredSGPA >= 0;
+      
+      setPredictionResult({
+        requiredSGPA: Math.max(0, requiredSGPA),
+        remainingSemesters: remainingSems,
+        achievable
+      });
+    } else {
+      setPredictionResult(null);
+    }
+    
     setShowResults(true);
     // Clear session data after calculating (it's now "calculated" and visible in results/history)
     setSessionQuickSemesters([]);
@@ -755,6 +810,64 @@ const CGPACalculator = () => {
         </CardContent>
       </Card>
 
+      {/* Target CGPA Toggle */}
+      <Card className="overflow-hidden">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div 
+                className={`relative w-12 h-6 rounded-full cursor-pointer transition-colors ${targetMode ? 'bg-primary' : 'bg-muted'}`}
+                onClick={() => {
+                  setTargetMode(!targetMode);
+                  setPredictionResult(null);
+                  setShowResults(false);
+                }}
+              >
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-background transition-transform ${targetMode ? 'translate-x-7' : 'translate-x-1'}`} />
+              </div>
+              <div className="flex items-center gap-2">
+                <Crosshair className={`w-5 h-5 ${targetMode ? 'text-primary' : 'text-muted-foreground'}`} />
+                <span className={`font-medium ${targetMode ? 'text-primary' : 'text-muted-foreground'}`}>Target CGPA Mode</span>
+              </div>
+            </div>
+            
+            {targetMode && (
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-muted-foreground whitespace-nowrap">Total Semesters:</label>
+                  <Input
+                    type="number"
+                    placeholder="e.g., 8"
+                    value={totalSemestersTarget}
+                    onChange={(e) => setTotalSemestersTarget(e.target.value)}
+                    className="w-20"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-muted-foreground whitespace-nowrap">Target CGPA:</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max={maxCGPA}
+                    placeholder="e.g., 8.5"
+                    value={targetCGPA}
+                    onChange={(e) => setTargetCGPA(e.target.value)}
+                    className="w-20"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {targetMode && (
+            <p className="text-xs text-muted-foreground mt-3">
+              Enter your completed semester data below, then calculate to see the minimum SGPA needed in remaining semesters.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Mode Selection Tabs */}
       <Tabs value={mode} onValueChange={(v) => setMode(v as "quick" | "detailed")} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -838,6 +951,8 @@ const CGPACalculator = () => {
                 aiMessage={aiMessage}
                 onViewAnalysis={() => setShowAnalysis(true)}
                 onReset={handleResetAll}
+                predictionResult={predictionResult}
+                maxCGPA={maxCGPA}
               />
             ) : (
               <EnteredDataCard
@@ -986,6 +1101,8 @@ const CGPACalculator = () => {
                 aiMessage={aiMessage}
                 onViewAnalysis={() => setShowAnalysis(true)}
                 onReset={handleResetAll}
+                predictionResult={predictionResult}
+                maxCGPA={maxCGPA}
               />
             ) : (
               <EnteredDataCard
@@ -1159,7 +1276,9 @@ const ResultsCard = ({
   aiLoading,
   aiMessage,
   onViewAnalysis,
-  onReset
+  onReset,
+  predictionResult,
+  maxCGPA
 }: {
   showResults: boolean;
   totalSemesters: number;
@@ -1170,6 +1289,8 @@ const ResultsCard = ({
   aiMessage: string | null;
   onViewAnalysis: () => void;
   onReset: () => void;
+  predictionResult?: { requiredSGPA: number; remainingSemesters: number; achievable: boolean } | null;
+  maxCGPA?: number;
 }) => (
   <Card className="overflow-hidden">
     <CardHeader className="bg-gradient-to-r from-chart-4/20 to-primary/20">
@@ -1218,6 +1339,34 @@ const ResultsCard = ({
               <div className="text-sm text-muted-foreground">Percentage</div>
             </div>
           </div>
+
+          {/* Target CGPA Prediction Result */}
+          {predictionResult && (
+            <div className={`p-4 rounded-lg border ${predictionResult.achievable ? 'bg-success/10 border-success/30' : 'bg-destructive/10 border-destructive/30'}`}>
+              <div className="flex items-start gap-3">
+                <Crosshair className={`w-5 h-5 mt-0.5 flex-shrink-0 ${predictionResult.achievable ? 'text-success' : 'text-destructive'}`} />
+                <div className="space-y-2">
+                  <p className={`font-semibold ${predictionResult.achievable ? 'text-success' : 'text-destructive'}`}>
+                    {predictionResult.achievable ? 'Target Achievable!' : 'Target May Be Difficult'}
+                  </p>
+                  <p className="text-sm">
+                    You need a minimum SGPA of{' '}
+                    <span className={`font-bold ${predictionResult.achievable ? 'text-success' : 'text-destructive'}`}>
+                      {predictionResult.requiredSGPA.toFixed(2)}
+                    </span>{' '}
+                    in your remaining{' '}
+                    <span className="font-semibold">{predictionResult.remainingSemesters} semester{predictionResult.remainingSemesters > 1 ? 's' : ''}</span>{' '}
+                    to achieve your target.
+                  </p>
+                  {!predictionResult.achievable && (
+                    <p className="text-xs text-muted-foreground">
+                      The required SGPA exceeds the maximum possible ({maxCGPA}). Consider adjusting your target.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* View Analysis Button */}
           <Button
