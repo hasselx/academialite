@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
@@ -10,10 +11,11 @@ import {
   CheckCircle2,
   ArrowRight,
   Sparkles,
-  Users
+  Users,
+  Play
 } from "lucide-react";
+import CGPADemo from "@/components/CGPADemo";
 import { AnimatedTooltip } from "@/components/ui/animated-tooltip";
-import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import creatorAvatar from "@/assets/creator-avatar.jpg";
 
@@ -76,6 +78,7 @@ const creator = [
 
 const Index = () => {
   const [userCount, setUserCount] = useState<number>(0);
+  const [showDemo, setShowDemo] = useState(false);
 
   useEffect(() => {
     const fetchUserCount = async () => {
@@ -137,7 +140,18 @@ const Index = () => {
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             </Link>
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="text-lg px-8 py-6"
+              onClick={() => setShowDemo(true)}
+            >
+              <Play className="w-5 h-5 mr-2" />
+              Try Demo
+            </Button>
           </div>
+
+          <CGPADemo open={showDemo} onOpenChange={setShowDemo} />
         </div>
       </section>
 
