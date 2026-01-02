@@ -26,7 +26,15 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Calculator, Plus, Trash2, BarChart3, TrendingUp, Target, Award, Loader2, Sparkles, Zap, BookOpen, Eye, ChevronRight, Settings, Save, Crosshair } from "lucide-react";
+import { Calculator, Plus, Trash2, BarChart3, TrendingUp, Target, Award, Loader2, Sparkles, Zap, BookOpen, Eye, ChevronRight, Settings, Save, Crosshair, ChevronDown, Copy, Database } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
@@ -124,6 +132,8 @@ const CGPACalculator = () => {
   const [totalSemestersTarget, setTotalSemestersTarget] = useState("");
   const [targetCGPA, setTargetCGPA] = useState("");
   const [predictionResult, setPredictionResult] = useState<{ requiredSGPA: number; remainingSemesters: number; achievable: boolean } | null>(null);
+  const [savedRecords, setSavedRecords] = useState<{ semesters: QuickSemester[]; totalCredits: number; cgpa: number; date: string; semesterCount: number }[]>([]);
+  const [loadingSavedRecords, setLoadingSavedRecords] = useState(false);
   
   // Quick mode inputs
   const [quickCredits, setQuickCredits] = useState("");
@@ -197,6 +207,72 @@ const CGPACalculator = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Fetch saved CGPA records for the dropdown
+  const fetchSavedRecords = async () => {
+    if (!user) return;
+    
+    setLoadingSavedRecords(true);
+    try {
+      const { data: semesterData, error } = await supabase
+        .from('semesters')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      if (semesterData && semesterData.length > 0) {
+        // Group semesters and calculate CGPA
+        const allSems = semesterData.map(s => ({
+          id: s.id,
+          name: s.name,
+          sgpa: Number(s.sgpa),
+          credits: s.credits
+        }));
+        
+        const totalCreditsCalc = allSems.reduce((sum, sem) => sum + sem.credits, 0);
+        const totalWeighted = allSems.reduce((sum, sem) => sum + (sem.sgpa * sem.credits), 0);
+        const cgpaCalc = totalCreditsCalc > 0 ? totalWeighted / totalCreditsCalc : 0;
+        
+        setSavedRecords([{
+          semesters: allSems,
+          totalCredits: totalCreditsCalc,
+          cgpa: cgpaCalc,
+          date: new Date().toLocaleDateString(),
+          semesterCount: allSems.length
+        }]);
+      } else {
+        setSavedRecords([]);
+      }
+    } catch (error: any) {
+      console.error("Error fetching saved records:", error);
+    } finally {
+      setLoadingSavedRecords(false);
+    }
+  };
+
+  // Load a saved record as duplicate for target calculation
+  const handleLoadSavedRecord = (record: { semesters: QuickSemester[]; totalCredits: number; cgpa: number }) => {
+    // Create duplicates with new IDs (session-only, not saved to DB)
+    const duplicatedSemesters = record.semesters.map(sem => ({
+      ...sem,
+      id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    }));
+    
+    // Clear existing data and load duplicated data
+    setQuickSemesters(duplicatedSemesters);
+    setSemesters([]);
+    setSessionQuickSemesters(duplicatedSemesters);
+    setSessionDetailedSemesters([]);
+    setShowResults(false);
+    setPredictionResult(null);
+    
+    toast({
+      title: "Data loaded",
+      description: `Loaded ${record.semesters.length} semesters (CGPA: ${record.cgpa.toFixed(2)}) for target calculation. Original data is preserved.`
+    });
   };
 
   const calculateSGPA = (courses: Omit<Course, 'id'>[]) => {
@@ -831,6 +907,51 @@ const CGPACalculator = () => {
               </div>
             </div>
             
+            {/* Dropdown to load saved records */}
+            {targetMode && (
+              <DropdownMenu onOpenChange={(open) => { if (open) fetchSavedRecords(); }}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Database className="w-4 h-4" />
+                    Load Saved Data
+                    <ChevronDown className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64 bg-popover border border-border z-50">
+                  <DropdownMenuLabel className="flex items-center gap-2">
+                    <Copy className="w-4 h-4" />
+                    Use Saved Record (Duplicate)
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {loadingSavedRecords ? (
+                    <DropdownMenuItem disabled>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Loading...
+                    </DropdownMenuItem>
+                  ) : savedRecords.length === 0 ? (
+                    <DropdownMenuItem disabled>
+                      No saved records found
+                    </DropdownMenuItem>
+                  ) : (
+                    savedRecords.map((record, index) => (
+                      <DropdownMenuItem 
+                        key={index}
+                        onClick={() => handleLoadSavedRecord(record)}
+                        className="cursor-pointer flex flex-col items-start gap-1"
+                      >
+                        <div className="font-medium">
+                          {record.semesterCount} Semesters • CGPA: {record.cgpa.toFixed(2)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {record.totalCredits} credits • Click to use as base
+                        </div>
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            
             {targetMode && (
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-2">
@@ -862,7 +983,7 @@ const CGPACalculator = () => {
           
           {targetMode && (
             <p className="text-xs text-muted-foreground mt-3">
-              Enter your completed semester data below, then calculate to see the minimum SGPA needed in remaining semesters.
+              Enter your completed semester data below, or load from saved records. Data is duplicated - deleting originals won't affect this calculation.
             </p>
           )}
         </CardContent>
