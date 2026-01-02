@@ -135,6 +135,10 @@ const CGPACalculator = () => {
   const [savedRecords, setSavedRecords] = useState<{ semesters: QuickSemester[]; totalCredits: number; cgpa: number; date: string; semesterCount: number }[]>([]);
   const [loadingSavedRecords, setLoadingSavedRecords] = useState(false);
   
+  // Target mode local data (duplicated from saved, not synced with DB)
+  const [targetModeSemesters, setTargetModeSemesters] = useState<QuickSemester[]>([]);
+  const [isUsingLoadedData, setIsUsingLoadedData] = useState(false);
+  
   // Quick mode inputs
   const [quickCredits, setQuickCredits] = useState("");
   const [quickSgpa, setQuickSgpa] = useState("");
@@ -253,25 +257,98 @@ const CGPACalculator = () => {
     }
   };
 
-  // Load a saved record as duplicate for target calculation
+  // Load a saved record as duplicate for target calculation (local only, no DB changes)
   const handleLoadSavedRecord = (record: { semesters: QuickSemester[]; totalCredits: number; cgpa: number }) => {
-    // Create duplicates with new IDs (session-only, not saved to DB)
+    // Create duplicates with new temp IDs (local only, never saved to DB)
     const duplicatedSemesters = record.semesters.map(sem => ({
       ...sem,
       id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     }));
     
-    // Clear existing data and load duplicated data
-    setQuickSemesters(duplicatedSemesters);
-    setSemesters([]);
-    setSessionQuickSemesters(duplicatedSemesters);
-    setSessionDetailedSemesters([]);
+    // Store in target mode state (separate from main quickSemesters)
+    setTargetModeSemesters(duplicatedSemesters);
+    setIsUsingLoadedData(true);
     setShowResults(false);
     setPredictionResult(null);
     
     toast({
-      title: "Data loaded",
-      description: `Loaded ${record.semesters.length} semesters (CGPA: ${record.cgpa.toFixed(2)}) for target calculation. Original data is preserved.`
+      title: "Data loaded for target calculation",
+      description: `Loaded ${record.semesters.length} semesters (CGPA: ${record.cgpa.toFixed(2)}). This is a copy - original data is preserved.`
+    });
+  };
+
+  // Clear loaded data and start fresh
+  const handleClearTargetData = () => {
+    setTargetModeSemesters([]);
+    setIsUsingLoadedData(false);
+    setPredictionResult(null);
+    toast({
+      title: "Data cleared",
+      description: "You can now enter new semester data."
+    });
+  };
+
+  // Add semester to target mode (local only)
+  const handleAddTargetSemester = () => {
+    if (!quickCredits || !quickSgpa) {
+      toast({
+        title: "Invalid input",
+        description: "Please enter credits and SGPA.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const credits = parseInt(quickCredits);
+    const sgpa = parseFloat(quickSgpa);
+
+    if (isNaN(credits) || credits <= 0 || isNaN(sgpa) || sgpa < 0 || sgpa > 10) {
+      toast({
+        title: "Invalid input",
+        description: "Please enter valid credits and SGPA (0-10).",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const semesterNumber = targetModeSemesters.length + 1;
+    const newSem: QuickSemester = {
+      id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: `Semester ${semesterNumber}`,
+      sgpa,
+      credits
+    };
+
+    setTargetModeSemesters([...targetModeSemesters, newSem]);
+    setQuickCredits("");
+    setQuickSgpa("");
+    
+    toast({
+      title: "Semester added",
+      description: `Semester ${semesterNumber} added for target calculation.`
+    });
+  };
+
+  // Delete semester from target mode (local only)
+  const handleDeleteTargetSemester = (id: string) => {
+    setTargetModeSemesters(targetModeSemesters.filter(s => s.id !== id));
+    toast({
+      title: "Semester removed",
+      description: "The semester has been removed from target calculation."
+    });
+  };
+
+  // Start a new regular calculation (clears session data)
+  const handleNewCalculation = () => {
+    setSessionQuickSemesters([]);
+    setSessionDetailedSemesters([]);
+    setShowResults(false);
+    setPredictionResult(null);
+    // Re-fetch to get fresh data from DB
+    fetchSemesters();
+    toast({
+      title: "Ready for new calculation",
+      description: "Previous session data cleared. Enter new semester data."
     });
   };
 
@@ -283,22 +360,30 @@ const CGPACalculator = () => {
   };
 
   const calculateCGPA = () => {
-    // Combine both quick and detailed semesters
-    const allSemesters = [
-      ...quickSemesters.map(s => ({ sgpa: s.sgpa, credits: s.credits })),
-      ...semesters.map(s => ({ sgpa: s.sgpa, credits: s.credits }))
-    ];
+    // In target mode, use targetModeSemesters; otherwise use regular data
+    const dataSource = targetMode 
+      ? targetModeSemesters 
+      : [...quickSemesters, ...semesters.map(s => ({ id: s.id, name: s.name, sgpa: s.sgpa, credits: s.credits }))];
     
-    if (allSemesters.length === 0) return 0;
+    if (dataSource.length === 0) return 0;
     
-    const totalWeightedPoints = allSemesters.reduce((sum, s) => sum + (s.sgpa * s.credits), 0);
-    const totalCredits = allSemesters.reduce((sum, s) => sum + s.credits, 0);
-    return totalCredits > 0 ? totalWeightedPoints / totalCredits : 0;
+    const totalWeightedPoints = dataSource.reduce((sum, s) => sum + (s.sgpa * s.credits), 0);
+    const totalCreds = dataSource.reduce((sum, s) => sum + s.credits, 0);
+    return totalCreds > 0 ? totalWeightedPoints / totalCreds : 0;
   };
 
+  // Get current working data based on mode
+  const getWorkingData = () => {
+    if (targetMode) {
+      return targetModeSemesters;
+    }
+    return [...quickSemesters, ...semesters.map(s => ({ id: s.id, name: s.name, sgpa: s.sgpa, credits: s.credits }))];
+  };
+
+  const workingData = getWorkingData();
   const cgpa = calculateCGPA();
-  const totalCredits = [...quickSemesters, ...semesters].reduce((sum, sem) => sum + sem.credits, 0);
-  const totalSemesters = quickSemesters.length + semesters.length;
+  const totalCredits = workingData.reduce((sum, sem) => sum + sem.credits, 0);
+  const totalSemesters = workingData.length;
   const percentage = cgpa * 10;
 
   const getPerformance = (sgpa: number) => {
@@ -894,9 +979,15 @@ const CGPACalculator = () => {
               <div 
                 className={`relative w-12 h-6 rounded-full cursor-pointer transition-colors ${targetMode ? 'bg-primary' : 'bg-muted'}`}
                 onClick={() => {
-                  setTargetMode(!targetMode);
+                  const newMode = !targetMode;
+                  setTargetMode(newMode);
                   setPredictionResult(null);
                   setShowResults(false);
+                  if (!newMode) {
+                    // Turning off target mode - clear target data
+                    setTargetModeSemesters([]);
+                    setIsUsingLoadedData(false);
+                  }
                 }}
               >
                 <div className={`absolute top-1 w-4 h-4 rounded-full bg-background transition-transform ${targetMode ? 'translate-x-7' : 'translate-x-1'}`} />
@@ -1042,9 +1133,9 @@ const CGPACalculator = () => {
                     </div>
                   </div>
 
-                  <Button onClick={handleAddQuickSemester} className="w-full">
+                  <Button onClick={targetMode ? handleAddTargetSemester : handleAddQuickSemester} className="w-full">
                     <Plus className="w-4 h-4 mr-2" />
-                    Add Semester
+                    Add Semester {targetMode && "(Local)"}
                   </Button>
                 </div>
 
@@ -1077,12 +1168,14 @@ const CGPACalculator = () => {
               />
             ) : (
               <EnteredDataCard
-                quickSemesters={sessionQuickSemesters}
-                semesters={sessionDetailedSemesters}
+                quickSemesters={targetMode ? targetModeSemesters : sessionQuickSemesters}
+                semesters={targetMode ? [] : sessionDetailedSemesters}
                 mode="quick"
-                onDeleteQuick={handleDeleteQuickSemester}
+                onDeleteQuick={targetMode ? handleDeleteTargetSemester : handleDeleteQuickSemester}
                 onDeleteDetailed={handleDeleteDetailedSemester}
                 getPerformance={getPerformance}
+                isTargetMode={targetMode}
+                onClearTargetData={handleClearTargetData}
               />
             )}
           </div>
@@ -1227,12 +1320,14 @@ const CGPACalculator = () => {
               />
             ) : (
               <EnteredDataCard
-                quickSemesters={sessionQuickSemesters}
-                semesters={sessionDetailedSemesters}
+                quickSemesters={targetMode ? targetModeSemesters : sessionQuickSemesters}
+                semesters={targetMode ? [] : sessionDetailedSemesters}
                 mode="detailed"
-                onDeleteQuick={handleDeleteQuickSemester}
+                onDeleteQuick={targetMode ? handleDeleteTargetSemester : handleDeleteQuickSemester}
                 onDeleteDetailed={handleDeleteDetailedSemester}
                 getPerformance={getPerformance}
+                isTargetMode={targetMode}
+                onClearTargetData={handleClearTargetData}
               />
             )}
           </div>
@@ -1542,7 +1637,9 @@ const EnteredDataCard = ({
   mode,
   onDeleteQuick,
   onDeleteDetailed,
-  getPerformance
+  getPerformance,
+  isTargetMode = false,
+  onClearTargetData
 }: {
   quickSemesters: QuickSemester[];
   semesters: Semester[];
@@ -1550,6 +1647,8 @@ const EnteredDataCard = ({
   onDeleteQuick: (id: string) => void;
   onDeleteDetailed: (id: string) => void;
   getPerformance: (sgpa: number) => { text: string; class: string };
+  isTargetMode?: boolean;
+  onClearTargetData?: () => void;
 }) => {
   const allSemesters = [
     ...quickSemesters.map((s, idx) => ({ ...s, type: 'quick' as const, displayNum: idx + 1 })),
@@ -1563,10 +1662,18 @@ const EnteredDataCard = ({
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="bg-gradient-to-r from-info/20 to-primary/20">
-        <CardTitle className="flex items-center gap-2">
-          <Eye className="w-5 h-5 text-primary" />
-          Entered Data
+      <CardHeader className={`bg-gradient-to-r ${isTargetMode ? 'from-warning/20 to-primary/20' : 'from-info/20 to-primary/20'}`}>
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Eye className="w-5 h-5 text-primary" />
+            {isTargetMode ? 'Target Mode Data (Local)' : 'Entered Data'}
+          </div>
+          {isTargetMode && onClearTargetData && allSemesters.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={onClearTargetData} className="text-destructive hover:text-destructive">
+              <Trash2 className="w-4 h-4 mr-1" />
+              Clear All
+            </Button>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="p-6">
@@ -1574,7 +1681,9 @@ const EnteredDataCard = ({
           <div className="text-center py-12">
             <Plus className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">
-              No semesters added yet. Add semesters on the left to see them here.
+              {isTargetMode 
+                ? 'Load saved data or add semesters for target calculation. Data is local only.'
+                : 'No semesters added yet. Add semesters on the left to see them here.'}
             </p>
           </div>
         ) : (
@@ -1594,6 +1703,14 @@ const EnteredDataCard = ({
                 <div className="text-xs text-muted-foreground">Semesters</div>
               </div>
             </div>
+
+            {isTargetMode && (
+              <div className="p-2 bg-warning/10 border border-warning/30 rounded-lg">
+                <p className="text-xs text-warning-foreground text-center">
+                  ⚠️ Target mode: Changes are local only and won't affect your saved records
+                </p>
+              </div>
+            )}
 
             {/* Semester List */}
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
@@ -1635,7 +1752,9 @@ const EnteredDataCard = ({
             </div>
 
             <p className="text-xs text-center text-muted-foreground pt-2">
-              Click "Calculate CGPA" to see detailed results and AI insights
+              {isTargetMode 
+                ? 'Enter target CGPA and total semesters, then click "Calculate CGPA" for prediction'
+                : 'Click "Calculate CGPA" to see detailed results and AI insights'}
             </p>
           </div>
         )}
