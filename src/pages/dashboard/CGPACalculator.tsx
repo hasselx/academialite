@@ -106,11 +106,9 @@ interface QuickSemester {
 
 const CGPACalculator = () => {
   const [mode, setMode] = useState<"quick" | "detailed">("quick");
-  const [semesters, setSemesters] = useState<Semester[]>([]);
-  const [quickSemesters, setQuickSemesters] = useState<QuickSemester[]>([]);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   
@@ -152,66 +150,6 @@ const CGPACalculator = () => {
   
   const { toast } = useToast();
   const { user } = useAuth();
-
-  useEffect(() => {
-    if (user) {
-      fetchSemesters();
-    }
-  }, [user]);
-
-  const fetchSemesters = async () => {
-    try {
-      setLoading(true);
-      const { data: semesterData, error: semError } = await supabase
-        .from('semesters')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: true });
-
-      if (semError) throw semError;
-
-      const { data: courseData, error: courseError } = await supabase
-        .from('courses')
-        .select('*')
-        .eq('user_id', user?.id);
-
-      if (courseError) throw courseError;
-
-      const semestersWithCourses = semesterData?.map(s => ({
-        id: s.id,
-        name: s.name,
-        sgpa: Number(s.sgpa),
-        credits: s.credits,
-        courses: courseData?.filter(c => c.semester_id === s.id).map(c => ({
-          id: c.id,
-          name: c.name,
-          credits: c.credits,
-          grade: c.grade,
-          gradePoint: Number(c.grade_point)
-        })) || []
-      })) || [];
-
-      // Separate quick semesters (no courses) from detailed semesters (with courses)
-      const detailed = semestersWithCourses.filter(s => s.courses.length > 0);
-      const quick = semestersWithCourses.filter(s => s.courses.length === 0).map(s => ({
-        id: s.id,
-        name: s.name,
-        sgpa: s.sgpa,
-        credits: s.credits
-      }));
-
-      setSemesters(detailed);
-      setQuickSemesters(quick);
-    } catch (error: any) {
-      toast({
-        title: "Error fetching data",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Fetch saved CGPA records for the dropdown
   const fetchSavedRecords = async () => {
@@ -344,11 +282,9 @@ const CGPACalculator = () => {
     setSessionDetailedSemesters([]);
     setShowResults(false);
     setPredictionResult(null);
-    // Re-fetch to get fresh data from DB
-    fetchSemesters();
     toast({
       title: "Ready for new calculation",
-      description: "Previous session data cleared. Enter new semester data."
+      description: "Enter new semester data to calculate CGPA."
     });
   };
 
@@ -360,10 +296,13 @@ const CGPACalculator = () => {
   };
 
   const calculateCGPA = () => {
-    // In target mode, use targetModeSemesters; otherwise use regular data
+    // In target mode, use targetModeSemesters; otherwise use both quick and detailed session data
     const dataSource = targetMode 
       ? targetModeSemesters 
-      : [...quickSemesters, ...semesters.map(s => ({ id: s.id, name: s.name, sgpa: s.sgpa, credits: s.credits }))];
+      : [
+          ...sessionQuickSemesters,
+          ...sessionDetailedSemesters.map(s => ({ id: s.id, name: s.name, sgpa: s.sgpa, credits: s.credits }))
+        ];
     
     if (dataSource.length === 0) return 0;
     
@@ -372,12 +311,15 @@ const CGPACalculator = () => {
     return totalCreds > 0 ? totalWeightedPoints / totalCreds : 0;
   };
 
-  // Get current working data based on mode
+  // Get current working data based on mode - session only for regular, targetModeSemesters for target
   const getWorkingData = () => {
     if (targetMode) {
       return targetModeSemesters;
     }
-    return [...quickSemesters, ...semesters.map(s => ({ id: s.id, name: s.name, sgpa: s.sgpa, credits: s.credits }))];
+    return [
+      ...sessionQuickSemesters,
+      ...sessionDetailedSemesters.map(s => ({ id: s.id, name: s.name, sgpa: s.sgpa, credits: s.credits }))
+    ];
   };
 
   const workingData = getWorkingData();
@@ -455,8 +397,8 @@ const CGPACalculator = () => {
     setNewGradeValue("");
   };
 
-  // Quick Mode Handlers
-  const handleAddQuickSemester = async () => {
+  // Quick Mode Handlers - Session only, no DB save until final calculation
+  const handleAddQuickSemester = () => {
     if (!quickCredits || !quickSgpa) {
       toast({
         title: "Invalid input",
@@ -487,72 +429,32 @@ const CGPACalculator = () => {
       return;
     }
 
-    const semesterNumber = quickSemesters.length + semesters.length + 1;
+    const semesterNumber = sessionQuickSemesters.length + 1;
     const semesterName = `Semester ${semesterNumber}`;
 
-    try {
-      const { data, error } = await supabase
-        .from('semesters')
-        .insert({
-          user_id: user?.id,
-          name: semesterName,
-          sgpa,
-          credits
-        })
-        .select()
-        .single();
+    const newSem: QuickSemester = {
+      id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: semesterName,
+      sgpa,
+      credits
+    };
 
-      if (error) throw error;
-
-      const newSem = {
-        id: data.id,
-        name: data.name,
-        sgpa: Number(data.sgpa),
-        credits: data.credits
-      };
-
-      setQuickSemesters([...quickSemesters, newSem]);
-      // Also add to session semesters to show in EnteredData
-      setSessionQuickSemesters([...sessionQuickSemesters, newSem]);
-
-      setQuickCredits("");
-      setQuickSgpa("");
-      
-      toast({
-        title: "Semester added",
-        description: `${semesterName} has been saved.`
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error saving semester",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
+    setSessionQuickSemesters([...sessionQuickSemesters, newSem]);
+    setQuickCredits("");
+    setQuickSgpa("");
+    
+    toast({
+      title: "Semester added",
+      description: `${semesterName} added to current session.`
+    });
   };
 
-  const handleDeleteQuickSemester = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('semesters')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      setQuickSemesters(quickSemesters.filter(s => s.id !== id));
-      setSessionQuickSemesters(sessionQuickSemesters.filter(s => s.id !== id));
-      toast({
-        title: "Semester removed",
-        description: "The semester has been deleted."
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error deleting semester",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
+  const handleDeleteQuickSemester = (id: string) => {
+    setSessionQuickSemesters(sessionQuickSemesters.filter(s => s.id !== id));
+    toast({
+      title: "Semester removed",
+      description: "The semester has been removed."
+    });
   };
 
   // Detailed Mode Handlers
@@ -601,120 +503,49 @@ const CGPACalculator = () => {
 
     const sgpa = calculateSGPA(tempCourses);
     const totalCreditsForSem = tempCourses.reduce((sum, c) => sum + c.credits, 0);
-    const semesterNumber = quickSemesters.length + semesters.length + 1;
+    const semesterNumber = sessionQuickSemesters.length + sessionDetailedSemesters.length + 1;
     const semesterName = `Semester ${semesterNumber}`;
 
-    try {
-      const { data: semesterData, error: semError } = await supabase
-        .from('semesters')
-        .insert({
-          user_id: user?.id,
-          name: semesterName,
-          sgpa,
-          credits: totalCreditsForSem
-        })
-        .select()
-        .single();
-
-      if (semError) throw semError;
-
-      const coursesToInsert = tempCourses.map(c => ({
-        user_id: user?.id,
-        semester_id: semesterData.id,
+    const newSem: Semester = {
+      id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: semesterName,
+      sgpa,
+      credits: totalCreditsForSem,
+      courses: tempCourses.map((c, idx) => ({
+        id: `course-${idx}-${Date.now()}`,
         name: c.name,
         credits: c.credits,
         grade: c.grade,
-        grade_point: c.gradePoint
-      }));
+        gradePoint: c.gradePoint
+      }))
+    };
 
-      const { data: courseData, error: courseError } = await supabase
-        .from('courses')
-        .insert(coursesToInsert)
-        .select();
-
-      if (courseError) throw courseError;
-
-      const newSem = {
-        id: semesterData.id,
-        name: semesterData.name,
-        sgpa: Number(semesterData.sgpa),
-        credits: semesterData.credits,
-        courses: courseData.map(c => ({
-          id: c.id,
-          name: c.name,
-          credits: c.credits,
-          grade: c.grade,
-          gradePoint: Number(c.grade_point)
-        }))
-      };
-
-      setSemesters([...semesters, newSem]);
-      // Also add to session semesters to show in EnteredData
-      setSessionDetailedSemesters([...sessionDetailedSemesters, newSem]);
-
-      setTempCourses([]);
-      toast({
-        title: "Semester saved",
-        description: `${semesterName} has been saved successfully.`
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error saving semester",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
+    setSessionDetailedSemesters([...sessionDetailedSemesters, newSem]);
+    setTempCourses([]);
+    
+    toast({
+      title: "Semester added",
+      description: `${semesterName} added to current session.`
+    });
   };
 
-  const handleDeleteDetailedSemester = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('semesters')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      setSemesters(semesters.filter(s => s.id !== id));
-      setSessionDetailedSemesters(sessionDetailedSemesters.filter(s => s.id !== id));
-      toast({
-        title: "Semester removed",
-        description: "The semester and its courses have been deleted."
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error deleting semester",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
+  const handleDeleteDetailedSemester = (id: string) => {
+    setSessionDetailedSemesters(sessionDetailedSemesters.filter(s => s.id !== id));
+    toast({
+      title: "Semester removed",
+      description: "The semester has been removed."
+    });
   };
 
-  const handleResetAll = async () => {
-    try {
-      const { error } = await supabase
-        .from('semesters')
-        .delete()
-        .eq('user_id', user?.id);
-
-      if (error) throw error;
-
-      setSemesters([]);
-      setQuickSemesters([]);
-      setSessionQuickSemesters([]);
-      setSessionDetailedSemesters([]);
-      setShowResults(false);
-      toast({
-        title: "All semesters cleared",
-        description: "Your CGPA data has been reset."
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error resetting data",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
+  const handleResetAll = () => {
+    setSessionQuickSemesters([]);
+    setSessionDetailedSemesters([]);
+    setShowResults(false);
+    setPredictionResult(null);
+    toast({
+      title: "Session cleared",
+      description: "All entered data has been cleared."
+    });
   };
 
   const fetchAIMotivation = async () => {
@@ -760,7 +591,7 @@ const CGPACalculator = () => {
       return;
     }
     
-    // Target mode prediction
+    // Target mode prediction (no DB save, just calculation)
     if (targetMode) {
       const totalSems = parseInt(totalSemestersTarget);
       const target = parseFloat(targetCGPA);
@@ -784,15 +615,11 @@ const CGPACalculator = () => {
       }
       
       // Calculate required SGPA for remaining semesters
-      // Assuming equal credits per semester (using average)
       const avgCreditsPerSem = totalCredits / totalSemesters;
       const remainingSems = totalSems - totalSemesters;
       const remainingCredits = avgCreditsPerSem * remainingSems;
       const totalCreditsAtEnd = totalCredits + remainingCredits;
       
-      // Target CGPA = (currentWeighted + remainingWeighted) / totalCredits
-      // target * totalCreditsAtEnd = cgpa * totalCredits + requiredSGPA * remainingCredits
-      // requiredSGPA = (target * totalCreditsAtEnd - cgpa * totalCredits) / remainingCredits
       const currentWeighted = cgpa * totalCredits;
       const requiredWeighted = target * totalCreditsAtEnd - currentWeighted;
       const requiredSGPA = requiredWeighted / remainingCredits;
@@ -804,31 +631,88 @@ const CGPACalculator = () => {
         remainingSemesters: remainingSems,
         achievable
       });
-    } else {
-      setPredictionResult(null);
+      
+      setShowResults(true);
+      await fetchAIMotivation();
+      return;
     }
     
-    setShowResults(true);
-    // Clear session data after calculating (it's now "calculated" and visible in results/history)
-    setSessionQuickSemesters([]);
-    setSessionDetailedSemesters([]);
-    await fetchAIMotivation();
+    // Regular mode - save session data to database
+    try {
+      // Save quick semesters
+      for (const sem of sessionQuickSemesters) {
+        const { error } = await supabase
+          .from('semesters')
+          .insert({
+            user_id: user?.id,
+            name: sem.name,
+            sgpa: sem.sgpa,
+            credits: sem.credits
+          });
+        
+        if (error) throw error;
+      }
+      
+      // Save detailed semesters with courses
+      for (const sem of sessionDetailedSemesters) {
+        const { data: semData, error: semError } = await supabase
+          .from('semesters')
+          .insert({
+            user_id: user?.id,
+            name: sem.name,
+            sgpa: sem.sgpa,
+            credits: sem.credits
+          })
+          .select()
+          .single();
+        
+        if (semError) throw semError;
+        
+        // Save courses for this semester
+        const coursesToInsert = sem.courses.map(c => ({
+          user_id: user?.id,
+          semester_id: semData.id,
+          name: c.name,
+          credits: c.credits,
+          grade: c.grade,
+          grade_point: c.gradePoint
+        }));
+        
+        const { error: courseError } = await supabase
+          .from('courses')
+          .insert(coursesToInsert);
+        
+        if (courseError) throw courseError;
+      }
+      
+      setPredictionResult(null);
+      setShowResults(true);
+      
+      // Clear session data after saving
+      setSessionQuickSemesters([]);
+      setSessionDetailedSemesters([]);
+      
+      await fetchAIMotivation();
+      
+      toast({
+        title: "CGPA calculated & saved",
+        description: "Your data has been saved to history."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error saving data",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
-  const chartData = [
-    ...quickSemesters.map((sem, index) => ({
-      name: `Sem ${index + 1}`,
-      SGPA: sem.sgpa,
-      Credits: sem.credits,
-      type: "quick"
-    })),
-    ...semesters.map((sem, index) => ({
-      name: `Sem ${quickSemesters.length + index + 1}`,
-      SGPA: sem.sgpa,
-      Credits: sem.credits,
-      type: "detailed"
-    }))
-  ];
+  // Chart data uses session data for display
+  const chartData = sessionQuickSemesters.map((sem, index) => ({
+    name: `Sem ${index + 1}`,
+    SGPA: sem.sgpa,
+    Credits: sem.credits
+  }));
 
   if (loading) {
     return (
@@ -1429,7 +1313,7 @@ const CGPACalculator = () => {
             )}
 
             {/* Detailed Courses Table (only for detailed mode semesters) */}
-            {semesters.length > 0 && (
+            {sessionDetailedSemesters.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1450,7 +1334,7 @@ const CGPACalculator = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {semesters.flatMap((sem) =>
+                      {sessionDetailedSemesters.flatMap((sem) =>
                         sem.courses.map((course, idx) => (
                           <TableRow key={course.id}>
                             {idx === 0 && (
