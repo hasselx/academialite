@@ -130,7 +130,15 @@ const CGPACalculator = () => {
   const [totalSemestersTarget, setTotalSemestersTarget] = useState("");
   const [targetCGPA, setTargetCGPA] = useState("");
   const [predictionResult, setPredictionResult] = useState<{ requiredSGPA: number; remainingSemesters: number; achievable: boolean } | null>(null);
-  const [savedRecords, setSavedRecords] = useState<{ semesters: QuickSemester[]; totalCredits: number; cgpa: number; date: string; semesterCount: number }[]>([]);
+  const [savedRecords, setSavedRecords] = useState<Array<{
+    recordId: string;
+    title: string;
+    createdAt: string;
+    semesters: QuickSemester[];
+    totalCredits: number;
+    cgpa: number;
+    semesterCount: number;
+  }>>([]);
   const [loadingSavedRecords, setLoadingSavedRecords] = useState(false);
   
   // Target mode local data (duplicated from saved, not synced with DB)
@@ -151,43 +159,107 @@ const CGPACalculator = () => {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Fetch saved CGPA records for the dropdown
+  // Fetch saved CGPA records for the dropdown (each calculation is its own record)
   const fetchSavedRecords = async () => {
     if (!user) return;
-    
+
     setLoadingSavedRecords(true);
     try {
-      const { data: semesterData, error } = await supabase
-        .from('semesters')
-        .select('*')
+      const { data: recordRows, error: recordError } = await supabase
+        .from('cgpa_records')
+        .select('id, title, created_at')
         .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (recordError) throw recordError;
+
+      const recordIds = (recordRows ?? []).map(r => r.id);
+
+      const recordsSemestersById = new Map<string, QuickSemester[]>();
+      if (recordIds.length > 0) {
+        const { data: semRows, error: semError } = await supabase
+          .from('semesters')
+          .select('id, name, sgpa, credits, record_id')
+          .eq('user_id', user.id)
+          .in('record_id', recordIds)
+          .order('created_at', { ascending: true });
+
+        if (semError) throw semError;
+
+        (semRows ?? []).forEach((s) => {
+          const rid = s.record_id as string | null;
+          if (!rid) return;
+          const arr = recordsSemestersById.get(rid) ?? [];
+          arr.push({
+            id: s.id,
+            name: s.name,
+            sgpa: Number(s.sgpa),
+            credits: s.credits,
+          });
+          recordsSemestersById.set(rid, arr);
+        });
+      }
+
+      // Legacy (older data before records) - show as one option if present
+      const { data: legacySemRows, error: legacyError } = await supabase
+        .from('semesters')
+        .select('id, name, sgpa, credits')
+        .eq('user_id', user.id)
+        .is('record_id', null)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      if (legacyError) throw legacyError;
 
-      if (semesterData && semesterData.length > 0) {
-        // Group semesters and calculate CGPA
-        const allSems = semesterData.map(s => ({
-          id: s.id,
-          name: s.name,
-          sgpa: Number(s.sgpa),
-          credits: s.credits
-        }));
-        
-        const totalCreditsCalc = allSems.reduce((sum, sem) => sum + sem.credits, 0);
-        const totalWeighted = allSems.reduce((sum, sem) => sum + (sem.sgpa * sem.credits), 0);
+      const legacySems: QuickSemester[] = (legacySemRows ?? []).map(s => ({
+        id: s.id,
+        name: s.name,
+        sgpa: Number(s.sgpa),
+        credits: s.credits,
+      }));
+
+      const next: Array<{
+        recordId: string;
+        title: string;
+        createdAt: string;
+        semesters: QuickSemester[];
+        totalCredits: number;
+        cgpa: number;
+        semesterCount: number;
+      }> = [];
+
+      (recordRows ?? []).forEach((r) => {
+        const sems = recordsSemestersById.get(r.id) ?? [];
+        if (sems.length === 0) return;
+        const totalCreditsCalc = sems.reduce((sum, sem) => sum + sem.credits, 0);
+        const totalWeighted = sems.reduce((sum, sem) => sum + (sem.sgpa * sem.credits), 0);
         const cgpaCalc = totalCreditsCalc > 0 ? totalWeighted / totalCreditsCalc : 0;
-        
-        setSavedRecords([{
-          semesters: allSems,
+        next.push({
+          recordId: r.id,
+          title: r.title ?? 'CGPA Calculation',
+          createdAt: r.created_at,
+          semesters: sems,
           totalCredits: totalCreditsCalc,
           cgpa: cgpaCalc,
-          date: new Date().toLocaleDateString(),
-          semesterCount: allSems.length
-        }]);
-      } else {
-        setSavedRecords([]);
+          semesterCount: sems.length,
+        });
+      });
+
+      if (legacySems.length > 0) {
+        const totalCreditsCalc = legacySems.reduce((sum, sem) => sum + sem.credits, 0);
+        const totalWeighted = legacySems.reduce((sum, sem) => sum + (sem.sgpa * sem.credits), 0);
+        const cgpaCalc = totalCreditsCalc > 0 ? totalWeighted / totalCreditsCalc : 0;
+        next.push({
+          recordId: 'legacy',
+          title: 'Legacy CGPA Data',
+          createdAt: legacySemRows?.[0]?.created_at ?? new Date().toISOString(),
+          semesters: legacySems,
+          totalCredits: totalCreditsCalc,
+          cgpa: cgpaCalc,
+          semesterCount: legacySems.length,
+        });
       }
+
+      setSavedRecords(next);
     } catch (error: any) {
       console.error("Error fetching saved records:", error);
     } finally {
@@ -637,72 +709,88 @@ const CGPACalculator = () => {
       return;
     }
     
-    // Regular mode - save session data to database
+    // Regular mode - save this session as a NEW record (so it won't merge with older history)
     try {
-      // Save quick semesters
-      for (const sem of sessionQuickSemesters) {
-        const { error } = await supabase
+      if (!user) throw new Error("You must be logged in to save results.");
+
+      const title = `CGPA Calculation • ${new Date().toLocaleDateString()}`;
+      const { data: record, error: recordError } = await supabase
+        .from('cgpa_records')
+        .insert({ user_id: user.id, title })
+        .select('id')
+        .single();
+
+      if (recordError) throw recordError;
+
+      // Save quick semesters (batch insert)
+      if (sessionQuickSemesters.length > 0) {
+        const quickPayload = sessionQuickSemesters.map((sem) => ({
+          user_id: user.id,
+          record_id: record.id,
+          name: sem.name,
+          sgpa: sem.sgpa,
+          credits: sem.credits,
+        }));
+
+        const { error: quickError } = await supabase
           .from('semesters')
-          .insert({
-            user_id: user?.id,
-            name: sem.name,
-            sgpa: sem.sgpa,
-            credits: sem.credits
-          });
-        
-        if (error) throw error;
+          .insert(quickPayload);
+
+        if (quickError) throw quickError;
       }
-      
-      // Save detailed semesters with courses
+
+      // Save detailed semesters + courses
       for (const sem of sessionDetailedSemesters) {
         const { data: semData, error: semError } = await supabase
           .from('semesters')
           .insert({
-            user_id: user?.id,
+            user_id: user.id,
+            record_id: record.id,
             name: sem.name,
             sgpa: sem.sgpa,
-            credits: sem.credits
+            credits: sem.credits,
           })
-          .select()
+          .select('id')
           .single();
-        
+
         if (semError) throw semError;
-        
-        // Save courses for this semester
-        const coursesToInsert = sem.courses.map(c => ({
-          user_id: user?.id,
+
+        const coursesToInsert = sem.courses.map((c) => ({
+          user_id: user.id,
           semester_id: semData.id,
           name: c.name,
           credits: c.credits,
           grade: c.grade,
-          grade_point: c.gradePoint
+          grade_point: c.gradePoint,
         }));
-        
-        const { error: courseError } = await supabase
-          .from('courses')
-          .insert(coursesToInsert);
-        
-        if (courseError) throw courseError;
+
+        if (coursesToInsert.length > 0) {
+          const { error: courseError } = await supabase
+            .from('courses')
+            .insert(coursesToInsert);
+
+          if (courseError) throw courseError;
+        }
       }
-      
+
       setPredictionResult(null);
       setShowResults(true);
-      
+
       // Clear session data after saving
       setSessionQuickSemesters([]);
       setSessionDetailedSemesters([]);
-      
+
       await fetchAIMotivation();
-      
+
       toast({
         title: "CGPA calculated & saved",
-        description: "Your data has been saved to history."
+        description: "Saved as a new result in history.",
       });
     } catch (error: any) {
       toast({
         title: "Error saving data",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };

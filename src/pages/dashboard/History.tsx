@@ -54,6 +54,7 @@ interface Semester {
   sgpa: number;
   credits: number;
   created_at: string;
+  record_id?: string | null;
   courses?: Course[];
 }
 
@@ -67,8 +68,13 @@ interface AttendanceRecord {
 }
 
 const HistoryPage = () => {
-  const [semesters, setSemesters] = useState<Semester[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [cgpaRecords, setCgpaRecords] = useState<Array<{
+    id: string;
+    title: string;
+    created_at: string;
+    semesters: Semester[];
+  }>>([]);
+  const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -81,6 +87,9 @@ const HistoryPage = () => {
   const { toast } = useToast();
   const { user } = useAuth();
 
+  const selectedRecord = cgpaRecords.find(r => r.id === selectedRecordId) ?? cgpaRecords[0] ?? null;
+  const semesters = selectedRecord?.semesters ?? [];
+
   useEffect(() => {
     if (user) {
       fetchHistory();
@@ -88,83 +97,144 @@ const HistoryPage = () => {
   }, [user]);
 
   const fetchHistory = async () => {
+    if (!user) return;
+
     try {
       setLoading(true);
-      const [semesterRes, attendanceRes, coursesRes] = await Promise.all([
+      const [recordRes, semesterRes, attendanceRes, coursesRes] = await Promise.all([
+        supabase
+          .from('cgpa_records')
+          .select('id, title, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
         supabase
           .from('semesters')
-          .select('*')
-          .eq('user_id', user?.id)
+          .select('id, name, sgpa, credits, created_at, record_id')
+          .eq('user_id', user.id)
           .order('created_at', { ascending: true }),
         supabase
           .from('attendance_records')
           .select('*')
-          .eq('user_id', user?.id)
+          .eq('user_id', user.id)
           .order('updated_at', { ascending: false }),
         supabase
           .from('courses')
           .select('*')
-          .eq('user_id', user?.id)
+          .eq('user_id', user.id),
       ]);
 
+      if (recordRes.error) throw recordRes.error;
       if (semesterRes.error) throw semesterRes.error;
       if (attendanceRes.error) throw attendanceRes.error;
       if (coursesRes.error) throw coursesRes.error;
 
-      setSemesters(semesterRes.data?.map(s => ({
+      const coursesBySemester = new Map<string, Course[]>();
+      (coursesRes.data ?? []).forEach((c) => {
+        const arr = coursesBySemester.get(c.semester_id) ?? [];
+        arr.push({
+          id: c.id,
+          name: c.name,
+          credits: c.credits,
+          grade: c.grade,
+          grade_point: c.grade_point,
+          semester_id: c.semester_id,
+        });
+        coursesBySemester.set(c.semester_id, arr);
+      });
+
+      const allSemesters: Semester[] = (semesterRes.data ?? []).map((s) => ({
         id: s.id,
         name: s.name,
         sgpa: Number(s.sgpa),
         credits: s.credits,
-        created_at: s.created_at
-      })) || []);
+        created_at: s.created_at,
+        record_id: s.record_id,
+        courses: coursesBySemester.get(s.id) ?? [],
+      }));
 
-      setCourses(coursesRes.data?.map(c => ({
-        id: c.id,
-        name: c.name,
-        credits: c.credits,
-        grade: c.grade,
-        grade_point: c.grade_point,
-        semester_id: c.semester_id
-      })) || []);
+      const semestersByRecord = new Map<string, Semester[]>();
+      allSemesters.forEach((sem) => {
+        const key = sem.record_id ?? 'legacy';
+        const arr = semestersByRecord.get(key) ?? [];
+        arr.push(sem);
+        semestersByRecord.set(key, arr);
+      });
 
-      setAttendance(attendanceRes.data?.map(a => ({
-        id: a.id,
-        subject: a.subject,
-        attended: a.attended,
-        total: a.total,
-        required: a.required,
-        updated_at: a.updated_at
-      })) || []);
+      const nextRecords: Array<{ id: string; title: string; created_at: string; semesters: Semester[] }> = [];
+
+      (recordRes.data ?? []).forEach((r) => {
+        const sems = semestersByRecord.get(r.id) ?? [];
+        if (sems.length === 0) return;
+        nextRecords.push({
+          id: r.id,
+          title: r.title ?? 'CGPA Calculation',
+          created_at: r.created_at,
+          semesters: sems,
+        });
+      });
+
+      const legacySems = semestersByRecord.get('legacy') ?? [];
+      if (legacySems.length > 0) {
+        nextRecords.push({
+          id: 'legacy',
+          title: 'Legacy CGPA Data',
+          created_at: legacySems[0]?.created_at ?? new Date().toISOString(),
+          semesters: legacySems,
+        });
+      }
+
+      const sorted = nextRecords
+        .filter(r => r.id !== 'legacy')
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      if (legacySems.length > 0) {
+        sorted.push(nextRecords.find(r => r.id === 'legacy')!);
+      }
+
+      setCgpaRecords(sorted);
+      setSelectedRecordId((prev) => {
+        if (prev && sorted.some(r => r.id === prev)) return prev;
+        return sorted[0]?.id ?? null;
+      });
+
+      setAttendance(
+        attendanceRes.data?.map((a) => ({
+          id: a.id,
+          subject: a.subject,
+          attended: a.attended,
+          total: a.total,
+          required: a.required,
+          updated_at: a.updated_at,
+        })) || []
+      );
     } catch (error: any) {
       toast({
-        title: "Error fetching history",
+        title: 'Error fetching history',
         description: error.message,
-        variant: "destructive"
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const calculateCGPA = () => {
-    if (semesters.length === 0) return 0;
-    const totalGradePoints = semesters.reduce((sum, sem) => sum + (sem.sgpa * sem.credits), 0);
-    const totalCredits = semesters.reduce((sum, sem) => sum + sem.credits, 0);
+  const calculateCGPA = (sems: Semester[]) => {
+    if (sems.length === 0) return 0;
+    const totalGradePoints = sems.reduce((sum, sem) => sum + (sem.sgpa * sem.credits), 0);
+    const totalCredits = sems.reduce((sum, sem) => sum + sem.credits, 0);
     return totalCredits > 0 ? totalGradePoints / totalCredits : 0;
   };
 
-  const cgpa = calculateCGPA();
+  const cgpa = calculateCGPA(semesters);
   const totalCredits = semesters.reduce((sum, sem) => sum + sem.credits, 0);
-  const avgSgpa = semesters.length > 0 
-    ? semesters.reduce((sum, sem) => sum + sem.sgpa, 0) / semesters.length 
+  const avgSgpa = semesters.length > 0
+    ? semesters.reduce((sum, sem) => sum + sem.sgpa, 0) / semesters.length
     : 0;
 
   const convert4Scale = () => (cgpa - 5) * 4 / 5;
 
   const handleDeleteAllCGPA = async () => {
     try {
-      // Delete all courses first (due to foreign key)
       const { error: coursesError } = await supabase
         .from('courses')
         .delete()
@@ -172,7 +242,6 @@ const HistoryPage = () => {
 
       if (coursesError) throw coursesError;
 
-      // Then delete all semesters
       const { error: semestersError } = await supabase
         .from('semesters')
         .delete()
@@ -180,23 +249,102 @@ const HistoryPage = () => {
 
       if (semestersError) throw semestersError;
 
-      setSemesters([]);
-      setCourses([]);
+      const { error: recordsError } = await supabase
+        .from('cgpa_records')
+        .delete()
+        .eq('user_id', user?.id);
+
+      if (recordsError) throw recordsError;
+
+      setCgpaRecords([]);
+      setSelectedRecordId(null);
+
       toast({
-        title: "All CGPA data deleted",
-        description: "Your semester and course records have been removed."
+        title: 'All CGPA data deleted',
+        description: 'All saved CGPA results have been removed.',
       });
     } catch (error: any) {
       toast({
-        title: "Error deleting data",
+        title: 'Error deleting data',
         description: error.message,
-        variant: "destructive"
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteCGPARecord = async (recordId: string) => {
+    if (!user) return;
+
+    try {
+      // Find semester IDs under this record
+      const semQuery = supabase
+        .from('semesters')
+        .select('id')
+        .eq('user_id', user.id);
+
+      const { data: semRows, error: semRowsError } = recordId === 'legacy'
+        ? await semQuery.is('record_id', null)
+        : await semQuery.eq('record_id', recordId);
+
+      if (semRowsError) throw semRowsError;
+
+      const semIds = (semRows ?? []).map(s => s.id);
+
+      if (semIds.length > 0) {
+        const { error: delCoursesError } = await supabase
+          .from('courses')
+          .delete()
+          .in('semester_id', semIds);
+
+        if (delCoursesError) throw delCoursesError;
+      }
+
+      // Delete semesters
+      const { error: delSemsError } = recordId === 'legacy'
+        ? await supabase.from('semesters').delete().eq('user_id', user.id).is('record_id', null)
+        : await supabase.from('semesters').delete().eq('user_id', user.id).eq('record_id', recordId);
+
+      if (delSemsError) throw delSemsError;
+
+      // Delete record row (not for legacy)
+      if (recordId !== 'legacy') {
+        const { error: delRecordError } = await supabase
+          .from('cgpa_records')
+          .delete()
+          .eq('id', recordId);
+
+        if (delRecordError) throw delRecordError;
+      }
+
+      setCgpaRecords((prev) => {
+        const next = prev.filter(r => r.id !== recordId);
+        setSelectedRecordId((current) => (current === recordId ? (next[0]?.id ?? null) : current));
+        return next;
+      });
+
+      toast({
+        title: 'Record deleted',
+        description: 'The CGPA record has been removed.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error deleting record',
+        description: error.message,
+        variant: 'destructive',
       });
     }
   };
 
   const handleDeleteSemester = async (id: string) => {
     try {
+      // Delete courses first (FK)
+      const { error: coursesError } = await supabase
+        .from('courses')
+        .delete()
+        .eq('semester_id', id);
+
+      if (coursesError) throw coursesError;
+
       const { error } = await supabase
         .from('semesters')
         .delete()
@@ -204,16 +352,22 @@ const HistoryPage = () => {
 
       if (error) throw error;
 
-      setSemesters(semesters.filter(s => s.id !== id));
+      setCgpaRecords((prev) =>
+        prev.map((r) => ({
+          ...r,
+          semesters: r.semesters.filter((s) => s.id !== id),
+        }))
+      );
+
       toast({
         title: "Semester deleted",
-        description: "The semester record has been removed."
+        description: "The semester record has been removed.",
       });
     } catch (error: any) {
       toast({
         title: "Error deleting",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -251,32 +405,40 @@ const HistoryPage = () => {
     if (!editingSemester) return;
 
     try {
+      const nextSgpa = parseFloat(editSgpa);
+      const nextCredits = parseInt(editCredits);
+
       const { error } = await supabase
         .from('semesters')
         .update({
-          sgpa: parseFloat(editSgpa),
-          credits: parseInt(editCredits)
+          sgpa: nextSgpa,
+          credits: nextCredits,
         })
         .eq('id', editingSemester.id);
 
       if (error) throw error;
 
-      setSemesters(semesters.map(s => 
-        s.id === editingSemester.id 
-          ? { ...s, sgpa: parseFloat(editSgpa), credits: parseInt(editCredits) }
-          : s
-      ));
+      setCgpaRecords((prev) =>
+        prev.map((r) => ({
+          ...r,
+          semesters: r.semesters.map((s) =>
+            s.id === editingSemester.id
+              ? { ...s, sgpa: nextSgpa, credits: nextCredits }
+              : s
+          ),
+        }))
+      );
 
       setEditingSemester(null);
       toast({
         title: "Semester updated",
-        description: "Changes saved successfully."
+        description: "Changes saved successfully.",
       });
     } catch (error: any) {
       toast({
         title: "Error updating",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -430,34 +592,104 @@ const HistoryPage = () => {
           </Button>
         </div>
 
-        {semesters.length === 0 ? (
+        {cgpaRecords.length === 0 ? (
           <Card className="p-8 text-center">
             <Calculator className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No CGPA records found. Add semesters in CGPA Calculator.</p>
+            <p className="text-muted-foreground">No CGPA records found. Calculate CGPA to save a new result.</p>
           </Card>
         ) : (
-          <Card className="border-2 border-primary/30 max-w-md group hover:shadow-soft transition-all">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div className="text-sm text-muted-foreground">
-                  {new Date().toLocaleDateString()}
-                </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {cgpaRecords.map((record) => {
+              const recordCgpa = calculateCGPA(record.semesters);
+              const recordCredits = record.semesters.reduce((sum, s) => sum + s.credits, 0);
+              const record4Scale = (recordCgpa - 5) * 4 / 5;
+
+              return (
+                <Card key={record.id} className="border-2 border-primary/20 group hover:shadow-soft transition-all">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="text-sm text-muted-foreground">
+                        {new Date(record.created_at).toLocaleDateString()}
+                      </div>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity -mt-1 -mr-1"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete this CGPA record?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete this saved result.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteCGPARecord(record.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+
+                    <div className="text-sm font-medium text-foreground mt-1 truncate">
+                      {record.title}{record.id === 'legacy' ? ' (Legacy)' : ''}
+                    </div>
+
+                    <div className="text-3xl font-bold text-primary mt-2">{recordCgpa.toFixed(2)}</div>
+                    <div className="text-sm text-muted-foreground mt-2">CGPA: {recordCgpa.toFixed(2)}/10.0</div>
+                    <div className="text-sm text-muted-foreground">Total Credits: {recordCredits}</div>
+                    <div className="text-sm text-muted-foreground">4.0 Scale: {record4Scale.toFixed(2)}</div>
+
+                    <Button
+                      className="w-full mt-4 bg-primary hover:bg-primary/90"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedRecordId(record.id);
+                        setShowAnalysis(true);
+                      }}
+                    >
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      View detailed analysis
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
+
+            {/* Delete all */}
+            <Card className="border-2 border-destructive/30 group hover:shadow-soft transition-all">
+              <CardContent className="p-4">
+                <div className="text-sm text-muted-foreground">Danger zone</div>
+                <div className="text-sm font-medium text-foreground mt-1">Delete all CGPA data</div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Removes every saved CGPA result, including legacy data.
+                </p>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity -mt-1 -mr-1"
+                      variant="outline"
+                      className="w-full mt-4 text-destructive border-destructive/40 hover:bg-destructive/10"
+                      size="sm"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete all
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Delete all CGPA data?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete all your
-                        semester data, courses, and CGPA calculations from your account.
+                        This action cannot be undone. This will permanently delete all your saved CGPA results.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -471,29 +703,9 @@ const HistoryPage = () => {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-              </div>
-              <div className="text-3xl font-bold text-primary mt-2">
-                {cgpa.toFixed(2)}
-              </div>
-              <div className="text-sm text-muted-foreground mt-2">
-                CGPA: {cgpa.toFixed(2)}/10.0
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Total Credits: {totalCredits}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                4.0 Scale: {convert4Scale().toFixed(2)}
-              </div>
-              <Button
-                className="w-full mt-4 bg-primary hover:bg-primary/90"
-                size="sm"
-                onClick={() => setShowAnalysis(true)}
-              >
-                <BarChart3 className="w-4 h-4 mr-2" />
-                Click for detailed analysis
-              </Button>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
 
