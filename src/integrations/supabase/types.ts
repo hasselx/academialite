@@ -47,6 +47,30 @@ export type Database = {
         }
         Relationships: []
       }
+      cgpa_records: {
+        Row: {
+          created_at: string
+          id: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       courses: {
         Row: {
           created_at: string
@@ -232,6 +256,7 @@ export type Database = {
           credits: number
           id: string
           name: string
+          record_id: string | null
           sgpa: number
           user_id: string
         }
@@ -240,6 +265,7 @@ export type Database = {
           credits: number
           id?: string
           name: string
+          record_id?: string | null
           sgpa: number
           user_id: string
         }
@@ -248,6 +274,7 @@ export type Database = {
           credits?: number
           id?: string
           name?: string
+          record_id?: string | null
           sgpa?: number
           user_id?: string
         }
