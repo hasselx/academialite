@@ -203,7 +203,7 @@ const CGPACalculator = () => {
       // Legacy (older data before records) - show as one option if present
       const { data: legacySemRows, error: legacyError } = await supabase
         .from('semesters')
-        .select('id, name, sgpa, credits')
+        .select('id, name, sgpa, credits, created_at')
         .eq('user_id', user.id)
         .is('record_id', null)
         .order('created_at', { ascending: true });
