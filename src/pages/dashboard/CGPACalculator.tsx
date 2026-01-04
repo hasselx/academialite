@@ -1137,6 +1137,7 @@ const CGPACalculator = () => {
                 onReset={handleResetAll}
                 predictionResult={predictionResult}
                 maxCGPA={maxCGPA}
+                targetCGPA={targetCGPA}
               />
             ) : (
               <EnteredDataCard
@@ -1289,6 +1290,7 @@ const CGPACalculator = () => {
                 onReset={handleResetAll}
                 predictionResult={predictionResult}
                 maxCGPA={maxCGPA}
+                targetCGPA={targetCGPA}
               />
             ) : (
               <EnteredDataCard
@@ -1466,7 +1468,8 @@ const ResultsCard = ({
   onViewAnalysis,
   onReset,
   predictionResult,
-  maxCGPA
+  maxCGPA,
+  targetCGPA
 }: {
   showResults: boolean;
   totalSemesters: number;
@@ -1479,6 +1482,7 @@ const ResultsCard = ({
   onReset: () => void;
   predictionResult?: { requiredSGPA: number; remainingSemesters: number; achievable: boolean } | null;
   maxCGPA?: number;
+  targetCGPA?: string;
 }) => (
   <Card className="overflow-hidden">
     <CardHeader className="bg-gradient-to-r from-chart-4/20 to-primary/20">
@@ -1530,30 +1534,130 @@ const ResultsCard = ({
 
           {/* Target CGPA Prediction Result */}
           {predictionResult && (
-            <div className={`p-4 rounded-lg border ${predictionResult.achievable ? 'bg-success/10 border-success/30' : 'bg-destructive/10 border-destructive/30'}`}>
-              <div className="flex items-start gap-3">
-                <Crosshair className={`w-5 h-5 mt-0.5 flex-shrink-0 ${predictionResult.achievable ? 'text-success' : 'text-destructive'}`} />
-                <div className="space-y-2">
-                  <p className={`font-semibold ${predictionResult.achievable ? 'text-success' : 'text-destructive'}`}>
-                    {predictionResult.achievable ? 'Target Achievable!' : 'Target May Be Difficult'}
-                  </p>
-                  <p className="text-sm">
-                    You need a minimum SGPA of{' '}
-                    <span className={`font-bold ${predictionResult.achievable ? 'text-success' : 'text-destructive'}`}>
-                      {predictionResult.requiredSGPA.toFixed(2)}
-                    </span>{' '}
-                    in your remaining{' '}
-                    <span className="font-semibold">{predictionResult.remainingSemesters} semester{predictionResult.remainingSemesters > 1 ? 's' : ''}</span>{' '}
-                    to achieve your target.
-                  </p>
-                  {!predictionResult.achievable && (
-                    <p className="text-xs text-muted-foreground">
-                      The required SGPA exceeds the maximum possible ({maxCGPA}). Consider adjusting your target.
+            <>
+              <div className={`p-4 rounded-lg border ${predictionResult.achievable ? 'bg-success/10 border-success/30' : 'bg-destructive/10 border-destructive/30'}`}>
+                <div className="flex items-start gap-3">
+                  <Crosshair className={`w-5 h-5 mt-0.5 flex-shrink-0 ${predictionResult.achievable ? 'text-success' : 'text-destructive'}`} />
+                  <div className="space-y-2">
+                    <p className={`font-semibold ${predictionResult.achievable ? 'text-success' : 'text-destructive'}`}>
+                      {predictionResult.achievable ? 'Target Achievable!' : 'Target May Be Difficult'}
                     </p>
-                  )}
+                    <p className="text-sm">
+                      You need a minimum SGPA of{' '}
+                      <span className={`font-bold ${predictionResult.achievable ? 'text-success' : 'text-destructive'}`}>
+                        {predictionResult.requiredSGPA.toFixed(2)}
+                      </span>{' '}
+                      in your remaining{' '}
+                      <span className="font-semibold">{predictionResult.remainingSemesters} semester{predictionResult.remainingSemesters > 1 ? 's' : ''}</span>{' '}
+                      to achieve your target.
+                    </p>
+                    {!predictionResult.achievable && (
+                      <p className="text-xs text-muted-foreground">
+                        The required SGPA exceeds the maximum possible ({maxCGPA}). Consider adjusting your target.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+
+              {/* CGPA Projection Chart */}
+              <div className="p-4 bg-card rounded-lg border">
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-primary" />
+                  CGPA Projection
+                </h4>
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={(() => {
+                        // Build projection data points
+                        const projectionData = [];
+                        const currentSems = totalSemesters;
+                        const avgCreditsPerSem = totalCredits / currentSems;
+                        
+                        // Add "Current" point
+                        projectionData.push({
+                          name: `Current (Sem ${currentSems})`,
+                          cgpa: cgpa,
+                          type: 'current'
+                        });
+                        
+                        // Project each remaining semester
+                        let runningCredits = totalCredits;
+                        let runningWeighted = cgpa * totalCredits;
+                        const requiredSGPA = predictionResult.requiredSGPA;
+                        
+                        for (let i = 1; i <= predictionResult.remainingSemesters; i++) {
+                          runningCredits += avgCreditsPerSem;
+                          runningWeighted += requiredSGPA * avgCreditsPerSem;
+                          const projectedCGPA = runningWeighted / runningCredits;
+                          
+                          projectionData.push({
+                            name: `Sem ${currentSems + i}`,
+                            cgpa: Math.min(projectedCGPA, maxCGPA || 10),
+                            type: 'projected'
+                          });
+                        }
+                        
+                        return projectionData;
+                      })()}
+                      margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                      <XAxis 
+                        dataKey="name" 
+                        tick={{ fontSize: 10 }} 
+                        angle={-20}
+                        textAnchor="end"
+                        height={50}
+                      />
+                      <YAxis 
+                        domain={[0, maxCGPA || 10]} 
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(v) => v.toFixed(1)}
+                      />
+                      <Tooltip 
+                        formatter={(value: number) => [value.toFixed(2), 'CGPA']}
+                        labelClassName="text-foreground"
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--card))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="cgpa" 
+                        stroke={predictionResult.achievable ? 'hsl(var(--success))' : 'hsl(var(--chart-4))'}
+                        strokeWidth={2}
+                        dot={{ r: 4, fill: predictionResult.achievable ? 'hsl(var(--success))' : 'hsl(var(--chart-4))' }}
+                        activeDot={{ r: 6 }}
+                      />
+                      {/* Target line reference */}
+                      <Line
+                        type="monotone"
+                        dataKey={() => parseFloat(targetCGPA) || cgpa}
+                        stroke="hsl(var(--primary))"
+                        strokeDasharray="5 5"
+                        strokeWidth={1}
+                        dot={false}
+                        name="Target"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex items-center justify-center gap-4 mt-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <div className={`w-3 h-0.5 ${predictionResult.achievable ? 'bg-success' : 'bg-chart-4'}`} />
+                    <span>Projected CGPA</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-0.5 bg-primary" style={{ borderTop: '2px dashed' }} />
+                    <span>Target CGPA</span>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
 
           {/* View Analysis Button */}
