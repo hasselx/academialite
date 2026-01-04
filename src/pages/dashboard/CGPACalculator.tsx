@@ -1571,7 +1571,13 @@ const ResultsCard = ({
                     <LineChart
                       data={(() => {
                         // Build projection data points
-                        const projectionData = [];
+                        const projectionData: Array<{
+                          name: string;
+                          cgpa: number;
+                          type: string;
+                          requiredSGPA?: number;
+                          semCredits?: number;
+                        }> = [];
                         const currentSems = totalSemesters;
                         const avgCreditsPerSem = totalCredits / currentSems;
                         
@@ -1595,7 +1601,9 @@ const ResultsCard = ({
                           projectionData.push({
                             name: `Sem ${currentSems + i}`,
                             cgpa: Math.min(projectedCGPA, maxCGPA || 10),
-                            type: 'projected'
+                            type: 'projected',
+                            requiredSGPA: requiredSGPA,
+                            semCredits: Math.round(avgCreditsPerSem)
                           });
                         }
                         
@@ -1617,12 +1625,37 @@ const ResultsCard = ({
                         tickFormatter={(v) => v.toFixed(1)}
                       />
                       <Tooltip 
-                        formatter={(value: number) => [value.toFixed(2), 'CGPA']}
-                        labelClassName="text-foreground"
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--card))', 
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px'
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null;
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
+                              <p className="font-semibold text-sm mb-2">{label}</p>
+                              <div className="space-y-1 text-xs">
+                                <div className="flex justify-between gap-4">
+                                  <span className="text-muted-foreground">Projected CGPA:</span>
+                                  <span className="font-medium text-primary">{data.cgpa.toFixed(2)}</span>
+                                </div>
+                                {data.type === 'projected' && (
+                                  <>
+                                    <div className="flex justify-between gap-4">
+                                      <span className="text-muted-foreground">Required SGPA:</span>
+                                      <span className={`font-bold ${predictionResult.achievable ? 'text-success' : 'text-destructive'}`}>
+                                        {data.requiredSGPA?.toFixed(2)}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between gap-4">
+                                      <span className="text-muted-foreground">Est. Credits:</span>
+                                      <span className="font-medium">{data.semCredits}</span>
+                                    </div>
+                                  </>
+                                )}
+                                {data.type === 'current' && (
+                                  <p className="text-muted-foreground italic">Your current standing</p>
+                                )}
+                              </div>
+                            </div>
+                          );
                         }}
                       />
                       <Line 
@@ -1636,7 +1669,7 @@ const ResultsCard = ({
                       {/* Target line reference */}
                       <Line
                         type="monotone"
-                        dataKey={() => parseFloat(targetCGPA) || cgpa}
+                        dataKey={() => parseFloat(targetCGPA || '0') || cgpa}
                         stroke="hsl(var(--primary))"
                         strokeDasharray="5 5"
                         strokeWidth={1}
