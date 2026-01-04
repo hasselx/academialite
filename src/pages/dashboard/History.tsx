@@ -666,45 +666,6 @@ const HistoryPage = () => {
               );
             })}
 
-            {/* Delete all */}
-            <Card className="border-2 border-destructive/30 group hover:shadow-soft transition-all">
-              <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">Danger zone</div>
-                <div className="text-sm font-medium text-foreground mt-1">Delete all CGPA data</div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Removes every saved CGPA result, including legacy data.
-                </p>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full mt-4 text-destructive border-destructive/40 hover:bg-destructive/10"
-                      size="sm"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete all
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete all CGPA data?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete all your saved CGPA results.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleDeleteAllCGPA}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </CardContent>
-            </Card>
           </div>
         )}
       </div>
