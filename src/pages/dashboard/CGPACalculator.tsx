@@ -1314,92 +1314,333 @@ const CGPACalculator = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <BarChart3 className="w-6 h-6 text-primary" />
-              CGPA Analysis & Trends
+              {predictionResult ? 'Target CGPA Analysis' : 'CGPA Analysis & Trends'}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-8">
-            {/* Stats Row */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="stat-card">
-                <div className="flex items-center gap-3">
-                  <Target className="w-10 h-10 text-primary" />
-                  <div>
-                    <div className="text-3xl font-bold text-primary">{cgpa.toFixed(2)}</div>
-                    <div className="text-sm text-muted-foreground">Overall CGPA</div>
+            {/* Stats Row - Context-aware */}
+            {predictionResult ? (
+              <>
+                {/* Target Mode Stats */}
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="stat-card">
+                    <div className="flex items-center gap-3">
+                      <Target className="w-10 h-10 text-primary" />
+                      <div>
+                        <div className="text-3xl font-bold text-primary">{cgpa.toFixed(2)}</div>
+                        <div className="text-sm text-muted-foreground">Current CGPA</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className={`stat-card ${predictionResult.achievable ? 'bg-success/10' : 'bg-destructive/10'}`}>
+                    <div className="flex items-center gap-3">
+                      <Crosshair className={`w-10 h-10 ${predictionResult.achievable ? 'text-success' : 'text-destructive'}`} />
+                      <div>
+                        <div className={`text-3xl font-bold ${predictionResult.achievable ? 'text-success' : 'text-destructive'}`}>
+                          {parseFloat(targetCGPA || '0').toFixed(2)}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Target CGPA</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className={`stat-card ${predictionResult.achievable ? 'bg-success/5' : 'bg-warning/10'}`}>
+                    <div className="flex items-center gap-3">
+                      <Zap className={`w-10 h-10 ${predictionResult.achievable ? 'text-success' : 'text-warning'}`} />
+                      <div>
+                        <div className={`text-3xl font-bold ${predictionResult.achievable ? 'text-success' : 'text-warning'}`}>
+                          {predictionResult.requiredSGPA.toFixed(2)}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Required SGPA</div>
+                        <div className={`text-xs ${predictionResult.achievable ? 'text-success' : 'text-warning'}`}>
+                          Per remaining semester
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="stat-card bg-primary/5">
+                    <div className="flex items-center gap-3">
+                      <BookOpen className="w-10 h-10 text-primary" />
+                      <div>
+                        <div className="text-3xl font-bold text-primary">{predictionResult.remainingSemesters}</div>
+                        <div className="text-sm text-muted-foreground">Remaining</div>
+                        <div className="text-xs text-muted-foreground">{totalSemesters} completed</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="stat-card bg-success/5">
-                <div className="flex items-center gap-3">
-                  <BarChart3 className="w-10 h-10 text-success" />
-                  <div>
-                    <div className="text-3xl font-bold text-success">{totalCredits}</div>
-                    <div className="text-sm text-muted-foreground">Total Credits</div>
-                    <div className="text-xs text-success">{totalSemesters} Semesters</div>
-                  </div>
-                </div>
-              </div>
-              <div className="stat-card bg-chart-4/5">
-                <div className="flex items-center gap-3">
-                  <TrendingUp className="w-10 h-10 text-chart-4" />
-                  <div>
-                    <div className="text-3xl font-bold text-chart-4">{percentage.toFixed(1)}%</div>
-                    <div className="text-sm text-muted-foreground">Notional Percentage</div>
-                    <div className="text-xs text-chart-4">CGPA × 10</div>
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            {/* Charts */}
-            {chartData.length > 0 && (
-              <div className="grid md:grid-cols-2 gap-6">
-                <Card className="p-4">
-                  <h4 className="font-semibold mb-4 flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4" />
-                    SGPA vs Credits by Semester
-                  </h4>
-                  <div className="h-[250px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                        <XAxis dataKey="name" fontSize={12} />
-                        <YAxis yAxisId="left" fontSize={12} />
-                        <YAxis yAxisId="right" orientation="right" fontSize={12} />
-                        <Tooltip />
-                        <Legend />
-                        <Bar yAxisId="left" dataKey="SGPA" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                        <Bar yAxisId="right" dataKey="Credits" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                {/* Target Prediction Summary */}
+                <Card className={`p-4 ${predictionResult.achievable ? 'bg-success/5 border-success/30' : 'bg-destructive/5 border-destructive/30'}`}>
+                  <div className="flex items-start gap-4">
+                    <div className={`p-3 rounded-full ${predictionResult.achievable ? 'bg-success/20' : 'bg-destructive/20'}`}>
+                      <Crosshair className={`w-8 h-8 ${predictionResult.achievable ? 'text-success' : 'text-destructive'}`} />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <h3 className={`text-lg font-bold ${predictionResult.achievable ? 'text-success' : 'text-destructive'}`}>
+                        {predictionResult.achievable ? 'Target is Achievable!' : 'Target May Be Challenging'}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        To reach a CGPA of <span className="font-semibold text-foreground">{parseFloat(targetCGPA || '0').toFixed(2)}</span> from your current <span className="font-semibold text-foreground">{cgpa.toFixed(2)}</span>, 
+                        you need to maintain a minimum SGPA of <span className={`font-bold ${predictionResult.achievable ? 'text-success' : 'text-warning'}`}>{predictionResult.requiredSGPA.toFixed(2)}</span> in 
+                        each of your remaining <span className="font-semibold text-foreground">{predictionResult.remainingSemesters}</span> semester{predictionResult.remainingSemesters > 1 ? 's' : ''}.
+                      </p>
+                      {!predictionResult.achievable && (
+                        <p className="text-xs text-destructive/80">
+                          The required SGPA of {predictionResult.requiredSGPA.toFixed(2)} exceeds the maximum possible ({maxCGPA}). Consider adjusting your target to a more realistic value.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </Card>
 
+                {/* Projection Chart in Analysis */}
                 <Card className="p-4">
                   <h4 className="font-semibold mb-4 flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4" />
-                    SGPA Trend Over Semesters
+                    <TrendingUp className="w-4 h-4 text-primary" />
+                    CGPA Trajectory to Target
                   </h4>
-                  <div className="h-[250px]">
+                  <div className="h-[280px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                      <LineChart
+                        data={(() => {
+                          const projectionData: Array<{
+                            name: string;
+                            cgpa: number;
+                            target: number;
+                            type: string;
+                          }> = [];
+                          const currentSems = totalSemesters;
+                          const avgCreditsPerSem = totalCredits / currentSems;
+                          const targetValue = parseFloat(targetCGPA || '0') || cgpa;
+                          
+                          projectionData.push({
+                            name: `Sem ${currentSems}`,
+                            cgpa: cgpa,
+                            target: targetValue,
+                            type: 'current'
+                          });
+                          
+                          let runningCredits = totalCredits;
+                          let runningWeighted = cgpa * totalCredits;
+                          const requiredSGPA = predictionResult.requiredSGPA;
+                          
+                          for (let i = 1; i <= predictionResult.remainingSemesters; i++) {
+                            runningCredits += avgCreditsPerSem;
+                            runningWeighted += requiredSGPA * avgCreditsPerSem;
+                            const projectedCGPA = runningWeighted / runningCredits;
+                            
+                            projectionData.push({
+                              name: `Sem ${currentSems + i}`,
+                              cgpa: Math.min(projectedCGPA, maxCGPA || 10),
+                              target: targetValue,
+                              type: 'projected'
+                            });
+                          }
+                          
+                          return projectionData;
+                        })()}
+                        margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
+                      >
+                        <defs>
+                          <linearGradient id="analysisProjectionGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={predictionResult.achievable ? 'hsl(var(--success))' : 'hsl(var(--chart-4))'} stopOpacity={0.4} />
+                            <stop offset="95%" stopColor={predictionResult.achievable ? 'hsl(var(--success))' : 'hsl(var(--chart-4))'} stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
                         <XAxis dataKey="name" fontSize={12} />
-                        <YAxis domain={[0, 10]} fontSize={12} />
-                        <Tooltip />
+                        <YAxis 
+                          domain={[(dataMin: number) => Math.max(0, Math.floor(dataMin - 1)), (dataMax: number) => Math.min(maxCGPA || 10, Math.ceil(dataMax + 0.5))]}
+                          fontSize={12} 
+                          tickFormatter={(v) => v.toFixed(1)}
+                        />
+                        <Tooltip
+                          content={({ active, payload, label }) => {
+                            if (!active || !payload?.length) return null;
+                            const data = payload[0].payload;
+                            return (
+                              <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+                                <p className="font-semibold text-sm mb-2">{label}</p>
+                                <div className="space-y-1 text-xs">
+                                  <div className="flex justify-between gap-4">
+                                    <span className="text-muted-foreground">CGPA:</span>
+                                    <span className="font-bold text-primary">{data.cgpa.toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-between gap-4">
+                                    <span className="text-muted-foreground">Target:</span>
+                                    <span className="font-medium">{data.target.toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }}
+                        />
+                        <Legend />
                         <Line
                           type="monotone"
-                          dataKey="SGPA"
+                          dataKey="cgpa"
+                          name="Projected CGPA"
+                          stroke={predictionResult.achievable ? 'hsl(var(--success))' : 'hsl(var(--chart-4))'}
+                          strokeWidth={3}
+                          dot={{ r: 5, fill: predictionResult.achievable ? 'hsl(var(--success))' : 'hsl(var(--chart-4))' }}
+                          fill="url(#analysisProjectionGradient)"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="target"
+                          name="Target CGPA"
                           stroke="hsl(var(--primary))"
+                          strokeDasharray="8 4"
                           strokeWidth={2}
-                          dot={{ fill: "hsl(var(--primary))", r: 6 }}
+                          dot={false}
                         />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
                 </Card>
-              </div>
+
+                {/* Semester-by-Semester Breakdown */}
+                <Card className="p-4">
+                  <h4 className="font-semibold mb-4 flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-primary" />
+                    Semester-by-Semester Projection
+                  </h4>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Semester</TableHead>
+                          <TableHead>Required SGPA</TableHead>
+                          <TableHead>Est. Credits</TableHead>
+                          <TableHead>Projected CGPA</TableHead>
+                          <TableHead>Gap to Target</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(() => {
+                          const rows = [];
+                          const avgCreditsPerSem = Math.round(totalCredits / totalSemesters);
+                          let runningCredits = totalCredits;
+                          let runningWeighted = cgpa * totalCredits;
+                          const targetValue = parseFloat(targetCGPA || '0') || cgpa;
+                          
+                          for (let i = 1; i <= predictionResult.remainingSemesters; i++) {
+                            runningCredits += avgCreditsPerSem;
+                            runningWeighted += predictionResult.requiredSGPA * avgCreditsPerSem;
+                            const projectedCGPA = runningWeighted / runningCredits;
+                            const gap = targetValue - projectedCGPA;
+                            
+                            rows.push(
+                              <TableRow key={i}>
+                                <TableCell className="font-medium">Semester {totalSemesters + i}</TableCell>
+                                <TableCell>
+                                  <Badge className={predictionResult.achievable ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}>
+                                    {predictionResult.requiredSGPA.toFixed(2)}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>{avgCreditsPerSem}</TableCell>
+                                <TableCell className="font-semibold text-primary">{Math.min(projectedCGPA, maxCGPA || 10).toFixed(2)}</TableCell>
+                                <TableCell>
+                                  <span className={gap <= 0.01 ? 'text-success font-semibold' : 'text-muted-foreground'}>
+                                    {gap <= 0.01 ? '✓ Target reached' : `${gap.toFixed(2)} remaining`}
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          }
+                          return rows;
+                        })()}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </Card>
+              </>
+            ) : (
+              <>
+                {/* Regular Mode Stats */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="stat-card">
+                    <div className="flex items-center gap-3">
+                      <Target className="w-10 h-10 text-primary" />
+                      <div>
+                        <div className="text-3xl font-bold text-primary">{cgpa.toFixed(2)}</div>
+                        <div className="text-sm text-muted-foreground">Overall CGPA</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="stat-card bg-success/5">
+                    <div className="flex items-center gap-3">
+                      <BarChart3 className="w-10 h-10 text-success" />
+                      <div>
+                        <div className="text-3xl font-bold text-success">{totalCredits}</div>
+                        <div className="text-sm text-muted-foreground">Total Credits</div>
+                        <div className="text-xs text-success">{totalSemesters} Semesters</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="stat-card bg-chart-4/5">
+                    <div className="flex items-center gap-3">
+                      <TrendingUp className="w-10 h-10 text-chart-4" />
+                      <div>
+                        <div className="text-3xl font-bold text-chart-4">{percentage.toFixed(1)}%</div>
+                        <div className="text-sm text-muted-foreground">Notional Percentage</div>
+                        <div className="text-xs text-chart-4">CGPA × 10</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Charts */}
+                {chartData.length > 0 && (
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <Card className="p-4">
+                      <h4 className="font-semibold mb-4 flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4" />
+                        SGPA vs Credits by Semester
+                      </h4>
+                      <div className="h-[250px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                            <XAxis dataKey="name" fontSize={12} />
+                            <YAxis yAxisId="left" fontSize={12} />
+                            <YAxis yAxisId="right" orientation="right" fontSize={12} />
+                            <Tooltip />
+                            <Legend />
+                            <Bar yAxisId="left" dataKey="SGPA" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                            <Bar yAxisId="right" dataKey="Credits" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </Card>
+
+                    <Card className="p-4">
+                      <h4 className="font-semibold mb-4 flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4" />
+                        SGPA Trend Over Semesters
+                      </h4>
+                      <div className="h-[250px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                            <XAxis dataKey="name" fontSize={12} />
+                            <YAxis domain={[0, 10]} fontSize={12} />
+                            <Tooltip />
+                            <Line
+                              type="monotone"
+                              dataKey="SGPA"
+                              stroke="hsl(var(--primary))"
+                              strokeWidth={2}
+                              dot={{ fill: "hsl(var(--primary))", r: 6 }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </Card>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Detailed Courses Table (only for detailed mode semesters) */}
@@ -1516,21 +1757,42 @@ const ResultsCard = ({
             </div>
           )}
 
-          {/* Main Stats */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="stat-card text-center">
-              <div className="text-3xl font-bold text-primary">{cgpa.toFixed(2)}</div>
-              <div className="text-sm text-muted-foreground">Overall CGPA</div>
+          {/* Main Stats - Context-aware based on prediction mode */}
+          {predictionResult ? (
+            <div className="grid grid-cols-3 gap-4">
+              <div className="stat-card text-center">
+                <div className="text-3xl font-bold text-primary">{cgpa.toFixed(2)}</div>
+                <div className="text-sm text-muted-foreground">Current CGPA</div>
+              </div>
+              <div className="stat-card text-center">
+                <div className={`text-3xl font-bold ${predictionResult.achievable ? 'text-success' : 'text-destructive'}`}>
+                  {parseFloat(targetCGPA || '0').toFixed(2)}
+                </div>
+                <div className="text-sm text-muted-foreground">Target CGPA</div>
+              </div>
+              <div className="stat-card text-center">
+                <div className={`text-3xl font-bold ${predictionResult.achievable ? 'text-success' : 'text-warning'}`}>
+                  {predictionResult.requiredSGPA.toFixed(2)}
+                </div>
+                <div className="text-sm text-muted-foreground">Required SGPA</div>
+              </div>
             </div>
-            <div className="stat-card text-center">
-              <div className="text-3xl font-bold text-success">{totalCredits}</div>
-              <div className="text-sm text-muted-foreground">Total Credits</div>
+          ) : (
+            <div className="grid grid-cols-3 gap-4">
+              <div className="stat-card text-center">
+                <div className="text-3xl font-bold text-primary">{cgpa.toFixed(2)}</div>
+                <div className="text-sm text-muted-foreground">Overall CGPA</div>
+              </div>
+              <div className="stat-card text-center">
+                <div className="text-3xl font-bold text-success">{totalCredits}</div>
+                <div className="text-sm text-muted-foreground">Total Credits</div>
+              </div>
+              <div className="stat-card text-center">
+                <div className="text-3xl font-bold text-chart-4">{percentage.toFixed(1)}%</div>
+                <div className="text-sm text-muted-foreground">Percentage</div>
+              </div>
             </div>
-            <div className="stat-card text-center">
-              <div className="text-3xl font-bold text-chart-4">{percentage.toFixed(1)}%</div>
-              <div className="text-sm text-muted-foreground">Percentage</div>
-            </div>
-          </div>
+          )}
 
           {/* Target CGPA Prediction Result */}
           {predictionResult && (
@@ -1560,32 +1822,36 @@ const ResultsCard = ({
                 </div>
               </div>
 
-              {/* CGPA Projection Chart */}
-              <div className="p-4 bg-card rounded-lg border">
-                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              {/* CGPA Projection Chart - Enhanced */}
+              <div className="p-4 bg-gradient-to-br from-card to-muted/30 rounded-lg border">
+                <h4 className="text-sm font-semibold mb-4 flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-primary" />
-                  CGPA Projection
+                  CGPA Projection to Target
                 </h4>
-                <div className="h-48">
+                <div className="h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart
                       data={(() => {
-                        // Build projection data points
                         const projectionData: Array<{
                           name: string;
                           cgpa: number;
+                          target: number;
                           type: string;
                           requiredSGPA?: number;
                           semCredits?: number;
+                          semNumber: number;
                         }> = [];
                         const currentSems = totalSemesters;
                         const avgCreditsPerSem = totalCredits / currentSems;
+                        const targetValue = parseFloat(targetCGPA || '0') || cgpa;
                         
                         // Add "Current" point
                         projectionData.push({
-                          name: `Current (Sem ${currentSems})`,
+                          name: `Sem ${currentSems}`,
                           cgpa: cgpa,
-                          type: 'current'
+                          target: targetValue,
+                          type: 'current',
+                          semNumber: currentSems
                         });
                         
                         // Project each remaining semester
@@ -1601,93 +1867,154 @@ const ResultsCard = ({
                           projectionData.push({
                             name: `Sem ${currentSems + i}`,
                             cgpa: Math.min(projectedCGPA, maxCGPA || 10),
+                            target: targetValue,
                             type: 'projected',
                             requiredSGPA: requiredSGPA,
-                            semCredits: Math.round(avgCreditsPerSem)
+                            semCredits: Math.round(avgCreditsPerSem),
+                            semNumber: currentSems + i
                           });
                         }
                         
                         return projectionData;
                       })()}
-                      margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                      margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                      <defs>
+                        <linearGradient id="projectionGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop 
+                            offset="5%" 
+                            stopColor={predictionResult.achievable ? 'hsl(var(--success))' : 'hsl(var(--chart-4))'} 
+                            stopOpacity={0.3}
+                          />
+                          <stop 
+                            offset="95%" 
+                            stopColor={predictionResult.achievable ? 'hsl(var(--success))' : 'hsl(var(--chart-4))'} 
+                            stopOpacity={0}
+                          />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" className="opacity-20" vertical={false} />
                       <XAxis 
                         dataKey="name" 
-                        tick={{ fontSize: 10 }} 
-                        angle={-20}
-                        textAnchor="end"
-                        height={50}
+                        tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                        axisLine={{ stroke: 'hsl(var(--border))' }}
+                        tickLine={false}
                       />
                       <YAxis 
-                        domain={[0, maxCGPA || 10]} 
-                        tick={{ fontSize: 11 }}
+                        domain={[(dataMin: number) => Math.max(0, Math.floor(dataMin - 1)), (dataMax: number) => Math.min(maxCGPA || 10, Math.ceil(dataMax + 0.5))]}
+                        tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                         tickFormatter={(v) => v.toFixed(1)}
+                        axisLine={{ stroke: 'hsl(var(--border))' }}
+                        tickLine={false}
                       />
                       <Tooltip 
                         content={({ active, payload, label }) => {
                           if (!active || !payload?.length) return null;
                           const data = payload[0].payload;
+                          const gap = data.target - data.cgpa;
                           return (
-                            <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
-                              <p className="font-semibold text-sm mb-2">{label}</p>
-                              <div className="space-y-1 text-xs">
-                                <div className="flex justify-between gap-4">
-                                  <span className="text-muted-foreground">Projected CGPA:</span>
-                                  <span className="font-medium text-primary">{data.cgpa.toFixed(2)}</span>
+                            <div className="bg-popover border border-border rounded-xl p-4 shadow-xl backdrop-blur-sm">
+                              <p className="font-bold text-sm mb-3 text-foreground">{label}</p>
+                              <div className="space-y-2 text-xs">
+                                <div className="flex justify-between gap-6">
+                                  <span className="text-muted-foreground">CGPA at this point:</span>
+                                  <span className="font-bold text-primary text-sm">{data.cgpa.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between gap-6">
+                                  <span className="text-muted-foreground">Target CGPA:</span>
+                                  <span className="font-semibold text-sm">{data.target.toFixed(2)}</span>
                                 </div>
                                 {data.type === 'projected' && (
                                   <>
-                                    <div className="flex justify-between gap-4">
+                                    <div className="h-px bg-border my-2" />
+                                    <div className="flex justify-between gap-6">
                                       <span className="text-muted-foreground">Required SGPA:</span>
-                                      <span className={`font-bold ${predictionResult.achievable ? 'text-success' : 'text-destructive'}`}>
+                                      <span className={`font-bold text-sm ${predictionResult.achievable ? 'text-success' : 'text-destructive'}`}>
                                         {data.requiredSGPA?.toFixed(2)}
                                       </span>
                                     </div>
-                                    <div className="flex justify-between gap-4">
+                                    <div className="flex justify-between gap-6">
                                       <span className="text-muted-foreground">Est. Credits:</span>
                                       <span className="font-medium">{data.semCredits}</span>
+                                    </div>
+                                    <div className="flex justify-between gap-6">
+                                      <span className="text-muted-foreground">Gap to target:</span>
+                                      <span className={`font-medium ${gap <= 0 ? 'text-success' : 'text-warning'}`}>
+                                        {gap <= 0 ? '✓ Achieved' : `${gap.toFixed(2)} remaining`}
+                                      </span>
                                     </div>
                                   </>
                                 )}
                                 {data.type === 'current' && (
-                                  <p className="text-muted-foreground italic">Your current standing</p>
+                                  <div className="pt-1">
+                                    <p className="text-muted-foreground italic flex items-center gap-1">
+                                      <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                                      Your current standing
+                                    </p>
+                                  </div>
                                 )}
                               </div>
                             </div>
                           );
                         }}
                       />
+                      {/* Area under projection line */}
                       <Line 
                         type="monotone" 
                         dataKey="cgpa" 
                         stroke={predictionResult.achievable ? 'hsl(var(--success))' : 'hsl(var(--chart-4))'}
-                        strokeWidth={2}
-                        dot={{ r: 4, fill: predictionResult.achievable ? 'hsl(var(--success))' : 'hsl(var(--chart-4))' }}
-                        activeDot={{ r: 6 }}
+                        strokeWidth={3}
+                        dot={(props) => {
+                          const { cx, cy, payload } = props;
+                          const isCurrentPoint = payload.type === 'current';
+                          return (
+                            <circle
+                              cx={cx}
+                              cy={cy}
+                              r={isCurrentPoint ? 8 : 5}
+                              fill={isCurrentPoint ? 'hsl(var(--primary))' : predictionResult.achievable ? 'hsl(var(--success))' : 'hsl(var(--chart-4))'}
+                              stroke={isCurrentPoint ? 'hsl(var(--primary-foreground))' : 'hsl(var(--card))'}
+                              strokeWidth={isCurrentPoint ? 3 : 2}
+                            />
+                          );
+                        }}
+                        activeDot={{ r: 8, strokeWidth: 2 }}
+                        fill="url(#projectionGradient)"
                       />
                       {/* Target line reference */}
                       <Line
                         type="monotone"
-                        dataKey={() => parseFloat(targetCGPA || '0') || cgpa}
+                        dataKey="target"
                         stroke="hsl(var(--primary))"
-                        strokeDasharray="5 5"
-                        strokeWidth={1}
+                        strokeDasharray="8 4"
+                        strokeWidth={2}
                         dot={false}
                         name="Target"
                       />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="flex items-center justify-center gap-4 mt-2 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <div className={`w-3 h-0.5 ${predictionResult.achievable ? 'bg-success' : 'bg-chart-4'}`} />
-                    <span>Projected CGPA</span>
+                <div className="flex items-center justify-center gap-6 mt-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-4 h-1 rounded ${predictionResult.achievable ? 'bg-success' : 'bg-chart-4'}`} />
+                    <span className="text-muted-foreground">Projected CGPA</span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-0.5 bg-primary" style={{ borderTop: '2px dashed' }} />
-                    <span>Target CGPA</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-0 border-t-2 border-dashed border-primary" />
+                    <span className="text-muted-foreground">Target CGPA ({parseFloat(targetCGPA || '0').toFixed(1)})</span>
                   </div>
+                </div>
+              </div>
+
+              {/* Additional Target Mode Stats */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="stat-card text-center">
+                  <div className="text-2xl font-bold text-muted-foreground">{totalSemesters}</div>
+                  <div className="text-xs text-muted-foreground">Completed Semesters</div>
+                </div>
+                <div className="stat-card text-center">
+                  <div className="text-2xl font-bold text-primary">{predictionResult.remainingSemesters}</div>
+                  <div className="text-xs text-muted-foreground">Remaining Semesters</div>
                 </div>
               </div>
             </>
