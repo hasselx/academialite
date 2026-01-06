@@ -19,7 +19,8 @@ import {
   Sun,
   Moon,
   Settings,
-  Globe
+  Globe,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -45,6 +46,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { supabase } from "@/integrations/supabase/client";
 
 const navigation = {
   academic: [
@@ -77,6 +79,7 @@ const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [timeSheetOpen, setTimeSheetOpen] = useState(false);
+  const [savingTimeSettings, setSavingTimeSettings] = useState(false);
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('theme');
@@ -102,6 +105,45 @@ const DashboardLayout = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
 
+  // Fetch user's time settings from database on load
+  useEffect(() => {
+    const fetchUserTimeSettings = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('timezone_offset, time_format')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        if (error) {
+          console.error('Error fetching time settings:', error);
+          return;
+        }
+        
+        if (data) {
+          // Find country by offset
+          if (data.timezone_offset !== null) {
+            const country = countries.find(c => c.offset === Number(data.timezone_offset));
+            if (country) {
+              setSelectedCountry(country.code);
+              localStorage.setItem('userCountry', country.code);
+            }
+          }
+          if (data.time_format) {
+            setTimeFormat(data.time_format as '12hr' | '24hr');
+            localStorage.setItem('timeFormat', data.time_format);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching time settings:', error);
+      }
+    };
+    
+    fetchUserTimeSettings();
+  }, [user?.id]);
+
   useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add('dark');
@@ -124,13 +166,46 @@ const DashboardLayout = () => {
     setIsDark(!isDark);
   };
 
-  const handleSaveTimeSettings = () => {
+  const handleSaveTimeSettings = async () => {
     const country = countries.find(c => c.code === selectedCountry);
-    toast({
-      title: "Time settings saved",
-      description: `${timeFormat === '12hr' ? '12-hour' : '24-hour'} format, ${country?.name || 'Unknown'} timezone`
-    });
-    setTimeSheetOpen(false);
+    
+    if (!user?.id) {
+      toast({
+        title: "Time settings saved locally",
+        description: `${timeFormat === '12hr' ? '12-hour' : '24-hour'} format, ${country?.name || 'Unknown'} timezone`
+      });
+      setTimeSheetOpen(false);
+      return;
+    }
+    
+    setSavingTimeSettings(true);
+    try {
+      // Save to database for email notifications
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          timezone_offset: country?.offset ?? 5.5,
+          time_format: timeFormat
+        })
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Time settings saved",
+        description: `${timeFormat === '12hr' ? '12-hour' : '24-hour'} format, ${country?.name || 'Unknown'} timezone. Email notifications will now use your timezone.`
+      });
+    } catch (error: any) {
+      console.error('Error saving time settings:', error);
+      toast({
+        title: "Settings saved locally",
+        description: "Could not sync to server. Email notifications may use default timezone.",
+        variant: "destructive"
+      });
+    } finally {
+      setSavingTimeSettings(false);
+      setTimeSheetOpen(false);
+    }
   };
 
   const isActive = (href: string) => {
@@ -360,8 +435,15 @@ const DashboardLayout = () => {
                       </div>
 
                       {/* Save Button */}
-                      <Button onClick={handleSaveTimeSettings} className="w-full">
-                        Save Settings
+                      <Button onClick={handleSaveTimeSettings} className="w-full" disabled={savingTimeSettings}>
+                        {savingTimeSettings ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          "Save Settings"
+                        )}
                       </Button>
                     </div>
                   </SheetContent>
