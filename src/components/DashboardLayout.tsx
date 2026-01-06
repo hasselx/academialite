@@ -418,40 +418,40 @@ const DashboardLayout = () => {
                       </SheetDescription>
                     </SheetHeader>
                     
-                    <div className="mt-6 space-y-6">
-                      {/* Time Format */}
-                      <div className="space-y-3">
-                        <Label className="text-sm font-medium">Time Format</Label>
+                    <div className="mt-4 space-y-4">
+                      {/* Time Format - Side by side */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Time Format</Label>
                         <RadioGroup
                           value={timeFormat}
                           onValueChange={(value) => setTimeFormat(value as '12hr' | '24hr')}
-                          className="flex flex-col gap-3"
+                          className="grid grid-cols-2 gap-2"
                         >
-                          <div className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer">
+                          <div className={`flex items-center space-x-2 p-2.5 rounded-lg border transition-colors cursor-pointer ${timeFormat === '12hr' ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted/50'}`}>
                             <RadioGroupItem value="12hr" id="12hr" />
-                            <Label htmlFor="12hr" className="flex-1 cursor-pointer">
+                            <Label htmlFor="12hr" className="flex-1 cursor-pointer text-xs">
                               <span className="font-medium">12-hour</span>
-                              <p className="text-sm text-muted-foreground">Example: 2:30 PM</p>
+                              <p className="text-[10px] text-muted-foreground">2:30 PM</p>
                             </Label>
                           </div>
-                          <div className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer">
+                          <div className={`flex items-center space-x-2 p-2.5 rounded-lg border transition-colors cursor-pointer ${timeFormat === '24hr' ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted/50'}`}>
                             <RadioGroupItem value="24hr" id="24hr" />
-                            <Label htmlFor="24hr" className="flex-1 cursor-pointer">
+                            <Label htmlFor="24hr" className="flex-1 cursor-pointer text-xs">
                               <span className="font-medium">24-hour</span>
-                              <p className="text-sm text-muted-foreground">Example: 14:30</p>
+                              <p className="text-[10px] text-muted-foreground">14:30</p>
                             </Label>
                           </div>
                         </RadioGroup>
                       </div>
 
                       {/* Country/Timezone */}
-                      <div className="space-y-3">
-                        <Label className="text-sm font-medium flex items-center gap-2">
-                          <Globe className="w-4 h-4" />
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium flex items-center gap-1.5">
+                          <Globe className="w-3.5 h-3.5" />
                           Country / Timezone
                         </Label>
                         <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-                          <SelectTrigger className="w-full">
+                          <SelectTrigger className="w-full h-9 text-sm">
                             <SelectValue placeholder="Select your country" />
                           </SelectTrigger>
                           <SelectContent>
@@ -462,27 +462,27 @@ const DashboardLayout = () => {
                             ))}
                           </SelectContent>
                         </Select>
-                        <p className="text-xs text-muted-foreground">
-                          This will be used for reminder notifications timing
+                        <p className="text-[10px] text-muted-foreground">
+                          Used for reminder notification timing
                         </p>
                       </div>
 
-                      {/* Live Clock Preview */}
-                      <div className="p-4 rounded-lg bg-muted/50 border border-border">
-                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Current Local Time</Label>
-                        <div className="mt-2 flex items-center gap-2">
-                          <Clock className="w-5 h-5 text-primary" />
-                          <span className="text-2xl font-mono font-semibold text-foreground tabular-nums">
+                      {/* Live Clock Preview - Compact */}
+                      <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                        <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Current Local Time</Label>
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-primary" />
+                          <span className="text-xl font-mono font-semibold text-foreground tabular-nums">
                             {getLocalTimeForTimezone()}
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
                           {countries.find(c => c.code === selectedCountry)?.name || 'Unknown'}
                         </p>
                       </div>
 
                       {/* Save Button */}
-                      <Button onClick={handleSaveTimeSettings} className="w-full" disabled={savingTimeSettings}>
+                      <Button onClick={handleSaveTimeSettings} className="w-full h-9" disabled={savingTimeSettings}>
                         {savingTimeSettings ? (
                           <>
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
