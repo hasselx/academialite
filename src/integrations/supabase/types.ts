@@ -187,6 +187,8 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          time_format: string | null
+          timezone_offset: number | null
           updated_at: string
           user_id: string
           username: string | null
@@ -196,6 +198,8 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          time_format?: string | null
+          timezone_offset?: number | null
           updated_at?: string
           user_id: string
           username?: string | null
@@ -205,6 +209,8 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          time_format?: string | null
+          timezone_offset?: number | null
           updated_at?: string
           user_id?: string
           username?: string | null

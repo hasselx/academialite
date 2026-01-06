@@ -6,6 +6,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Default timezone offset (IST)
+const DEFAULT_TIMEZONE_OFFSET = 5.5;
+const DEFAULT_TIME_FORMAT = '12hr';
+
 const handler = async (req: Request): Promise<Response> => {
   console.log("check-scheduled-reminders function called");
 
@@ -18,43 +22,9 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Try to get timezone offset and time format from request body
-    let timezoneOffset = 5.5; // Default to IST (UTC+5:30)
-    let timeFormat: '12hr' | '24hr' = '12hr'; // Default to 12hr
-    try {
-      const body = await req.json();
-      if (body.timezoneOffset !== undefined && typeof body.timezoneOffset === 'number') {
-        timezoneOffset = body.timezoneOffset;
-        console.log(`Using timezone offset from request: ${timezoneOffset}`);
-      }
-      if (body.timeFormat === '24hr') {
-        timeFormat = '24hr';
-      }
-    } catch {
-      console.log(`Using default timezone offset: ${timezoneOffset}`);
-    }
-
-    // Helper function to format time based on user preference
-    const formatTimeForEmail = (time: string): string => {
-      if (!time) return '';
-      const [hours, minutes] = time.split(':').map(Number);
-      
-      if (timeFormat === '24hr') {
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-      }
-      
-      // 12-hour format
-      const period = hours >= 12 ? 'PM' : 'AM';
-      const hour12 = hours % 12 || 12;
-      return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
-    };
-
     const now = new Date();
     const nowISO = now.toISOString();
-
-    // Convert current UTC time to user's local time for comparison
-    const nowInUserTZ = new Date(now.getTime() + timezoneOffset * 60 * 60 * 1000);
-    console.log(`Checking reminders. UTC time: ${nowISO}, User local time: ${nowInUserTZ.toISOString()}, Offset: ${timezoneOffset}h`);
+    console.log(`Checking reminders at UTC time: ${nowISO}`);
 
     // Fetch all incomplete reminders
     const { data: reminders, error: remindersError } = await supabase
@@ -72,6 +42,43 @@ const handler = async (req: Request): Promise<Response> => {
     const emailsSent: string[] = [];
 
     for (const reminder of reminders || []) {
+      // Get user's timezone and time format from their profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('timezone_offset, time_format')
+        .eq('user_id', reminder.user_id)
+        .maybeSingle();
+      
+      if (profileError) {
+        console.log(`Error fetching profile for user ${reminder.user_id}:`, profileError);
+      }
+      
+      // Use user's timezone offset or default to IST
+      const timezoneOffset = profile?.timezone_offset !== null && profile?.timezone_offset !== undefined 
+        ? Number(profile.timezone_offset) 
+        : DEFAULT_TIMEZONE_OFFSET;
+      const timeFormat = (profile?.time_format as '12hr' | '24hr') || DEFAULT_TIME_FORMAT;
+      
+      console.log(`User ${reminder.user_id}: timezone_offset=${timezoneOffset}, time_format=${timeFormat}`);
+
+      // Helper function to format time based on user preference
+      const formatTimeForEmail = (time: string): string => {
+        if (!time) return '';
+        const [hours, minutes] = time.split(':').map(Number);
+        
+        if (timeFormat === '24hr') {
+          return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        }
+        
+        // 12-hour format
+        const period = hours >= 12 ? 'PM' : 'AM';
+        const hour12 = hours % 12 || 12;
+        return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
+      };
+
+      // Convert current UTC time to user's local time for comparison
+      const nowInUserTZ = new Date(now.getTime() + timezoneOffset * 60 * 60 * 1000);
+      
       // Parse the reminder time - stored in user's local timezone
       const dueTime = reminder.due_time || '09:00:00';
       const [hours, minutes] = dueTime.split(':').map(Number);
@@ -93,7 +100,7 @@ const handler = async (req: Request): Promise<Response> => {
       const timeDiff = reminderDate.getTime() - userLocalNow.getTime();
       const hoursUntilDue = timeDiff / (1000 * 60 * 60);
       
-      console.log(`Reminder "${reminder.title}": Due at ${reminder.due_date} ${dueTime}, User local now: ${userLocalNow.toISOString()}, Hours until due: ${hoursUntilDue.toFixed(2)}`);
+      console.log(`Reminder "${reminder.title}": Due at ${reminder.due_date} ${dueTime}, User local now: ${userLocalNow.toISOString()}, Hours until due: ${hoursUntilDue.toFixed(2)}, User TZ offset: UTC${timezoneOffset >= 0 ? '+' : ''}${timezoneOffset}`);
 
       // Get user email
       const { data: userData, error: userError } = await supabase.auth.admin.getUserById(reminder.user_id);
