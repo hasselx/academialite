@@ -80,6 +80,7 @@ const DashboardLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [timeSheetOpen, setTimeSheetOpen] = useState(false);
   const [savingTimeSettings, setSavingTimeSettings] = useState(false);
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('theme');
@@ -104,6 +105,38 @@ const DashboardLayout = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+
+  // Update current time every second when time sheet is open
+  useEffect(() => {
+    if (!timeSheetOpen) return;
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [timeSheetOpen]);
+
+  // Get formatted time for selected timezone
+  const getLocalTimeForTimezone = () => {
+    const country = countries.find(c => c.code === selectedCountry);
+    const offset = country?.offset ?? 5.5;
+    
+    // Get UTC time
+    const utc = currentTime.getTime() + (currentTime.getTimezoneOffset() * 60000);
+    // Apply timezone offset
+    const localTime = new Date(utc + (offset * 3600000));
+    
+    const hours = localTime.getHours();
+    const minutes = localTime.getMinutes();
+    const seconds = localTime.getSeconds();
+    
+    if (timeFormat === '24hr') {
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    return `${hour12}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')} ${period}`;
+  };
 
   // Fetch user's time settings from database on load
   useEffect(() => {
@@ -431,6 +464,20 @@ const DashboardLayout = () => {
                         </Select>
                         <p className="text-xs text-muted-foreground">
                           This will be used for reminder notifications timing
+                        </p>
+                      </div>
+
+                      {/* Live Clock Preview */}
+                      <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Current Local Time</Label>
+                        <div className="mt-2 flex items-center gap-2">
+                          <Clock className="w-5 h-5 text-primary" />
+                          <span className="text-2xl font-mono font-semibold text-foreground tabular-nums">
+                            {getLocalTimeForTimezone()}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {countries.find(c => c.code === selectedCountry)?.name || 'Unknown'}
                         </p>
                       </div>
 
