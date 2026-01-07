@@ -12,6 +12,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Bell, RefreshCw, Trash2, Plus, Mail, AlertTriangle, Clock, CheckCircle2, Loader2, Sparkles, Calendar, Send, GraduationCap, X, Settings, ChevronDown, Pencil, PieChart, CalendarDays, Search } from "lucide-react";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parseISO, isBefore, isAfter, format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -22,7 +24,7 @@ import { useTimeSettings } from "@/hooks/useTimeSettings";
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Label, Sector } from "recharts";
 import { ChartContainer, ChartConfig } from "@/components/ui/chart";
 import type { PieSectorDataItem } from "recharts/types/polar/Pie";
-
+import { cn } from "@/lib/utils";
 interface Reminder {
   id: string;
   title: string;
@@ -1225,12 +1227,29 @@ Example:
                   <SelectItem value="other">📌 Other</SelectItem>
                 </SelectContent>
               </Select>
-              <Input 
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="date-input"
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !dueDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    {dueDate ? format(parseISO(dueDate), "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={dueDate ? parseISO(dueDate) : undefined}
+                    onSelect={(date) => setDueDate(date ? format(date, "yyyy-MM-dd") : "")}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-3">
               <div>
@@ -1556,12 +1575,29 @@ Example:
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-medium mb-2 block text-sm">Due Date</label>
-                  <Input 
-                    type="date"
-                    value={editingReminder.dueDate}
-                    onChange={(e) => setEditingReminder({ ...editingReminder, dueDate: e.target.value })}
-                    className="date-input"
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !editingReminder.dueDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarDays className="mr-2 h-4 w-4" />
+                        {editingReminder.dueDate ? format(parseISO(editingReminder.dueDate), "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={editingReminder.dueDate ? parseISO(editingReminder.dueDate) : undefined}
+                        onSelect={(date) => setEditingReminder({ ...editingReminder, dueDate: date ? format(date, "yyyy-MM-dd") : "" })}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div>
                   <label className="font-medium mb-2 block text-sm">Time</label>
