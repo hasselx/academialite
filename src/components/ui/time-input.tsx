@@ -52,15 +52,12 @@ export function TimeInput({
     }
   }, [timeFormat]);
 
-  // Generate minutes (00-59, in 5-minute increments for convenience)
+  // Generate all 60 minutes (00-59)
   const minuteOptions = React.useMemo(() => {
-    return Array.from({ length: 12 }, (_, i) => {
-      const min = i * 5;
-      return {
-        value: min.toString().padStart(2, "0"),
-        label: min.toString().padStart(2, "0"),
-      };
-    });
+    return Array.from({ length: 60 }, (_, i) => ({
+      value: i.toString().padStart(2, "0"),
+      label: i.toString().padStart(2, "0"),
+    }));
   }, []);
 
   const handleHourChange = (newHour: string) => {
@@ -74,8 +71,8 @@ export function TimeInput({
   };
 
   return (
-    <div className={cn("flex items-center gap-1", className)}>
-      <div className="flex items-center gap-0.5 flex-1">
+    <div className={cn("flex items-center gap-2", className)}>
+      <div className="flex items-center gap-1 flex-1">
         <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
         
         {/* Hour Select */}
