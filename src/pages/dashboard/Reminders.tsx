@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TimeInput } from "@/components/ui/time-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -1232,25 +1233,13 @@ Example:
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="flex gap-1">
-                <Input 
-                  type="time"
-                  value={dueTime}
-                  onChange={(e) => setDueTime(e.target.value)}
-                  className="date-input flex-1"
-                />
-                {timeFormat === '12hr' && (
-                  <Select value={dueTimePeriod} onValueChange={(val) => setDueTimePeriod(val as 'AM' | 'PM')}>
-                    <SelectTrigger className="w-20">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="AM">AM</SelectItem>
-                      <SelectItem value="PM">PM</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
+              <TimeInput
+                value={dueTime}
+                onChange={setDueTime}
+                timeFormat={timeFormat}
+                period={dueTimePeriod}
+                onPeriodChange={setDueTimePeriod}
+              />
               <Select value={priority} onValueChange={setPriority}>
                 <SelectTrigger>
                   <SelectValue />
@@ -1570,25 +1559,13 @@ Example:
                 </div>
                 <div>
                   <label className="font-medium mb-2 block text-sm">Time</label>
-                  <div className="flex gap-1">
-                    <Input 
-                      type="time"
-                      value={editingReminder.dueTime || ''}
-                      onChange={(e) => setEditingReminder({ ...editingReminder, dueTime: e.target.value || null })}
-                      className="date-input flex-1"
-                    />
-                    {timeFormat === '12hr' && (
-                      <Select value={editTimePeriod} onValueChange={(val) => setEditTimePeriod(val as 'AM' | 'PM')}>
-                        <SelectTrigger className="w-20">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="AM">AM</SelectItem>
-                          <SelectItem value="PM">PM</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
+                  <TimeInput
+                    value={editingReminder.dueTime || ''}
+                    onChange={(val) => setEditingReminder({ ...editingReminder, dueTime: val || null })}
+                    timeFormat={timeFormat}
+                    period={editTimePeriod}
+                    onPeriodChange={setEditTimePeriod}
+                  />
                 </div>
               </div>
               <div>
