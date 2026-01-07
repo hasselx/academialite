@@ -1232,24 +1232,30 @@ Example:
                 className="date-input"
               />
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <TimeInput
-                value={dueTime}
-                onChange={setDueTime}
-                timeFormat={timeFormat}
-                period={dueTimePeriod}
-                onPeriodChange={setDueTimePeriod}
-              />
-              <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="normal">🔵 Normal</SelectItem>
-                  <SelectItem value="urgent">🟡 Urgent</SelectItem>
-                  <SelectItem value="critical">🔴 Critical</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Time</label>
+                <TimeInput
+                  value={dueTime}
+                  onChange={setDueTime}
+                  timeFormat={timeFormat}
+                  period={dueTimePeriod}
+                  onPeriodChange={setDueTimePeriod}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Priority</label>
+                <Select value={priority} onValueChange={setPriority}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">🔵 Normal</SelectItem>
+                    <SelectItem value="urgent">🟡 Urgent</SelectItem>
+                    <SelectItem value="critical">🔴 Critical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <Textarea 
               placeholder="Description (optional) - Room number, other details..."
