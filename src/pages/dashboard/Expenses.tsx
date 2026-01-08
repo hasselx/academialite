@@ -4,13 +4,16 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Wallet, Plus, Trash2, PieChart, TrendingUp, DollarSign, Loader2, Filter, Target, ArrowDownCircle, Calendar } from "lucide-react";
+import { Wallet, Plus, Trash2, PieChart, TrendingUp, DollarSign, Loader2, Filter, Target, ArrowDownCircle, Calendar as CalendarIcon, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTimeSettings } from "@/hooks/useTimeSettings";
 import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 
 interface Expense {
   id: string;
@@ -50,8 +53,11 @@ const Expenses = () => {
   const [category, setCategory] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
+  const [expenseDate, setExpenseDate] = useState<Date>(new Date());
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showBudgetDialog, setShowBudgetDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterPeriod, setFilterPeriod] = useState<string>("month");
@@ -158,6 +164,13 @@ const Expenses = () => {
 
   const pieData = getCategoryData();
 
+  const resetForm = () => {
+    setCategory("");
+    setAmount("");
+    setDescription("");
+    setExpenseDate(new Date());
+  };
+
   const handleAddExpense = async () => {
     if (!category || !amount) {
       toast({
@@ -176,7 +189,7 @@ const Expenses = () => {
           category,
           amount: parseFloat(amount),
           description: description || null,
-          date: new Date().toISOString().split('T')[0]
+          date: format(expenseDate, 'yyyy-MM-dd')
         })
         .select()
         .single();
@@ -189,11 +202,9 @@ const Expenses = () => {
         amount: Number(data.amount),
         description: data.description || '',
         date: data.date
-      }, ...expenses]);
+      }, ...expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
 
-      setCategory("");
-      setAmount("");
-      setDescription("");
+      resetForm();
       setShowAddDialog(false);
 
       toast({
@@ -203,6 +214,61 @@ const Expenses = () => {
     } catch (error: any) {
       toast({
         title: "Error adding expense",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleEditExpense = (expense: Expense) => {
+    setEditingExpense(expense);
+    setCategory(expense.category);
+    setAmount(expense.amount.toString());
+    setDescription(expense.description);
+    setExpenseDate(parseISO(expense.date));
+    setShowEditDialog(true);
+  };
+
+  const handleUpdateExpense = async () => {
+    if (!editingExpense || !category || !amount) {
+      toast({
+        title: "Missing information",
+        description: "Please select a category and enter an amount.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .update({
+          category,
+          amount: parseFloat(amount),
+          description: description || null,
+          date: format(expenseDate, 'yyyy-MM-dd')
+        })
+        .eq('id', editingExpense.id);
+
+      if (error) throw error;
+
+      setExpenses(expenses.map(e => 
+        e.id === editingExpense.id 
+          ? { ...e, category, amount: parseFloat(amount), description, date: format(expenseDate, 'yyyy-MM-dd') }
+          : e
+      ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+
+      resetForm();
+      setEditingExpense(null);
+      setShowEditDialog(false);
+
+      toast({
+        title: "Expense updated",
+        description: "Your expense has been updated successfully."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error updating expense",
         description: error.message,
         variant: "destructive"
       });
@@ -351,6 +417,32 @@ const Expenses = () => {
                   />
                 </div>
                 <div>
+                  <label className="font-medium mb-2 block">Date</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !expenseDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {expenseDate ? format(expenseDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={expenseDate}
+                        onSelect={(date) => date && setExpenseDate(date)}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
                   <label className="font-medium mb-2 block">Description (optional)</label>
                   <Input 
                     placeholder="e.g., Lunch at cafeteria"
@@ -360,6 +452,84 @@ const Expenses = () => {
                 </div>
                 <Button onClick={handleAddExpense} className="w-full gradient-primary">
                   Add Expense
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Expense Dialog */}
+          <Dialog open={showEditDialog} onOpenChange={(open) => {
+            setShowEditDialog(open);
+            if (!open) {
+              resetForm();
+              setEditingExpense(null);
+            }
+          }}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Expense</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div>
+                  <label className="font-medium mb-2 block">Category</label>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="font-medium mb-2 block">Amount ({currency.code})</label>
+                  <Input 
+                    type="number"
+                    placeholder="e.g., 500"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="font-medium mb-2 block">Date</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !expenseDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {expenseDate ? format(expenseDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={expenseDate}
+                        onSelect={(date) => date && setExpenseDate(date)}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <label className="font-medium mb-2 block">Description (optional)</label>
+                  <Input 
+                    placeholder="e.g., Lunch at cafeteria"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </div>
+                <Button onClick={handleUpdateExpense} className="w-full gradient-primary">
+                  Update Expense
                 </Button>
               </div>
             </DialogContent>
@@ -454,7 +624,7 @@ const Expenses = () => {
           </div>
           <Select value={filterPeriod} onValueChange={setFilterPeriod}>
             <SelectTrigger className="w-[150px]">
-              <Calendar className="w-4 h-4 mr-2" />
+              <CalendarIcon className="w-4 h-4 mr-2" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -590,10 +760,18 @@ const Expenses = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3">
                         <div className="text-lg font-semibold" style={{ color: catInfo.color }}>
                           {formatCurrency(expense.amount)}
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-muted-foreground hover:text-primary"
+                          onClick={() => handleEditExpense(expense)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
