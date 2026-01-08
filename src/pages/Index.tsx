@@ -72,7 +72,7 @@ const creator = [
     designation: "@hasselx",
     image: creatorAvatar,
     verified: true,
-    link: "https://heypage.vercel.app/hasselx"
+    link: "https://heypage.vercel.app/hasselx?referrer=academia&type=redirect"
   }
 ];
 
