@@ -1,14 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Wallet, Plus, Trash2, PieChart, TrendingUp, DollarSign, Loader2 } from "lucide-react";
+import { Wallet, Plus, Trash2, PieChart, TrendingUp, DollarSign, Loader2, Filter, Target, ArrowDownCircle, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTimeSettings } from "@/hooks/useTimeSettings";
+import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
 
 interface Expense {
   id: string;
@@ -29,15 +31,40 @@ const categories = [
   { value: "other", label: "📌 Other", color: "#6366f1" },
 ];
 
+// Currency mapping based on country code
+const currencyMap: { [key: string]: { symbol: string; code: string } } = {
+  "IN": { symbol: "₹", code: "INR" },
+  "DE": { symbol: "€", code: "EUR" },
+  "US-EST": { symbol: "$", code: "USD" },
+  "US-PST": { symbol: "$", code: "USD" },
+  "GB": { symbol: "£", code: "GBP" },
+  "JP": { symbol: "¥", code: "JPY" },
+  "AU-SYD": { symbol: "A$", code: "AUD" },
+  "SG": { symbol: "S$", code: "SGD" },
+  "AE": { symbol: "د.إ", code: "AED" },
+  "CA-TOR": { symbol: "C$", code: "CAD" },
+};
+
 const Expenses = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [category, setCategory] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showBudgetDialog, setShowBudgetDialog] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterPeriod, setFilterPeriod] = useState<string>("month");
+  const [monthlyBudget, setMonthlyBudget] = useState<number>(() => {
+    const saved = localStorage.getItem('monthlyBudget');
+    return saved ? parseFloat(saved) : 0;
+  });
+  const [budgetInput, setBudgetInput] = useState("");
   const { toast } = useToast();
   const { user } = useAuth();
+  const { countryCode } = useTimeSettings();
+
+  const currency = currencyMap[countryCode] || currencyMap["IN"];
 
   useEffect(() => {
     if (user) {
@@ -74,12 +101,48 @@ const Expenses = () => {
     }
   };
 
-  const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+  // Filter expenses based on category and period
+  const filteredExpenses = useMemo(() => {
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+
+    return expenses.filter(expense => {
+      // Category filter
+      if (filterCategory !== "all" && expense.category !== filterCategory) {
+        return false;
+      }
+
+      // Period filter
+      if (filterPeriod === "month") {
+        const expenseDate = parseISO(expense.date);
+        return isWithinInterval(expenseDate, { start: monthStart, end: monthEnd });
+      }
+
+      return true;
+    });
+  }, [expenses, filterCategory, filterPeriod]);
+
+  // Current month expenses for stats
+  const currentMonthExpenses = useMemo(() => {
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+
+    return expenses.filter(expense => {
+      const expenseDate = parseISO(expense.date);
+      return isWithinInterval(expenseDate, { start: monthStart, end: monthEnd });
+    });
+  }, [expenses]);
+
+  const currentMonthTotal = currentMonthExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const filteredTotal = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const balance = monthlyBudget - currentMonthTotal;
 
   const getCategoryData = () => {
     const categoryTotals: { [key: string]: number } = {};
     
-    expenses.forEach(exp => {
+    filteredExpenses.forEach(exp => {
       categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + exp.amount;
     });
 
@@ -89,7 +152,7 @@ const Expenses = () => {
         name: cat.label.split(' ')[1],
         value: categoryTotals[cat.value],
         color: cat.color,
-        percentage: ((categoryTotals[cat.value] / totalExpenses) * 100).toFixed(1)
+        percentage: filteredTotal > 0 ? ((categoryTotals[cat.value] / filteredTotal) * 100).toFixed(1) : "0"
       }));
   };
 
@@ -135,7 +198,7 @@ const Expenses = () => {
 
       toast({
         title: "Expense added",
-        description: `₹${amount} added to ${category}.`
+        description: `${currency.symbol}${amount} added to ${category}.`
       });
     } catch (error: any) {
       toast({
@@ -169,9 +232,35 @@ const Expenses = () => {
     }
   };
 
+  const handleSaveBudget = () => {
+    const budget = parseFloat(budgetInput);
+    if (isNaN(budget) || budget < 0) {
+      toast({
+        title: "Invalid budget",
+        description: "Please enter a valid budget amount.",
+        variant: "destructive"
+      });
+      return;
+    }
+    setMonthlyBudget(budget);
+    localStorage.setItem('monthlyBudget', budget.toString());
+    setShowBudgetDialog(false);
+    setBudgetInput("");
+    toast({
+      title: "Budget set",
+      description: `Monthly budget set to ${currency.symbol}${budget.toLocaleString()}`
+    });
+  };
+
   const getCategoryInfo = (value: string) => {
     return categories.find(c => c.value === value) || categories[categories.length - 1];
   };
+
+  const formatCurrency = (value: number) => {
+    return `${currency.symbol}${value.toLocaleString()}`;
+  };
+
+  const currentMonth = format(new Date(), 'MMMM yyyy');
 
   if (loading) {
     return (
@@ -184,107 +273,235 @@ const Expenses = () => {
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Wallet className="w-7 h-7 text-primary" />
             Your Expenses
           </h1>
-          <p className="text-muted-foreground">Track and manage your spending</p>
+          <p className="text-muted-foreground">Track and manage your spending • {currentMonth}</p>
         </div>
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogTrigger asChild>
-            <Button className="gradient-primary">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Expense
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Expense</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
-              <div>
-                <label className="font-medium mb-2 block">Category</label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        <div className="flex gap-2">
+          <Dialog open={showBudgetDialog} onOpenChange={setShowBudgetDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Target className="w-4 h-4 mr-2" />
+                Set Budget
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Set Monthly Budget</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div>
+                  <label className="font-medium mb-2 block">Budget Amount ({currency.code})</label>
+                  <Input 
+                    type="number"
+                    placeholder={`e.g., 10000`}
+                    value={budgetInput}
+                    onChange={(e) => setBudgetInput(e.target.value)}
+                  />
+                  {monthlyBudget > 0 && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Current budget: {formatCurrency(monthlyBudget)}
+                    </p>
+                  )}
+                </div>
+                <Button onClick={handleSaveBudget} className="w-full gradient-primary">
+                  Save Budget
+                </Button>
               </div>
-              <div>
-                <label className="font-medium mb-2 block">Amount (₹)</label>
-                <Input 
-                  type="number"
-                  placeholder="e.g., 500"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="font-medium mb-2 block">Description (optional)</label>
-                <Input 
-                  placeholder="e.g., Lunch at cafeteria"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </div>
-              <Button onClick={handleAddExpense} className="w-full gradient-primary">
+            </DialogContent>
+          </Dialog>
+          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <DialogTrigger asChild>
+              <Button className="gradient-primary">
+                <Plus className="w-4 h-4 mr-2" />
                 Add Expense
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Expense</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div>
+                  <label className="font-medium mb-2 block">Category</label>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="font-medium mb-2 block">Amount ({currency.code})</label>
+                  <Input 
+                    type="number"
+                    placeholder="e.g., 500"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="font-medium mb-2 block">Description (optional)</label>
+                  <Input 
+                    placeholder="e.g., Lunch at cafeteria"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </div>
+                <Button onClick={handleAddExpense} className="w-full gradient-primary">
+                  Add Expense
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid md:grid-cols-3 gap-4">
+      {/* Budget & Stats Row */}
+      <div className="grid md:grid-cols-4 gap-4">
         <Card className="stat-card">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-primary" />
+              <Target className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-foreground">₹{totalExpenses.toLocaleString()}</div>
-              <div className="text-sm text-muted-foreground">Total Expenses</div>
+              <div className="text-2xl font-bold text-foreground">
+                {monthlyBudget > 0 ? formatCurrency(monthlyBudget) : "Not Set"}
+              </div>
+              <div className="text-sm text-muted-foreground">Monthly Budget</div>
             </div>
           </div>
         </Card>
         <Card className="stat-card">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-success" />
+            <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center">
+              <ArrowDownCircle className="w-6 h-6 text-destructive" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-foreground">{expenses.length}</div>
-              <div className="text-sm text-muted-foreground">Transactions</div>
+              <div className="text-2xl font-bold text-foreground">{formatCurrency(currentMonthTotal)}</div>
+              <div className="text-sm text-muted-foreground">This Month's Expenses</div>
+            </div>
+          </div>
+        </Card>
+        <Card className="stat-card">
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${balance >= 0 ? 'bg-success/10' : 'bg-destructive/10'}`}>
+              <DollarSign className={`w-6 h-6 ${balance >= 0 ? 'text-success' : 'text-destructive'}`} />
+            </div>
+            <div>
+              <div className={`text-2xl font-bold ${balance >= 0 ? 'text-success' : 'text-destructive'}`}>
+                {monthlyBudget > 0 ? formatCurrency(Math.abs(balance)) : "—"}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {balance >= 0 ? "Remaining" : "Over Budget"}
+              </div>
             </div>
           </div>
         </Card>
         <Card className="stat-card">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
-              <PieChart className="w-6 h-6 text-warning" />
+              <TrendingUp className="w-6 h-6 text-warning" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-foreground">{pieData.length}</div>
-              <div className="text-sm text-muted-foreground">Categories</div>
+              <div className="text-2xl font-bold text-foreground">{currentMonthExpenses.length}</div>
+              <div className="text-sm text-muted-foreground">Transactions This Month</div>
             </div>
           </div>
         </Card>
       </div>
 
+      {/* Budget Progress Bar */}
+      {monthlyBudget > 0 && (
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">Budget Progress</span>
+            <span className="text-sm text-muted-foreground">
+              {((currentMonthTotal / monthlyBudget) * 100).toFixed(1)}% used
+            </span>
+          </div>
+          <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+            <div 
+              className={`h-full rounded-full transition-all duration-500 ${
+                currentMonthTotal / monthlyBudget > 1 
+                  ? 'bg-destructive' 
+                  : currentMonthTotal / monthlyBudget > 0.8 
+                    ? 'bg-warning' 
+                    : 'bg-success'
+              }`}
+              style={{ width: `${Math.min((currentMonthTotal / monthlyBudget) * 100, 100)}%` }}
+            />
+          </div>
+        </Card>
+      )}
+
+      {/* Filters */}
+      <Card className="p-4">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Filters:</span>
+          </div>
+          <Select value={filterPeriod} onValueChange={setFilterPeriod}>
+            <SelectTrigger className="w-[150px]">
+              <Calendar className="w-4 h-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="month">This Month</SelectItem>
+              <SelectItem value="all">All Time</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories.map((cat) => (
+                <SelectItem key={cat.value} value={cat.value}>
+                  {cat.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {(filterCategory !== "all" || filterPeriod !== "month") && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => {
+                setFilterCategory("all");
+                setFilterPeriod("month");
+              }}
+            >
+              Clear Filters
+            </Button>
+          )}
+          <div className="ml-auto text-sm text-muted-foreground">
+            Showing: {formatCurrency(filteredTotal)} ({filteredExpenses.length} transactions)
+          </div>
+        </div>
+      </Card>
+
       {expenses.length === 0 ? (
         <Card className="p-12 text-center">
           <Wallet className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
           <p className="text-muted-foreground">No expenses recorded yet. Add your first expense above!</p>
+        </Card>
+      ) : filteredExpenses.length === 0 ? (
+        <Card className="p-12 text-center">
+          <Filter className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">No expenses match your filters. Try adjusting them.</p>
         </Card>
       ) : (
         <>
@@ -313,7 +530,7 @@ const Expenses = () => {
                       ))}
                     </Pie>
                     <Tooltip 
-                      formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Amount']}
+                      formatter={(value: number) => [formatCurrency(value), 'Amount']}
                     />
                     <Legend />
                   </RechartsPie>
@@ -332,7 +549,7 @@ const Expenses = () => {
                       <span className="font-medium">{item.name}</span>
                     </div>
                     <div className="text-xl font-bold" style={{ color: item.color }}>
-                      ₹{item.value.toLocaleString()}
+                      {formatCurrency(item.value)}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       {item.percentage}% of total
@@ -346,11 +563,13 @@ const Expenses = () => {
           {/* Recent Transactions */}
           <Card>
             <CardHeader>
-              <CardTitle>Recent Transactions</CardTitle>
+              <CardTitle>
+                {filterPeriod === "month" ? "This Month's Transactions" : "All Transactions"}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {expenses.slice(0, 10).map((expense) => {
+                {filteredExpenses.slice(0, 15).map((expense) => {
                   const catInfo = getCategoryInfo(expense.category);
                   return (
                     <div 
@@ -373,7 +592,7 @@ const Expenses = () => {
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-lg font-semibold" style={{ color: catInfo.color }}>
-                          ₹{expense.amount.toLocaleString()}
+                          {formatCurrency(expense.amount)}
                         </div>
                         <Button
                           variant="ghost"
