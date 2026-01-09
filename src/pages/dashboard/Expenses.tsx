@@ -11,10 +11,16 @@ import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Legend, Toolti
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTimeSettings } from "@/hooks/useTimeSettings";
-import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
+import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO, startOfWeek, getDay, getWeek, getMonth } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+
+const frequencies = [
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "yearly", label: "Yearly" },
+];
 
 interface Expense {
   id: string;
@@ -82,6 +88,9 @@ const Expenses = () => {
   });
   const [budgetInput, setBudgetInput] = useState("");
   const [recurringDayOfMonth, setRecurringDayOfMonth] = useState("1");
+  const [recurringFrequency, setRecurringFrequency] = useState("monthly");
+  const [recurringDayOfWeek, setRecurringDayOfWeek] = useState("1"); // 0=Sun, 1=Mon, etc.
+  const [recurringMonth, setRecurringMonth] = useState("1"); // 1-12 for yearly
   const { toast } = useToast();
   const { user } = useAuth();
   const { countryCode } = useTimeSettings();
@@ -150,21 +159,49 @@ const Expenses = () => {
 
     const today = new Date();
     const currentDay = today.getDate();
-    const currentMonth = format(today, 'yyyy-MM');
+    const currentDayOfWeek = getDay(today);
+    const currentWeek = getWeek(today);
+    const currentMonth = today.getMonth() + 1;
+    const currentYear = today.getFullYear();
+    const currentMonthStr = format(today, 'yyyy-MM');
+    const currentWeekStr = `${currentYear}-W${currentWeek}`;
+    const currentYearStr = `${currentYear}`;
 
     for (const recurring of recurringExpenses) {
       if (!recurring.is_active) continue;
 
-      const lastGenMonth = recurring.last_generated 
-        ? format(parseISO(recurring.last_generated), 'yyyy-MM') 
-        : null;
+      const lastGen = recurring.last_generated ? parseISO(recurring.last_generated) : null;
+      let shouldGenerate = false;
+      let expenseDate = today;
 
-      // Generate if not generated this month and we're past the day_of_month
-      if (lastGenMonth !== currentMonth && currentDay >= recurring.day_of_month) {
+      if (recurring.frequency === 'weekly') {
+        // Generate weekly on the specified day of week
+        const lastGenWeek = lastGen ? `${lastGen.getFullYear()}-W${getWeek(lastGen)}` : null;
+        if (lastGenWeek !== currentWeekStr && currentDayOfWeek === recurring.day_of_month) {
+          shouldGenerate = true;
+          expenseDate = today;
+        }
+      } else if (recurring.frequency === 'monthly') {
+        // Generate monthly on the specified day
+        const lastGenMonth = lastGen ? format(lastGen, 'yyyy-MM') : null;
+        if (lastGenMonth !== currentMonthStr && currentDay >= recurring.day_of_month) {
+          shouldGenerate = true;
+          expenseDate = new Date(today.getFullYear(), today.getMonth(), recurring.day_of_month);
+        }
+      } else if (recurring.frequency === 'yearly') {
+        // Generate yearly on the specified month and day
+        const lastGenYear = lastGen ? `${lastGen.getFullYear()}` : null;
+        // day_of_month stores: month * 100 + day (e.g., 115 = Jan 15, 1225 = Dec 25)
+        const targetMonth = Math.floor(recurring.day_of_month / 100);
+        const targetDay = recurring.day_of_month % 100;
+        if (lastGenYear !== currentYearStr && currentMonth >= targetMonth && (currentMonth > targetMonth || currentDay >= targetDay)) {
+          shouldGenerate = true;
+          expenseDate = new Date(today.getFullYear(), targetMonth - 1, targetDay);
+        }
+      }
+
+      if (shouldGenerate) {
         try {
-          const expenseDate = new Date(today.getFullYear(), today.getMonth(), recurring.day_of_month);
-          
-          // Insert new expense
           const { error: insertError } = await supabase
             .from('expenses')
             .insert({
@@ -177,7 +214,6 @@ const Expenses = () => {
 
           if (insertError) throw insertError;
 
-          // Update last_generated
           await supabase
             .from('recurring_expenses')
             .update({ last_generated: format(today, 'yyyy-MM-dd') })
@@ -189,7 +225,6 @@ const Expenses = () => {
       }
     }
 
-    // Refresh expenses after generation
     fetchExpenses();
     fetchRecurringExpenses();
   }, [user, recurringExpenses, fetchExpenses, fetchRecurringExpenses]);
@@ -271,6 +306,9 @@ const Expenses = () => {
     setDescription("");
     setExpenseDate(new Date());
     setRecurringDayOfMonth("1");
+    setRecurringFrequency("monthly");
+    setRecurringDayOfWeek("1");
+    setRecurringMonth("1");
   };
 
   const handleAddExpense = async () => {
@@ -430,14 +468,40 @@ const Expenses = () => {
       return;
     }
 
-    const dayNum = parseInt(recurringDayOfMonth);
-    if (isNaN(dayNum) || dayNum < 1 || dayNum > 28) {
-      toast({
-        title: "Invalid day",
-        description: "Day of month must be between 1 and 28.",
-        variant: "destructive"
-      });
-      return;
+    let dayValue: number;
+    
+    if (recurringFrequency === 'weekly') {
+      dayValue = parseInt(recurringDayOfWeek);
+      if (isNaN(dayValue) || dayValue < 0 || dayValue > 6) {
+        toast({
+          title: "Invalid day",
+          description: "Please select a valid day of the week.",
+          variant: "destructive"
+        });
+        return;
+      }
+    } else if (recurringFrequency === 'yearly') {
+      const monthNum = parseInt(recurringMonth);
+      const dayNum = parseInt(recurringDayOfMonth);
+      if (isNaN(monthNum) || monthNum < 1 || monthNum > 12 || isNaN(dayNum) || dayNum < 1 || dayNum > 28) {
+        toast({
+          title: "Invalid date",
+          description: "Please select a valid month and day.",
+          variant: "destructive"
+        });
+        return;
+      }
+      dayValue = monthNum * 100 + dayNum; // Encode as MMDD
+    } else {
+      dayValue = parseInt(recurringDayOfMonth);
+      if (isNaN(dayValue) || dayValue < 1 || dayValue > 28) {
+        toast({
+          title: "Invalid day",
+          description: "Day of month must be between 1 and 28.",
+          variant: "destructive"
+        });
+        return;
+      }
     }
 
     try {
@@ -448,8 +512,8 @@ const Expenses = () => {
           category,
           amount: parseFloat(amount),
           description: description || null,
-          frequency: 'monthly',
-          day_of_month: dayNum,
+          frequency: recurringFrequency,
+          day_of_month: dayValue,
           is_active: true
         })
         .select()
@@ -471,9 +535,10 @@ const Expenses = () => {
       resetForm();
       setShowRecurringDialog(false);
 
+      const frequencyLabel = recurringFrequency === 'weekly' ? 'week' : recurringFrequency === 'yearly' ? 'year' : 'month';
       toast({
         title: "Recurring expense added",
-        description: `${currency.symbol}${amount} will be logged on day ${dayNum} each month.`
+        description: `${currency.symbol}${amount} will be logged each ${frequencyLabel}.`
       });
     } catch (error: any) {
       toast({
@@ -531,6 +596,20 @@ const Expenses = () => {
         variant: "destructive"
       });
     }
+  };
+
+  const getFrequencyLabel = (frequency: string, dayValue: number) => {
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    if (frequency === 'weekly') {
+      return `Every ${dayNames[dayValue]}`;
+    } else if (frequency === 'yearly') {
+      const month = Math.floor(dayValue / 100);
+      const day = dayValue % 100;
+      return `${monthNames[month - 1]} ${day}`;
+    }
+    return `Day ${dayValue}`;
   };
 
   const getCategoryInfo = (value: string) => {
@@ -610,7 +689,7 @@ const Expenses = () => {
                             <div className="font-medium flex items-center gap-2">
                               {catInfo.label.split(' ')[1]}
                               <span className="text-sm font-normal text-muted-foreground">
-                                • Day {recurring.day_of_month}
+                                • {getFrequencyLabel(recurring.frequency, recurring.day_of_month)}
                               </span>
                             </div>
                             <div className="text-sm text-muted-foreground">
@@ -623,7 +702,7 @@ const Expenses = () => {
                             <div className="font-semibold" style={{ color: catInfo.color }}>
                               {formatCurrency(recurring.amount)}
                             </div>
-                            <div className="text-xs text-muted-foreground">monthly</div>
+                            <div className="text-xs text-muted-foreground">{recurring.frequency}</div>
                           </div>
                           <Switch
                             checked={recurring.is_active}
@@ -694,19 +773,89 @@ const Expenses = () => {
                   />
                 </div>
                 <div>
-                  <label className="font-medium mb-2 block">Day of Month (1-28)</label>
-                  <Input 
-                    type="number"
-                    placeholder="e.g., 1"
-                    min="1"
-                    max="28"
-                    value={recurringDayOfMonth}
-                    onChange={(e) => setRecurringDayOfMonth(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Expense will be logged on this day each month
-                  </p>
+                  <label className="font-medium mb-2 block">Frequency</label>
+                  <Select value={recurringFrequency} onValueChange={setRecurringFrequency}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {frequencies.map((freq) => (
+                        <SelectItem key={freq.value} value={freq.value}>
+                          {freq.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+                {recurringFrequency === 'weekly' && (
+                  <div>
+                    <label className="font-medium mb-2 block">Day of Week</label>
+                    <Select value={recurringDayOfWeek} onValueChange={setRecurringDayOfWeek}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">Sunday</SelectItem>
+                        <SelectItem value="1">Monday</SelectItem>
+                        <SelectItem value="2">Tuesday</SelectItem>
+                        <SelectItem value="3">Wednesday</SelectItem>
+                        <SelectItem value="4">Thursday</SelectItem>
+                        <SelectItem value="5">Friday</SelectItem>
+                        <SelectItem value="6">Saturday</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {recurringFrequency === 'monthly' && (
+                  <div>
+                    <label className="font-medium mb-2 block">Day of Month (1-28)</label>
+                    <Input 
+                      type="number"
+                      placeholder="e.g., 1"
+                      min="1"
+                      max="28"
+                      value={recurringDayOfMonth}
+                      onChange={(e) => setRecurringDayOfMonth(e.target.value)}
+                    />
+                  </div>
+                )}
+                {recurringFrequency === 'yearly' && (
+                  <>
+                    <div>
+                      <label className="font-medium mb-2 block">Month</label>
+                      <Select value={recurringMonth} onValueChange={setRecurringMonth}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">January</SelectItem>
+                          <SelectItem value="2">February</SelectItem>
+                          <SelectItem value="3">March</SelectItem>
+                          <SelectItem value="4">April</SelectItem>
+                          <SelectItem value="5">May</SelectItem>
+                          <SelectItem value="6">June</SelectItem>
+                          <SelectItem value="7">July</SelectItem>
+                          <SelectItem value="8">August</SelectItem>
+                          <SelectItem value="9">September</SelectItem>
+                          <SelectItem value="10">October</SelectItem>
+                          <SelectItem value="11">November</SelectItem>
+                          <SelectItem value="12">December</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="font-medium mb-2 block">Day of Month (1-28)</label>
+                      <Input 
+                        type="number"
+                        placeholder="e.g., 15"
+                        min="1"
+                        max="28"
+                        value={recurringDayOfMonth}
+                        onChange={(e) => setRecurringDayOfMonth(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
                 <div>
                   <label className="font-medium mb-2 block">Description (optional)</label>
                   <Input 
