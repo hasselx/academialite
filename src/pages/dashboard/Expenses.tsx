@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Wallet, Plus, Trash2, PieChart, TrendingUp, DollarSign, Loader2, Filter, Target, ArrowDownCircle, Calendar as CalendarIcon, Pencil } from "lucide-react";
+import { Wallet, Plus, Trash2, PieChart, TrendingUp, DollarSign, Loader2, Filter, Target, ArrowDownCircle, Calendar as CalendarIcon, Pencil, RefreshCw, Power, PowerOff } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +22,17 @@ interface Expense {
   amount: number;
   description: string;
   date: string;
+}
+
+interface RecurringExpense {
+  id: string;
+  category: string;
+  amount: number;
+  description: string;
+  frequency: string;
+  day_of_month: number;
+  is_active: boolean;
+  last_generated: string | null;
 }
 
 const categories = [
@@ -50,6 +62,7 @@ const currencyMap: { [key: string]: { symbol: string; code: string } } = {
 
 const Expenses = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
   const [category, setCategory] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
@@ -57,6 +70,8 @@ const Expenses = () => {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showBudgetDialog, setShowBudgetDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showRecurringDialog, setShowRecurringDialog] = useState(false);
+  const [showManageRecurringDialog, setShowManageRecurringDialog] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<string>("all");
@@ -66,25 +81,47 @@ const Expenses = () => {
     return saved ? parseFloat(saved) : 0;
   });
   const [budgetInput, setBudgetInput] = useState("");
+  const [recurringDayOfMonth, setRecurringDayOfMonth] = useState("1");
   const { toast } = useToast();
   const { user } = useAuth();
   const { countryCode } = useTimeSettings();
 
   const currency = currencyMap[countryCode] || currencyMap["IN"];
 
-  useEffect(() => {
-    if (user) {
-      fetchExpenses();
+  const fetchRecurringExpenses = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('recurring_expenses')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setRecurringExpenses(data?.map(r => ({
+        id: r.id,
+        category: r.category,
+        amount: Number(r.amount),
+        description: r.description || '',
+        frequency: r.frequency,
+        day_of_month: r.day_of_month,
+        is_active: r.is_active,
+        last_generated: r.last_generated
+      })) || []);
+    } catch (error: any) {
+      console.error('Error fetching recurring expenses:', error);
     }
   }, [user]);
 
-  const fetchExpenses = async () => {
+  const fetchExpenses = useCallback(async () => {
+    if (!user) return;
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('expenses')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .order('date', { ascending: false });
 
       if (error) throw error;
@@ -105,7 +142,71 @@ const Expenses = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, toast]);
+
+  // Generate expenses from recurring templates
+  const generateRecurringExpenses = useCallback(async () => {
+    if (!user || recurringExpenses.length === 0) return;
+
+    const today = new Date();
+    const currentDay = today.getDate();
+    const currentMonth = format(today, 'yyyy-MM');
+
+    for (const recurring of recurringExpenses) {
+      if (!recurring.is_active) continue;
+
+      const lastGenMonth = recurring.last_generated 
+        ? format(parseISO(recurring.last_generated), 'yyyy-MM') 
+        : null;
+
+      // Generate if not generated this month and we're past the day_of_month
+      if (lastGenMonth !== currentMonth && currentDay >= recurring.day_of_month) {
+        try {
+          const expenseDate = new Date(today.getFullYear(), today.getMonth(), recurring.day_of_month);
+          
+          // Insert new expense
+          const { error: insertError } = await supabase
+            .from('expenses')
+            .insert({
+              user_id: user.id,
+              category: recurring.category,
+              amount: recurring.amount,
+              description: `${recurring.description || ''} (Recurring)`.trim(),
+              date: format(expenseDate, 'yyyy-MM-dd')
+            });
+
+          if (insertError) throw insertError;
+
+          // Update last_generated
+          await supabase
+            .from('recurring_expenses')
+            .update({ last_generated: format(today, 'yyyy-MM-dd') })
+            .eq('id', recurring.id);
+
+        } catch (error) {
+          console.error('Error generating recurring expense:', error);
+        }
+      }
+    }
+
+    // Refresh expenses after generation
+    fetchExpenses();
+    fetchRecurringExpenses();
+  }, [user, recurringExpenses, fetchExpenses, fetchRecurringExpenses]);
+
+  useEffect(() => {
+    if (user) {
+      fetchExpenses();
+      fetchRecurringExpenses();
+    }
+  }, [user, fetchExpenses, fetchRecurringExpenses]);
+
+  // Auto-generate recurring expenses on load
+  useEffect(() => {
+    if (recurringExpenses.length > 0) {
+      generateRecurringExpenses();
+    }
+  }, [recurringExpenses.length]);
 
   // Filter expenses based on category and period
   const filteredExpenses = useMemo(() => {
@@ -169,6 +270,7 @@ const Expenses = () => {
     setAmount("");
     setDescription("");
     setExpenseDate(new Date());
+    setRecurringDayOfMonth("1");
   };
 
   const handleAddExpense = async () => {
@@ -318,6 +420,119 @@ const Expenses = () => {
     });
   };
 
+  const handleAddRecurringExpense = async () => {
+    if (!category || !amount) {
+      toast({
+        title: "Missing information",
+        description: "Please select a category and enter an amount.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const dayNum = parseInt(recurringDayOfMonth);
+    if (isNaN(dayNum) || dayNum < 1 || dayNum > 28) {
+      toast({
+        title: "Invalid day",
+        description: "Day of month must be between 1 and 28.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('recurring_expenses')
+        .insert({
+          user_id: user?.id,
+          category,
+          amount: parseFloat(amount),
+          description: description || null,
+          frequency: 'monthly',
+          day_of_month: dayNum,
+          is_active: true
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setRecurringExpenses([{
+        id: data.id,
+        category: data.category,
+        amount: Number(data.amount),
+        description: data.description || '',
+        frequency: data.frequency,
+        day_of_month: data.day_of_month,
+        is_active: data.is_active,
+        last_generated: data.last_generated
+      }, ...recurringExpenses]);
+
+      resetForm();
+      setShowRecurringDialog(false);
+
+      toast({
+        title: "Recurring expense added",
+        description: `${currency.symbol}${amount} will be logged on day ${dayNum} each month.`
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error adding recurring expense",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleToggleRecurring = async (id: string, isActive: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('recurring_expenses')
+        .update({ is_active: !isActive })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setRecurringExpenses(recurringExpenses.map(r => 
+        r.id === id ? { ...r, is_active: !isActive } : r
+      ));
+
+      toast({
+        title: isActive ? "Recurring expense paused" : "Recurring expense activated",
+        description: isActive ? "This expense won't be logged automatically." : "This expense will be logged automatically."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error updating recurring expense",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteRecurring = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('recurring_expenses')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setRecurringExpenses(recurringExpenses.filter(r => r.id !== id));
+      toast({
+        title: "Recurring expense deleted",
+        description: "The recurring expense has been removed."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error deleting recurring expense",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
   const getCategoryInfo = (value: string) => {
     return categories.find(c => c.value === value) || categories[categories.length - 1];
   };
@@ -347,7 +562,167 @@ const Expenses = () => {
           </h1>
           <p className="text-muted-foreground">Track and manage your spending • {currentMonth}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Dialog open={showManageRecurringDialog} onOpenChange={setShowManageRecurringDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="relative">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Recurring
+                {recurringExpenses.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
+                    {recurringExpenses.length}
+                  </span>
+                )}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <RefreshCw className="w-5 h-5" />
+                  Recurring Expenses
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4 max-h-[60vh] overflow-y-auto">
+                {recurringExpenses.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <RefreshCw className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>No recurring expenses set up yet.</p>
+                  </div>
+                ) : (
+                  recurringExpenses.map((recurring) => {
+                    const catInfo = getCategoryInfo(recurring.category);
+                    return (
+                      <div 
+                        key={recurring.id}
+                        className={cn(
+                          "flex items-center justify-between p-4 rounded-xl border transition-colors",
+                          recurring.is_active ? "bg-muted/30 border-border" : "bg-muted/10 border-border/50 opacity-60"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
+                            style={{ backgroundColor: `${catInfo.color}20` }}
+                          >
+                            {catInfo.label.split(' ')[0]}
+                          </div>
+                          <div>
+                            <div className="font-medium flex items-center gap-2">
+                              {catInfo.label.split(' ')[1]}
+                              <span className="text-sm font-normal text-muted-foreground">
+                                • Day {recurring.day_of_month}
+                              </span>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {recurring.description || 'No description'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <div className="font-semibold" style={{ color: catInfo.color }}>
+                              {formatCurrency(recurring.amount)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">monthly</div>
+                          </div>
+                          <Switch
+                            checked={recurring.is_active}
+                            onCheckedChange={() => handleToggleRecurring(recurring.id, recurring.is_active)}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDeleteRecurring(recurring.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+                <Button 
+                  onClick={() => {
+                    setShowManageRecurringDialog(false);
+                    setShowRecurringDialog(true);
+                  }}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Recurring Expense
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={showRecurringDialog} onOpenChange={(open) => {
+            setShowRecurringDialog(open);
+            if (!open) resetForm();
+          }}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <RefreshCw className="w-5 h-5" />
+                  Add Recurring Expense
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div>
+                  <label className="font-medium mb-2 block">Category</label>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="font-medium mb-2 block">Amount ({currency.code})</label>
+                  <Input 
+                    type="number"
+                    placeholder="e.g., 500"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="font-medium mb-2 block">Day of Month (1-28)</label>
+                  <Input 
+                    type="number"
+                    placeholder="e.g., 1"
+                    min="1"
+                    max="28"
+                    value={recurringDayOfMonth}
+                    onChange={(e) => setRecurringDayOfMonth(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Expense will be logged on this day each month
+                  </p>
+                </div>
+                <div>
+                  <label className="font-medium mb-2 block">Description (optional)</label>
+                  <Input 
+                    placeholder="e.g., Netflix subscription"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </div>
+                <Button onClick={handleAddRecurringExpense} className="w-full gradient-primary">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Add Recurring Expense
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <Dialog open={showBudgetDialog} onOpenChange={setShowBudgetDialog}>
             <DialogTrigger asChild>
               <Button variant="outline">
