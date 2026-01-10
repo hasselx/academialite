@@ -151,6 +151,39 @@ export type Database = {
         }
         Relationships: []
       }
+      expense_categories: {
+        Row: {
+          color: string
+          created_at: string
+          emoji: string
+          id: string
+          is_default: boolean
+          label: string
+          user_id: string
+          value: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          emoji?: string
+          id?: string
+          is_default?: boolean
+          label: string
+          user_id: string
+          value: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          emoji?: string
+          id?: string
+          is_default?: boolean
+          label?: string
+          user_id?: string
+          value?: string
+        }
+        Relationships: []
+      }
       expenses: {
         Row: {
           amount: number
