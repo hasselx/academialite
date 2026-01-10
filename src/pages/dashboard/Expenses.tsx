@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Wallet, Plus, Trash2, PieChart, TrendingUp, DollarSign, Loader2, Filter, Target, ArrowDownCircle, Calendar as CalendarIcon, Pencil, RefreshCw, Power, PowerOff } from "lucide-react";
+import { Wallet, Plus, Trash2, PieChart, TrendingUp, DollarSign, Loader2, Filter, Target, ArrowDownCircle, Calendar as CalendarIcon, Pencil, RefreshCw, Power, PowerOff, Settings, Tag } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
@@ -41,16 +41,28 @@ interface RecurringExpense {
   last_generated: string | null;
 }
 
-const categories = [
-  { value: "food", label: "🍔 Food", color: "#10b981" },
-  { value: "transport", label: "🚗 Transport", color: "#14b8a6" },
-  { value: "education", label: "📚 Education", color: "#f59e0b" },
-  { value: "entertainment", label: "🎬 Entertainment", color: "#ef4444" },
-  { value: "shopping", label: "🛍️ Shopping", color: "#ec4899" },
-  { value: "health", label: "🏥 Health", color: "#f97316" },
-  { value: "bills", label: "💡 Bills", color: "#22c55e" },
-  { value: "other", label: "📌 Other", color: "#6366f1" },
+interface Category {
+  value: string;
+  label: string;
+  emoji: string;
+  color: string;
+  id?: string;
+  is_default?: boolean;
+}
+
+const defaultCategories: Category[] = [
+  { value: "food", label: "Food", emoji: "🍔", color: "#10b981", is_default: true },
+  { value: "transport", label: "Transport", emoji: "🚗", color: "#14b8a6", is_default: true },
+  { value: "education", label: "Education", emoji: "📚", color: "#f59e0b", is_default: true },
+  { value: "entertainment", label: "Entertainment", emoji: "🎬", color: "#ef4444", is_default: true },
+  { value: "shopping", label: "Shopping", emoji: "🛍️", color: "#ec4899", is_default: true },
+  { value: "health", label: "Health", emoji: "🏥", color: "#f97316", is_default: true },
+  { value: "bills", label: "Bills", emoji: "💡", color: "#22c55e", is_default: true },
+  { value: "other", label: "Other", emoji: "📌", color: "#6366f1", is_default: true },
 ];
+
+const emojiOptions = ["🍔", "🚗", "📚", "🎬", "🛍️", "🏥", "💡", "📌", "💰", "🏠", "✈️", "🎮", "🎵", "📱", "💻", "🎁", "☕", "🍕", "🎨", "⚽"];
+const colorOptions = ["#10b981", "#14b8a6", "#f59e0b", "#ef4444", "#ec4899", "#f97316", "#22c55e", "#6366f1", "#8b5cf6", "#0ea5e9", "#f43f5e", "#84cc16"];
 
 // Currency mapping based on country code
 const currencyMap: { [key: string]: { symbol: string; code: string } } = {
@@ -69,6 +81,7 @@ const currencyMap: { [key: string]: { symbol: string; code: string } } = {
 const Expenses = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
+  const [customCategories, setCustomCategories] = useState<Category[]>([]);
   const [category, setCategory] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
@@ -78,6 +91,8 @@ const Expenses = () => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showRecurringDialog, setShowRecurringDialog] = useState(false);
   const [showManageRecurringDialog, setShowManageRecurringDialog] = useState(false);
+  const [showCategoriesDialog, setShowCategoriesDialog] = useState(false);
+  const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<string>("all");
@@ -89,13 +104,54 @@ const Expenses = () => {
   const [budgetInput, setBudgetInput] = useState("");
   const [recurringDayOfMonth, setRecurringDayOfMonth] = useState("1");
   const [recurringFrequency, setRecurringFrequency] = useState("monthly");
-  const [recurringDayOfWeek, setRecurringDayOfWeek] = useState("1"); // 0=Sun, 1=Mon, etc.
-  const [recurringMonth, setRecurringMonth] = useState("1"); // 1-12 for yearly
+  const [recurringDayOfWeek, setRecurringDayOfWeek] = useState("1");
+  const [recurringMonth, setRecurringMonth] = useState("1");
+  // New category form state
+  const [newCategoryLabel, setNewCategoryLabel] = useState("");
+  const [newCategoryEmoji, setNewCategoryEmoji] = useState("📌");
+  const [newCategoryColor, setNewCategoryColor] = useState("#6366f1");
   const { toast } = useToast();
   const { user } = useAuth();
   const { countryCode } = useTimeSettings();
 
   const currency = currencyMap[countryCode] || currencyMap["IN"];
+
+  // Combine default and custom categories
+  const categories = useMemo(() => {
+    const combined = [...defaultCategories];
+    customCategories.forEach(cat => {
+      const existingIndex = combined.findIndex(c => c.value === cat.value);
+      if (existingIndex === -1) {
+        combined.push(cat);
+      }
+    });
+    return combined;
+  }, [customCategories]);
+
+  // Fetch custom categories
+  const fetchCustomCategories = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('expense_categories')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      setCustomCategories(data?.map(c => ({
+        id: c.id,
+        value: c.value,
+        label: c.label,
+        emoji: c.emoji,
+        color: c.color,
+        is_default: c.is_default
+      })) || []);
+    } catch (error: any) {
+      console.error('Error fetching categories:', error);
+    }
+  }, [user]);
 
   const fetchRecurringExpenses = useCallback(async () => {
     if (!user) return;
@@ -231,10 +287,11 @@ const Expenses = () => {
 
   useEffect(() => {
     if (user) {
+      fetchCustomCategories();
       fetchExpenses();
       fetchRecurringExpenses();
     }
-  }, [user, fetchExpenses, fetchRecurringExpenses]);
+  }, [user, fetchCustomCategories, fetchExpenses, fetchRecurringExpenses]);
 
   // Auto-generate recurring expenses on load
   useEffect(() => {
@@ -291,7 +348,7 @@ const Expenses = () => {
     return categories
       .filter(cat => categoryTotals[cat.value])
       .map(cat => ({
-        name: cat.label.split(' ')[1],
+        name: cat.label,
         value: categoryTotals[cat.value],
         color: cat.color,
         percentage: filteredTotal > 0 ? ((categoryTotals[cat.value] / filteredTotal) * 100).toFixed(1) : "0"
@@ -598,6 +655,95 @@ const Expenses = () => {
     }
   };
 
+  // Category management functions
+  const handleAddCategory = async () => {
+    if (!newCategoryLabel.trim()) {
+      toast({
+        title: "Missing information",
+        description: "Please enter a category name.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const categoryValue = newCategoryLabel.toLowerCase().replace(/\s+/g, '_');
+    
+    // Check if category already exists
+    if (categories.some(c => c.value === categoryValue)) {
+      toast({
+        title: "Category exists",
+        description: "A category with this name already exists.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('expense_categories')
+        .insert({
+          user_id: user?.id,
+          value: categoryValue,
+          label: newCategoryLabel.trim(),
+          emoji: newCategoryEmoji,
+          color: newCategoryColor,
+          is_default: false
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setCustomCategories([...customCategories, {
+        id: data.id,
+        value: data.value,
+        label: data.label,
+        emoji: data.emoji,
+        color: data.color,
+        is_default: false
+      }]);
+
+      setNewCategoryLabel("");
+      setNewCategoryEmoji("📌");
+      setNewCategoryColor("#6366f1");
+      setShowAddCategoryDialog(false);
+
+      toast({
+        title: "Category created",
+        description: `${newCategoryEmoji} ${newCategoryLabel} has been added.`
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error creating category",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string, categoryValue: string) => {
+    try {
+      const { error } = await supabase
+        .from('expense_categories')
+        .delete()
+        .eq('id', categoryId);
+
+      if (error) throw error;
+
+      setCustomCategories(customCategories.filter(c => c.id !== categoryId));
+      toast({
+        title: "Category deleted",
+        description: "The category has been removed."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error deleting category",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
   const getFrequencyLabel = (frequency: string, dayValue: number) => {
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -612,8 +758,11 @@ const Expenses = () => {
     return `Day ${dayValue}`;
   };
 
-  const getCategoryInfo = (value: string) => {
-    return categories.find(c => c.value === value) || categories[categories.length - 1];
+  const getCategoryInfo = (value: string): Category => {
+    const found = categories.find(c => c.value === value);
+    if (found) return found;
+    // Fallback for unknown categories
+    return { value, label: value, emoji: "📌", color: "#6366f1" };
   };
 
   const formatCurrency = (value: number) => {
@@ -683,11 +832,11 @@ const Expenses = () => {
                             className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
                             style={{ backgroundColor: `${catInfo.color}20` }}
                           >
-                            {catInfo.label.split(' ')[0]}
+                            {catInfo.emoji}
                           </div>
                           <div>
                             <div className="font-medium flex items-center gap-2">
-                              {catInfo.label.split(' ')[1]}
+                              {catInfo.label}
                               <span className="text-sm font-normal text-muted-foreground">
                                 • {getFrequencyLabel(recurring.frequency, recurring.day_of_month)}
                               </span>
@@ -757,7 +906,7 @@ const Expenses = () => {
                     <SelectContent>
                       {categories.map((cat) => (
                         <SelectItem key={cat.value} value={cat.value}>
-                          {cat.label}
+                          {cat.emoji} {cat.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -872,6 +1021,178 @@ const Expenses = () => {
             </DialogContent>
           </Dialog>
 
+          {/* Categories Dialog */}
+          <Dialog open={showCategoriesDialog} onOpenChange={setShowCategoriesDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Tag className="w-4 h-4 mr-2" />
+                Categories
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Tag className="w-5 h-5" />
+                  Manage Categories
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4 max-h-[60vh] overflow-y-auto">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-muted-foreground">Default Categories</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {defaultCategories.map((cat) => (
+                      <div 
+                        key={cat.value}
+                        className="flex items-center gap-2 p-2 rounded-lg border border-border/50 bg-muted/20"
+                      >
+                        <div 
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-sm"
+                          style={{ backgroundColor: `${cat.color}20` }}
+                        >
+                          {cat.emoji}
+                        </div>
+                        <span className="text-sm font-medium">{cat.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {customCategories.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-muted-foreground">Custom Categories</h4>
+                    <div className="space-y-2">
+                      {customCategories.map((cat) => (
+                        <div 
+                          key={cat.id}
+                          className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/30"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div 
+                              className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
+                              style={{ backgroundColor: `${cat.color}20` }}
+                            >
+                              {cat.emoji}
+                            </div>
+                            <div>
+                              <div className="font-medium">{cat.label}</div>
+                              <div className="text-xs text-muted-foreground">Custom category</div>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => cat.id && handleDeleteCategory(cat.id, cat.value)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <Button 
+                  onClick={() => {
+                    setShowCategoriesDialog(false);
+                    setShowAddCategoryDialog(true);
+                  }}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Custom Category
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Add Category Dialog */}
+          <Dialog open={showAddCategoryDialog} onOpenChange={(open) => {
+            setShowAddCategoryDialog(open);
+            if (!open) {
+              setNewCategoryLabel("");
+              setNewCategoryEmoji("📌");
+              setNewCategoryColor("#6366f1");
+            }
+          }}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Plus className="w-5 h-5" />
+                  Add Custom Category
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div>
+                  <label className="font-medium mb-2 block">Category Name</label>
+                  <Input 
+                    placeholder="e.g., Groceries"
+                    value={newCategoryLabel}
+                    onChange={(e) => setNewCategoryLabel(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="font-medium mb-2 block">Emoji</label>
+                  <div className="flex flex-wrap gap-2">
+                    {emojiOptions.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setNewCategoryEmoji(emoji)}
+                        className={cn(
+                          "w-10 h-10 rounded-lg text-xl flex items-center justify-center transition-all",
+                          newCategoryEmoji === emoji 
+                            ? "bg-primary/20 ring-2 ring-primary" 
+                            : "bg-muted/50 hover:bg-muted"
+                        )}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="font-medium mb-2 block">Color</label>
+                  <div className="flex flex-wrap gap-2">
+                    {colorOptions.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setNewCategoryColor(color)}
+                        className={cn(
+                          "w-10 h-10 rounded-lg transition-all",
+                          newCategoryColor === color 
+                            ? "ring-2 ring-primary ring-offset-2 ring-offset-background" 
+                            : "hover:scale-110"
+                        )}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="p-4 rounded-xl bg-muted/30 border border-border">
+                  <label className="text-sm text-muted-foreground block mb-2">Preview</label>
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
+                      style={{ backgroundColor: `${newCategoryColor}20` }}
+                    >
+                      {newCategoryEmoji}
+                    </div>
+                    <span className="font-medium" style={{ color: newCategoryColor }}>
+                      {newCategoryLabel || "Category Name"}
+                    </span>
+                  </div>
+                </div>
+                <Button onClick={handleAddCategory} className="w-full gradient-primary">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Category
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <Dialog open={showBudgetDialog} onOpenChange={setShowBudgetDialog}>
             <DialogTrigger asChild>
               <Button variant="outline">
@@ -925,7 +1246,7 @@ const Expenses = () => {
                     <SelectContent>
                       {categories.map((cat) => (
                         <SelectItem key={cat.value} value={cat.value}>
-                          {cat.label}
+                          {cat.emoji} {cat.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1003,7 +1324,7 @@ const Expenses = () => {
                     <SelectContent>
                       {categories.map((cat) => (
                         <SelectItem key={cat.value} value={cat.value}>
-                          {cat.label}
+                          {cat.emoji} {cat.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1164,7 +1485,7 @@ const Expenses = () => {
               <SelectItem value="all">All Categories</SelectItem>
               {categories.map((cat) => (
                 <SelectItem key={cat.value} value={cat.value}>
-                  {cat.label}
+                  {cat.emoji} {cat.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -1275,10 +1596,10 @@ const Expenses = () => {
                           className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
                           style={{ backgroundColor: `${catInfo.color}20` }}
                         >
-                          {catInfo.label.split(' ')[0]}
+                          {catInfo.emoji}
                         </div>
                         <div>
-                          <div className="font-medium">{catInfo.label.split(' ')[1]}</div>
+                          <div className="font-medium">{catInfo.label}</div>
                           <div className="text-sm text-muted-foreground">
                             {expense.description || 'No description'} • {new Date(expense.date).toLocaleDateString()}
                           </div>
