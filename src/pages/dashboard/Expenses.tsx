@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Wallet, Plus, Trash2, PieChart, TrendingUp, DollarSign, Loader2, Filter, Target, ArrowDownCircle, Calendar as CalendarIcon, Pencil, RefreshCw, Power, PowerOff, Settings, Tag } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Wallet, Plus, Trash2, PieChart, TrendingUp, DollarSign, Loader2, Filter, Target, ArrowDownCircle, Calendar as CalendarIcon, Pencil, RefreshCw, Power, PowerOff, Settings, Tag, BarChart3 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
@@ -15,6 +16,7 @@ import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO, startOfWe
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import ExpenseAnalytics from "@/components/ExpenseAnalytics";
 
 const frequencies = [
   { value: "weekly", label: "Weekly" },
@@ -791,6 +793,31 @@ const Expenses = () => {
           <p className="text-muted-foreground">Track and manage your spending • {currentMonth}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {/* Analytics Sheet */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline">
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Analytics
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  Expense Analytics
+                </SheetTitle>
+              </SheetHeader>
+              <div className="mt-6">
+                <ExpenseAnalytics 
+                  expenses={expenses} 
+                  categories={categories} 
+                  currency={currency} 
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
+
           <Dialog open={showManageRecurringDialog} onOpenChange={setShowManageRecurringDialog}>
             <DialogTrigger asChild>
               <Button variant="outline" className="relative">
