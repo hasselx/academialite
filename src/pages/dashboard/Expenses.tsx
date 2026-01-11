@@ -59,7 +59,7 @@ const defaultCategories: Category[] = [
   { value: "entertainment", label: "Entertainment", emoji: "🎬", color: "#d90429", is_default: true },
   { value: "shopping", label: "Shopping", emoji: "🛍️", color: "#3d348b", is_default: true },
   { value: "health", label: "Health", emoji: "🏥", color: "#72808a", is_default: true },
-  { value: "bills", label: "Bills", emoji: "💡", color: "#8f2d56", is_default: true },
+  { value: "bills", label: "Bills", emoji: "💡", color: "#0096c7", is_default: true },
   { value: "other", label: "Other", emoji: "📌", color: "#2d6a4f", is_default: true },
 ];
 
