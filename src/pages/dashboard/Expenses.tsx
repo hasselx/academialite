@@ -53,18 +53,18 @@ interface Category {
 }
 
 const defaultCategories: Category[] = [
-  { value: "food", label: "Food", emoji: "🍔", color: "#6dc3ca", is_default: true },
-  { value: "transport", label: "Transport", emoji: "🚗", color: "#307d84", is_default: true },
-  { value: "education", label: "Education", emoji: "📚", color: "#ffc846", is_default: true },
-  { value: "entertainment", label: "Entertainment", emoji: "🎬", color: "#ae4931", is_default: true },
-  { value: "shopping", label: "Shopping", emoji: "🛍️", color: "#f57f29", is_default: true },
-  { value: "health", label: "Health", emoji: "🏥", color: "#fffbd2", is_default: true },
-  { value: "bills", label: "Bills", emoji: "💡", color: "#9ed7dc", is_default: true },
-  { value: "other", label: "Other", emoji: "📌", color: "#72808a", is_default: true },
+  { value: "food", label: "Food", emoji: "🍔", color: "#344e41", is_default: true },
+  { value: "transport", label: "Transport", emoji: "🚗", color: "#ffb703", is_default: true },
+  { value: "education", label: "Education", emoji: "📚", color: "#7b2cbf", is_default: true },
+  { value: "entertainment", label: "Entertainment", emoji: "🎬", color: "#d90429", is_default: true },
+  { value: "shopping", label: "Shopping", emoji: "🛍️", color: "#3d348b", is_default: true },
+  { value: "health", label: "Health", emoji: "🏥", color: "#72808a", is_default: true },
+  { value: "bills", label: "Bills", emoji: "💡", color: "#8f2d56", is_default: true },
+  { value: "other", label: "Other", emoji: "📌", color: "#2d6a4f", is_default: true },
 ];
 
 const emojiOptions = ["🍔", "🚗", "📚", "🎬", "🛍️", "🏥", "💡", "📌", "💰", "🏠", "✈️", "🎮", "🎵", "📱", "💻", "🎁", "☕", "🍕", "🎨", "⚽"];
-const colorOptions = ["#ffc846", "#fffbd2", "#f57f29", "#ae4931", "#abafb8", "#72808a", "#243444", "#307d84", "#6dc3ca", "#9ed7dc"];
+const colorOptions = ["#344e41", "#ffb703", "#7b2cbf", "#d90429", "#3d348b", "#72808a", "#8f2d56", "#2d6a4f", "#a1c6ea"];
 
 // Currency mapping based on country code
 const currencyMap: { [key: string]: { symbol: string; code: string } } = {
