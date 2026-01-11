@@ -53,18 +53,18 @@ interface Category {
 }
 
 const defaultCategories: Category[] = [
-  { value: "food", label: "Food", emoji: "🍔", color: "#10b981", is_default: true },
-  { value: "transport", label: "Transport", emoji: "🚗", color: "#14b8a6", is_default: true },
-  { value: "education", label: "Education", emoji: "📚", color: "#f59e0b", is_default: true },
-  { value: "entertainment", label: "Entertainment", emoji: "🎬", color: "#ef4444", is_default: true },
-  { value: "shopping", label: "Shopping", emoji: "🛍️", color: "#ec4899", is_default: true },
-  { value: "health", label: "Health", emoji: "🏥", color: "#f97316", is_default: true },
-  { value: "bills", label: "Bills", emoji: "💡", color: "#22c55e", is_default: true },
-  { value: "other", label: "Other", emoji: "📌", color: "#6366f1", is_default: true },
+  { value: "food", label: "Food", emoji: "🍔", color: "#0a9396", is_default: true },
+  { value: "transport", label: "Transport", emoji: "🚗", color: "#005f73", is_default: true },
+  { value: "education", label: "Education", emoji: "📚", color: "#ee9b00", is_default: true },
+  { value: "entertainment", label: "Entertainment", emoji: "🎬", color: "#ae2012", is_default: true },
+  { value: "shopping", label: "Shopping", emoji: "🛍️", color: "#9b2226", is_default: true },
+  { value: "health", label: "Health", emoji: "🏥", color: "#ca6702", is_default: true },
+  { value: "bills", label: "Bills", emoji: "💡", color: "#94d2bd", is_default: true },
+  { value: "other", label: "Other", emoji: "📌", color: "#e9d8a6", is_default: true },
 ];
 
 const emojiOptions = ["🍔", "🚗", "📚", "🎬", "🛍️", "🏥", "💡", "📌", "💰", "🏠", "✈️", "🎮", "🎵", "📱", "💻", "🎁", "☕", "🍕", "🎨", "⚽"];
-const colorOptions = ["#10b981", "#14b8a6", "#f59e0b", "#ef4444", "#ec4899", "#f97316", "#22c55e", "#6366f1", "#8b5cf6", "#0ea5e9", "#f43f5e", "#84cc16"];
+const colorOptions = ["#001219", "#005f73", "#0a9396", "#94d2bd", "#e9d8a6", "#ee9b00", "#ca6702", "#bb3e03", "#ae2012", "#9b2226"];
 
 // Currency mapping based on country code
 const currencyMap: { [key: string]: { symbol: string; code: string } } = {
