@@ -157,7 +157,7 @@ const CGPACalculator = () => {
   const gradeOptions = Object.keys(gradePoints);
   
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
 
   // Fetch saved CGPA records for the dropdown (each calculation is its own record)
   const fetchSavedRecords = async () => {
@@ -623,12 +623,18 @@ const CGPACalculator = () => {
   const fetchAIMotivation = async () => {
     if (totalSemesters === 0) return;
     
+    if (!session?.access_token) {
+      console.error("No authentication session available");
+      return;
+    }
+    
     setAiLoading(true);
     try {
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-motivation`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           cgpa,
