@@ -75,7 +75,7 @@ const Reminders = () => {
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { formatTime, timezoneOffset, timeFormat } = useTimeSettings();
   
   // Helper: Convert 24hr time to 12hr format for input
@@ -416,12 +416,23 @@ const Reminders = () => {
     }
 
     setParsing(true);
+    
+    if (!session?.access_token) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to use the AI message parser.",
+        variant: "destructive"
+      });
+      setParsing(false);
+      return;
+    }
+    
     try {
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({ message: messageText })
       });
