@@ -53,18 +53,18 @@ interface Category {
 }
 
 const defaultCategories: Category[] = [
-  { value: "food", label: "Food", emoji: "🍔", color: "#0a9396", is_default: true },
-  { value: "transport", label: "Transport", emoji: "🚗", color: "#005f73", is_default: true },
-  { value: "education", label: "Education", emoji: "📚", color: "#ee9b00", is_default: true },
-  { value: "entertainment", label: "Entertainment", emoji: "🎬", color: "#ae2012", is_default: true },
-  { value: "shopping", label: "Shopping", emoji: "🛍️", color: "#9b2226", is_default: true },
-  { value: "health", label: "Health", emoji: "🏥", color: "#ca6702", is_default: true },
-  { value: "bills", label: "Bills", emoji: "💡", color: "#94d2bd", is_default: true },
-  { value: "other", label: "Other", emoji: "📌", color: "#e9d8a6", is_default: true },
+  { value: "food", label: "Food", emoji: "🍔", color: "#6dc3ca", is_default: true },
+  { value: "transport", label: "Transport", emoji: "🚗", color: "#307d84", is_default: true },
+  { value: "education", label: "Education", emoji: "📚", color: "#ffc846", is_default: true },
+  { value: "entertainment", label: "Entertainment", emoji: "🎬", color: "#ae4931", is_default: true },
+  { value: "shopping", label: "Shopping", emoji: "🛍️", color: "#f57f29", is_default: true },
+  { value: "health", label: "Health", emoji: "🏥", color: "#fffbd2", is_default: true },
+  { value: "bills", label: "Bills", emoji: "💡", color: "#9ed7dc", is_default: true },
+  { value: "other", label: "Other", emoji: "📌", color: "#72808a", is_default: true },
 ];
 
 const emojiOptions = ["🍔", "🚗", "📚", "🎬", "🛍️", "🏥", "💡", "📌", "💰", "🏠", "✈️", "🎮", "🎵", "📱", "💻", "🎁", "☕", "🍕", "🎨", "⚽"];
-const colorOptions = ["#001219", "#005f73", "#0a9396", "#94d2bd", "#e9d8a6", "#ee9b00", "#ca6702", "#bb3e03", "#ae2012", "#9b2226"];
+const colorOptions = ["#ffc846", "#fffbd2", "#f57f29", "#ae4931", "#abafb8", "#72808a", "#243444", "#307d84", "#6dc3ca", "#9ed7dc"];
 
 // Currency mapping based on country code
 const currencyMap: { [key: string]: { symbol: string; code: string } } = {
