@@ -1603,61 +1603,57 @@ const Expenses = () => {
           </div>
 
           {/* Recent Transactions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {filterPeriod === "month" ? "This Month's Transactions" : "All Transactions"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {filteredExpenses.slice(0, 15).map((expense) => {
-                  const catInfo = getCategoryInfo(expense.category);
-                  return (
-                    <div 
-                      key={expense.id} 
-                      className="flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div 
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-                          style={{ backgroundColor: `${catInfo.color}20` }}
-                        >
-                          {catInfo.emoji}
-                        </div>
-                        <div>
-                          <div className="font-medium">{catInfo.label}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {expense.description || 'No description'} • {new Date(expense.date).toLocaleDateString()}
-                          </div>
-                        </div>
+          <Card className="p-4">
+            <h3 className="font-semibold mb-3">
+              {filterPeriod === "month" ? "This Month's Transactions" : "All Transactions"}
+            </h3>
+            <div className="space-y-1.5">
+              {filteredExpenses.slice(0, 15).map((expense) => {
+                const catInfo = getCategoryInfo(expense.category);
+                return (
+                  <div 
+                    key={expense.id} 
+                    className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-9 h-9 rounded-lg flex items-center justify-center text-base"
+                        style={{ backgroundColor: `${catInfo.color}20` }}
+                      >
+                        {catInfo.emoji}
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-lg font-semibold" style={{ color: catInfo.color }}>
-                          {formatCurrency(expense.amount)}
+                      <div>
+                        <div className="font-medium text-sm">{catInfo.label}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {expense.description || 'No description'} • {new Date(expense.date).toLocaleDateString()}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-muted-foreground hover:text-primary"
-                          onClick={() => handleEditExpense(expense)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => handleDeleteExpense(expense.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </CardContent>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-semibold" style={{ color: catInfo.color }}>
+                        {formatCurrency(expense.amount)}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-primary"
+                        onClick={() => handleEditExpense(expense)}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDeleteExpense(expense.id)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </Card>
         </>
       )}
