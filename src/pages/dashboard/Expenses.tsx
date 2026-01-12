@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+
+const ITEMS_PER_PAGE = 15;
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -99,6 +101,7 @@ const Expenses = () => {
   const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterPeriod, setFilterPeriod] = useState<string>("month");
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [monthlyBudget, setMonthlyBudget] = useState<number>(() => {
     const saved = localStorage.getItem('monthlyBudget');
     return saved ? parseFloat(saved) : 0;
@@ -1604,11 +1607,16 @@ const Expenses = () => {
 
           {/* Recent Transactions - Grid Layout */}
           <Card className="p-4">
-            <h3 className="font-semibold mb-3">
-              {filterPeriod === "month" ? "This Month's Transactions" : "All Transactions"}
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold">
+                {filterPeriod === "month" ? "This Month's Transactions" : "All Transactions"}
+              </h3>
+              <span className="text-xs text-muted-foreground">
+                {Math.min(visibleCount, filteredExpenses.length)} of {filteredExpenses.length}
+              </span>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-              {filteredExpenses.slice(0, 15).map((expense) => {
+              {filteredExpenses.slice(0, visibleCount).map((expense) => {
                 const catInfo = getCategoryInfo(expense.category);
                 return (
                   <div 
@@ -1654,6 +1662,15 @@ const Expenses = () => {
                 );
               })}
             </div>
+            {filteredExpenses.length > visibleCount && (
+              <Button
+                variant="outline"
+                className="w-full mt-3"
+                onClick={() => setVisibleCount(prev => prev + ITEMS_PER_PAGE)}
+              >
+                Load More ({filteredExpenses.length - visibleCount} remaining)
+              </Button>
+            )}
           </Card>
         </>
       )}
