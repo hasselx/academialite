@@ -1602,12 +1602,12 @@ const Expenses = () => {
             </Card>
           </div>
 
-          {/* Recent Transactions */}
+          {/* Recent Transactions - Grid Layout */}
           <Card className="p-4">
             <h3 className="font-semibold mb-3">
               {filterPeriod === "month" ? "This Month's Transactions" : "All Transactions"}
             </h3>
-            <div className="space-y-1.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
               {filteredExpenses.slice(0, 15).map((expense) => {
                 const catInfo = getCategoryInfo(expense.category);
                 return (
@@ -1615,39 +1615,39 @@ const Expenses = () => {
                     key={expense.id} 
                     className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <div 
-                        className="w-9 h-9 rounded-lg flex items-center justify-center text-base"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0"
                         style={{ backgroundColor: `${catInfo.color}20` }}
                       >
                         {catInfo.emoji}
                       </div>
-                      <div>
-                        <div className="font-medium text-sm">{catInfo.label}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {expense.description || 'No description'} • {new Date(expense.date).toLocaleDateString()}
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-sm truncate">{catInfo.label}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {expense.description || 'No description'}
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 shrink-0">
                       <div className="text-sm font-semibold" style={{ color: catInfo.color }}>
                         {formatCurrency(expense.amount)}
                       </div>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-primary"
+                        className="h-6 w-6 text-muted-foreground hover:text-primary"
                         onClick={() => handleEditExpense(expense)}
                       >
-                        <Pencil className="w-3.5 h-3.5" />
+                        <Pencil className="w-3 h-3" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
                         onClick={() => handleDeleteExpense(expense.id)}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
                   </div>
