@@ -267,17 +267,19 @@ const ExpenseAnalytics = ({ expenses, categories, currency }: ExpenseAnalyticsPr
                   <Minus className="w-5 h-5 text-muted-foreground" />
                 )}
               </div>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 overflow-hidden">
                 <p className="text-xs text-muted-foreground font-medium">vs Last Month</p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className={`text-xl font-bold ${
+                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                  <span className={`text-base sm:text-lg font-bold truncate ${
                     insights.percentChange > 0 ? 'text-[#d62828]' : 
                     insights.percentChange < 0 ? 'text-[#2d6a4f]' : 'text-foreground'
                   }`}>
-                    {insights.percentChange > 0 ? '+' : ''}{insights.percentChange.toFixed(1)}%
+                    {insights.percentChange > 0 ? '+' : ''}{Math.abs(insights.percentChange) > 999 
+                      ? `${(insights.percentChange / 1000).toFixed(1)}k` 
+                      : insights.percentChange.toFixed(1)}%
                   </span>
                   {insights.percentChange !== 0 && (
-                    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
+                    <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold shrink-0 ${
                       insights.percentChange > 0 ? 'bg-[#d62828] text-white' : 'bg-[#2d6a4f] text-white'
                     }`}>
                       {insights.percentChange > 0 ? '↑' : '↓'}
