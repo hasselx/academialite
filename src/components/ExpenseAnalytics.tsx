@@ -241,68 +241,114 @@ const ExpenseAnalytics = ({ expenses, categories, currency }: ExpenseAnalyticsPr
   return (
     <div className="space-y-6">
       {/* Insights Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Month-over-Month Change */}
+        <Card className={`relative overflow-hidden border-2 ${
+          insights.percentChange > 0 
+            ? 'border-[#d62828]/40 bg-[#d62828]/10' 
+            : insights.percentChange < 0 
+              ? 'border-[#2d6a4f]/40 bg-[#2d6a4f]/10'
+              : 'border-border/50 bg-card/80'
+        } backdrop-blur-sm`}>
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">vs Last Month</p>
-                <div className="flex items-center gap-2 mt-1">
-                  {insights.percentChange > 0 ? (
-                    <ArrowUpRight className="w-5 h-5 text-destructive" />
-                  ) : insights.percentChange < 0 ? (
-                    <ArrowDownRight className="w-5 h-5 text-green-500" />
-                  ) : (
-                    <Minus className="w-5 h-5 text-muted-foreground" />
-                  )}
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                insights.percentChange > 0 
+                  ? 'bg-[#d62828]/20 border-[#d62828]/30' 
+                  : insights.percentChange < 0 
+                    ? 'bg-[#2d6a4f]/20 border-[#2d6a4f]/30'
+                    : 'bg-muted/30 border-border/30'
+              }`}>
+                {insights.percentChange > 0 ? (
+                  <TrendingUp className="w-5 h-5 text-[#d62828]" />
+                ) : insights.percentChange < 0 ? (
+                  <TrendingDown className="w-5 h-5 text-[#2d6a4f]" />
+                ) : (
+                  <Minus className="w-5 h-5 text-muted-foreground" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-muted-foreground font-medium">vs Last Month</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
                   <span className={`text-xl font-bold ${
-                    insights.percentChange > 0 ? 'text-destructive' : 
-                    insights.percentChange < 0 ? 'text-green-500' : 'text-muted-foreground'
+                    insights.percentChange > 0 ? 'text-[#d62828]' : 
+                    insights.percentChange < 0 ? 'text-[#2d6a4f]' : 'text-foreground'
                   }`}>
-                    {Math.abs(insights.percentChange).toFixed(1)}%
+                    {insights.percentChange > 0 ? '+' : ''}{insights.percentChange.toFixed(1)}%
                   </span>
+                  {insights.percentChange !== 0 && (
+                    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
+                      insights.percentChange > 0 ? 'bg-[#d62828] text-white' : 'bg-[#2d6a4f] text-white'
+                    }`}>
+                      {insights.percentChange > 0 ? '↑' : '↓'}
+                    </span>
+                  )}
                 </div>
               </div>
-              {insights.percentChange > 0 ? (
-                <TrendingUp className="w-8 h-8 text-destructive/50" />
-              ) : (
-                <TrendingDown className="w-8 h-8 text-green-500/50" />
-              )}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="stat-card">
+        {/* Average Daily */}
+        <Card className="relative overflow-hidden border-2 border-border/50 bg-card/80 backdrop-blur-sm">
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Avg Daily</p>
-            <p className="text-xl font-bold mt-1">{formatCurrency(Math.round(insights.avgDaily))}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="stat-card">
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Top Category</p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-lg">{insights.topCategory?.emoji || "📌"}</span>
-              <span className="text-lg font-bold truncate">{insights.topCategory?.label || "None"}</span>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#219ebc]/20 flex items-center justify-center shrink-0 border border-[#219ebc]/30">
+                <BarChart3 className="w-5 h-5 text-[#219ebc]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-muted-foreground font-medium">Avg Daily</p>
+                <p className="text-xl font-bold text-foreground mt-0.5">{formatCurrency(Math.round(insights.avgDaily))}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="stat-card">
+        {/* Top Category */}
+        <Card className="relative overflow-hidden border-2 border-border/50 bg-card/80 backdrop-blur-sm">
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Transactions</p>
-            <p className="text-xl font-bold mt-1">{insights.transactionCount}</p>
+            <div className="flex items-center gap-3">
+              <div 
+                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg border"
+                style={{ 
+                  backgroundColor: insights.topCategory?.color ? `${insights.topCategory.color}20` : 'hsl(var(--muted)/0.3)',
+                  borderColor: insights.topCategory?.color ? `${insights.topCategory.color}40` : 'hsl(var(--border))'
+                }}
+              >
+                {insights.topCategory?.emoji || "📌"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-muted-foreground font-medium">Top Category</p>
+                <p className="text-lg font-bold text-foreground mt-0.5 truncate">{insights.topCategory?.label || "None"}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Transactions */}
+        <Card className="relative overflow-hidden border-2 border-border/50 bg-card/80 backdrop-blur-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#ffb703]/20 flex items-center justify-center shrink-0 border border-[#ffb703]/30">
+                <Calendar className="w-5 h-5 text-[#ffb703]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-muted-foreground font-medium">Transactions</p>
+                <p className="text-xl font-bold text-foreground mt-0.5">{insights.transactionCount}</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Charts */}
-      <Card>
+      <Card className="border-2 border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-primary" />
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <div className="w-8 h-8 rounded-lg bg-[#219ebc]/20 flex items-center justify-center border border-[#219ebc]/30">
+                <BarChart3 className="w-4 h-4 text-[#219ebc]" />
+              </div>
               Spending Trends
             </CardTitle>
             <div className="flex gap-2">
@@ -407,10 +453,12 @@ const ExpenseAnalytics = ({ expenses, categories, currency }: ExpenseAnalyticsPr
 
       {/* Category Comparison */}
       {categoryComparison.length > 0 && (
-        <Card>
+        <Card className="border-2 border-border/50 bg-card/80 backdrop-blur-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-primary" />
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <div className="w-8 h-8 rounded-lg bg-[#7b2cbf]/20 flex items-center justify-center border border-[#7b2cbf]/30">
+                <Calendar className="w-4 h-4 text-[#7b2cbf]" />
+              </div>
               Category Comparison
               <span className="text-sm font-normal text-muted-foreground">
                 (This Month vs Last Month)
