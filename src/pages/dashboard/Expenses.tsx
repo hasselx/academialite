@@ -1694,48 +1694,62 @@ const Expenses = () => {
                 {Math.min(visibleCount, filteredExpenses.length)} of {filteredExpenses.length}
               </span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {filteredExpenses.slice(0, visibleCount).map((expense) => {
                 const catInfo = getCategoryInfo(expense.category);
                 return (
                   <div 
                     key={expense.id} 
-                    className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                    className="flex items-center justify-between p-3 rounded-xl border-2 border-border/60 bg-card/80 backdrop-blur-sm hover:border-primary/40 hover:bg-card transition-all duration-200 shadow-sm hover:shadow-md"
                   >
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div 
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0"
-                        style={{ backgroundColor: `${catInfo.color}20` }}
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-base shrink-0 shadow-sm"
+                        style={{ 
+                          backgroundColor: `${catInfo.color}25`,
+                          border: `1px solid ${catInfo.color}40`
+                        }}
                       >
                         {catInfo.emoji}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="font-medium text-sm truncate">{catInfo.label}</div>
-                        <div className="text-xs text-muted-foreground truncate">
+                        <div className="font-semibold text-sm text-foreground truncate">{catInfo.label}</div>
+                        <div className="text-xs text-muted-foreground truncate mt-0.5">
                           {expense.description || 'No description'}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground/70 mt-0.5">
+                          {format(new Date(expense.date), 'MMM d, yyyy')}
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <div className="text-sm font-semibold" style={{ color: catInfo.color }}>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <div 
+                        className="text-sm font-bold px-2 py-1 rounded-lg"
+                        style={{ 
+                          color: catInfo.color,
+                          backgroundColor: `${catInfo.color}15`
+                        }}
+                      >
                         {formatCurrency(expense.amount)}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-muted-foreground hover:text-primary"
-                        onClick={() => handleEditExpense(expense)}
-                      >
-                        <Pencil className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDeleteExpense(expense.id)}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
+                      <div className="flex items-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg"
+                          onClick={() => handleEditExpense(expense)}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg"
+                          onClick={() => handleDeleteExpense(expense.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 );
