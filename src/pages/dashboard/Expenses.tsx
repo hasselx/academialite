@@ -98,6 +98,7 @@ const Expenses = () => {
   const [showCategoriesDialog, setShowCategoriesDialog] = useState(false);
   const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editingRecurring, setEditingRecurring] = useState<RecurringExpense | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterPeriod, setFilterPeriod] = useState<string>("month");
@@ -682,6 +683,118 @@ const Expenses = () => {
     }
   };
 
+  const handleEditRecurring = (recurring: RecurringExpense) => {
+    setEditingRecurring(recurring);
+    setCategory(recurring.category);
+    setAmount(recurring.amount.toString());
+    setDescription(recurring.description);
+    setRecurringFrequency(recurring.frequency);
+    
+    if (recurring.frequency === 'weekly') {
+      setRecurringDayOfWeek(recurring.day_of_month.toString());
+    } else if (recurring.frequency === 'yearly') {
+      const month = Math.floor(recurring.day_of_month / 100);
+      const day = recurring.day_of_month % 100;
+      setRecurringMonth(month.toString());
+      setRecurringDayOfMonth(day.toString());
+    } else {
+      setRecurringDayOfMonth(recurring.day_of_month.toString());
+    }
+    
+    setShowManageRecurringDialog(false);
+    setShowRecurringDialog(true);
+  };
+
+  const handleUpdateRecurringExpense = async () => {
+    if (!editingRecurring || !category || !amount) {
+      toast({
+        title: "Missing information",
+        description: "Please select a category and enter an amount.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    let dayValue: number;
+    
+    if (recurringFrequency === 'weekly') {
+      dayValue = parseInt(recurringDayOfWeek);
+      if (isNaN(dayValue) || dayValue < 0 || dayValue > 6) {
+        toast({
+          title: "Invalid day",
+          description: "Please select a valid day of the week.",
+          variant: "destructive"
+        });
+        return;
+      }
+    } else if (recurringFrequency === 'yearly') {
+      const monthNum = parseInt(recurringMonth);
+      const dayNum = parseInt(recurringDayOfMonth);
+      if (isNaN(monthNum) || monthNum < 1 || monthNum > 12 || isNaN(dayNum) || dayNum < 1 || dayNum > 28) {
+        toast({
+          title: "Invalid date",
+          description: "Please select a valid month and day.",
+          variant: "destructive"
+        });
+        return;
+      }
+      dayValue = monthNum * 100 + dayNum;
+    } else {
+      dayValue = parseInt(recurringDayOfMonth);
+      if (isNaN(dayValue) || dayValue < 1 || dayValue > 28) {
+        toast({
+          title: "Invalid day",
+          description: "Day of month must be between 1 and 28.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    try {
+      const { error } = await supabase
+        .from('recurring_expenses')
+        .update({
+          category,
+          amount: parseFloat(amount),
+          description: description || null,
+          frequency: recurringFrequency,
+          day_of_month: dayValue
+        })
+        .eq('id', editingRecurring.id);
+
+      if (error) throw error;
+
+      setRecurringExpenses(recurringExpenses.map(r => 
+        r.id === editingRecurring.id 
+          ? { 
+              ...r, 
+              category, 
+              amount: parseFloat(amount), 
+              description: description || '', 
+              frequency: recurringFrequency, 
+              day_of_month: dayValue 
+            } 
+          : r
+      ));
+
+      resetForm();
+      setEditingRecurring(null);
+      setShowRecurringDialog(false);
+
+      toast({
+        title: "Recurring expense updated",
+        description: "Your recurring expense has been updated."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error updating recurring expense",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
   // Category management functions
   const handleAddCategory = async () => {
     if (!newCategoryLabel.trim()) {
@@ -898,7 +1011,7 @@ const Expenses = () => {
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
                           <div className="text-right">
                             <div className="font-semibold" style={{ color: catInfo.color }}>
                               {formatCurrency(recurring.amount)}
@@ -909,6 +1022,14 @@ const Expenses = () => {
                             checked={recurring.is_active}
                             onCheckedChange={() => handleToggleRecurring(recurring.id, recurring.is_active)}
                           />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-primary"
+                            onClick={() => handleEditRecurring(recurring)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -939,13 +1060,16 @@ const Expenses = () => {
 
           <Dialog open={showRecurringDialog} onOpenChange={(open) => {
             setShowRecurringDialog(open);
-            if (!open) resetForm();
+            if (!open) {
+              resetForm();
+              setEditingRecurring(null);
+            }
           }}>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <RefreshCw className="w-5 h-5" />
-                  Add Recurring Expense
+                  {editingRecurring ? 'Edit Recurring Expense' : 'Add Recurring Expense'}
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
@@ -1065,9 +1189,12 @@ const Expenses = () => {
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </div>
-                <Button onClick={handleAddRecurringExpense} className="w-full gradient-primary">
+                <Button 
+                  onClick={editingRecurring ? handleUpdateRecurringExpense : handleAddRecurringExpense} 
+                  className="w-full gradient-primary"
+                >
                   <RefreshCw className="w-4 h-4 mr-2" />
-                  Add Recurring Expense
+                  {editingRecurring ? 'Update Recurring Expense' : 'Add Recurring Expense'}
                 </Button>
               </div>
             </DialogContent>
