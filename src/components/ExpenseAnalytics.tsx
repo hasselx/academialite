@@ -243,47 +243,47 @@ const ExpenseAnalytics = ({ expenses, categories, currency }: ExpenseAnalyticsPr
       {/* Insights Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {/* Month-over-Month Change */}
-        <Card className={`relative overflow-hidden border-2 ${
+        <Card className={`relative border-2 ${
           insights.percentChange > 0 
             ? 'border-[#d62828]/40 bg-[#d62828]/10' 
             : insights.percentChange < 0 
               ? 'border-[#2d6a4f]/40 bg-[#2d6a4f]/10'
               : 'border-border/50 bg-card/80'
         } backdrop-blur-sm`}>
-          <CardContent className="p-4">
-            <div className="flex flex-col items-center text-center gap-2">
-              <div className="flex items-center gap-2">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
-                  insights.percentChange > 0 
-                    ? 'bg-[#d62828]/20 border-[#d62828]/30' 
-                    : insights.percentChange < 0 
-                      ? 'bg-[#2d6a4f]/20 border-[#2d6a4f]/30'
-                      : 'bg-muted/30 border-border/30'
-                }`}>
-                  {insights.percentChange > 0 ? (
-                    <TrendingUp className="w-5 h-5 text-[#d62828]" />
-                  ) : insights.percentChange < 0 ? (
-                    <TrendingDown className="w-5 h-5 text-[#2d6a4f]" />
-                  ) : (
-                    <Minus className="w-5 h-5 text-muted-foreground" />
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                insights.percentChange > 0 
+                  ? 'bg-[#d62828]/20 border-[#d62828]/30' 
+                  : insights.percentChange < 0 
+                    ? 'bg-[#2d6a4f]/20 border-[#2d6a4f]/30'
+                    : 'bg-muted/30 border-border/30'
+              }`}>
+                {insights.percentChange > 0 ? (
+                  <TrendingUp className="w-5 h-5 text-[#d62828]" />
+                ) : insights.percentChange < 0 ? (
+                  <TrendingDown className="w-5 h-5 text-[#2d6a4f]" />
+                ) : (
+                  <Minus className="w-5 h-5 text-muted-foreground" />
+                )}
+              </div>
+              <div className="flex flex-col">
+                <p className="text-xs text-muted-foreground font-medium">vs Last Month</p>
+                <div className="flex items-center gap-1">
+                  <span className={`text-lg font-bold ${
+                    insights.percentChange > 0 ? 'text-[#d62828]' : 
+                    insights.percentChange < 0 ? 'text-[#2d6a4f]' : 'text-foreground'
+                  }`}>
+                    {insights.percentChange > 0 ? '+' : ''}{insights.percentChange.toFixed(1)}%
+                  </span>
+                  {insights.percentChange !== 0 && (
+                    <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold shrink-0 ${
+                      insights.percentChange > 0 ? 'bg-[#d62828] text-white' : 'bg-[#2d6a4f] text-white'
+                    }`}>
+                      {insights.percentChange > 0 ? '↑' : '↓'}
+                    </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground font-medium">vs Last<br/>Month</p>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className={`text-xl font-bold ${
-                  insights.percentChange > 0 ? 'text-[#d62828]' : 
-                  insights.percentChange < 0 ? 'text-[#2d6a4f]' : 'text-foreground'
-                }`}>
-                  {insights.percentChange > 0 ? '+' : ''}{insights.percentChange.toFixed(1)}%
-                </span>
-                {insights.percentChange !== 0 && (
-                  <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold shrink-0 ${
-                    insights.percentChange > 0 ? 'bg-[#d62828] text-white' : 'bg-[#2d6a4f] text-white'
-                  }`}>
-                    {insights.percentChange > 0 ? '↑' : '↓'}
-                  </span>
-                )}
               </div>
             </div>
           </CardContent>
