@@ -98,6 +98,7 @@ const Expenses = () => {
   const [showManageRecurringDialog, setShowManageRecurringDialog] = useState(false);
   const [showCategoriesDialog, setShowCategoriesDialog] = useState(false);
   const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [editingRecurring, setEditingRecurring] = useState<RecurringExpense | null>(null);
   const [loading, setLoading] = useState(true);
@@ -885,6 +886,62 @@ const Expenses = () => {
     }
   };
 
+  const handleEditCategory = (cat: Category) => {
+    setEditingCategory(cat);
+    setNewCategoryLabel(cat.label);
+    setNewCategoryEmoji(cat.emoji);
+    setNewCategoryColor(cat.color);
+    setShowCategoriesDialog(false);
+    setShowAddCategoryDialog(true);
+  };
+
+  const handleUpdateCategory = async () => {
+    if (!editingCategory || !newCategoryLabel.trim()) {
+      toast({
+        title: "Missing information",
+        description: "Please enter a category name.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('expense_categories')
+        .update({
+          label: newCategoryLabel.trim(),
+          emoji: newCategoryEmoji,
+          color: newCategoryColor
+        })
+        .eq('id', editingCategory.id);
+
+      if (error) throw error;
+
+      setCustomCategories(customCategories.map(c => 
+        c.id === editingCategory.id 
+          ? { ...c, label: newCategoryLabel.trim(), emoji: newCategoryEmoji, color: newCategoryColor }
+          : c
+      ));
+
+      setNewCategoryLabel("");
+      setNewCategoryEmoji("📌");
+      setNewCategoryColor("#6366f1");
+      setEditingCategory(null);
+      setShowAddCategoryDialog(false);
+
+      toast({
+        title: "Category updated",
+        description: `${newCategoryEmoji} ${newCategoryLabel} has been updated.`
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error updating category",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
   const getFrequencyLabel = (frequency: string, dayValue: number) => {
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -1278,14 +1335,24 @@ const Expenses = () => {
                               <div className="text-xs text-muted-foreground">Custom category</div>
                             </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-muted-foreground hover:text-destructive"
-                            onClick={() => cat.id && handleDeleteCategory(cat.id, cat.value)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-muted-foreground hover:text-primary"
+                              onClick={() => handleEditCategory(cat)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-muted-foreground hover:text-destructive"
+                              onClick={() => cat.id && handleDeleteCategory(cat.id, cat.value)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1307,20 +1374,21 @@ const Expenses = () => {
             </DialogContent>
           </Dialog>
 
-          {/* Add Category Dialog */}
+          {/* Add/Edit Category Dialog */}
           <Dialog open={showAddCategoryDialog} onOpenChange={(open) => {
             setShowAddCategoryDialog(open);
             if (!open) {
               setNewCategoryLabel("");
               setNewCategoryEmoji("📌");
               setNewCategoryColor("#6366f1");
+              setEditingCategory(null);
             }
           }}>
             <DialogContent className="max-h-[85vh] flex flex-col">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                  <Plus className="w-5 h-5" />
-                  Add Custom Category
+                  {editingCategory ? <Pencil className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                  {editingCategory ? "Edit Category" : "Add Custom Category"}
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-3 pt-2 overflow-y-auto flex-1 pr-1">
@@ -1385,9 +1453,12 @@ const Expenses = () => {
                     </span>
                   </div>
                 </div>
-                <Button onClick={handleAddCategory} className="w-full gradient-primary">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Category
+                <Button 
+                  onClick={editingCategory ? handleUpdateCategory : handleAddCategory} 
+                  className="w-full gradient-primary"
+                >
+                  {editingCategory ? <Pencil className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                  {editingCategory ? "Update Category" : "Create Category"}
                 </Button>
               </div>
             </DialogContent>
