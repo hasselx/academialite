@@ -1316,16 +1316,16 @@ const Expenses = () => {
               setNewCategoryColor("#6366f1");
             }
           }}>
-            <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-h-[85vh] flex flex-col">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Plus className="w-5 h-5" />
                   Add Custom Category
                 </DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 pt-4">
+              <div className="space-y-3 pt-2 overflow-y-auto flex-1 pr-1">
                 <div>
-                  <label className="font-medium mb-2 block">Category Name</label>
+                  <label className="text-sm font-medium mb-1.5 block">Category Name</label>
                   <Input 
                     placeholder="e.g., Groceries"
                     value={newCategoryLabel}
@@ -1333,15 +1333,15 @@ const Expenses = () => {
                   />
                 </div>
                 <div>
-                  <label className="font-medium mb-2 block">Emoji</label>
-                  <div className="flex flex-wrap gap-2">
+                  <label className="text-sm font-medium mb-1.5 block">Emoji</label>
+                  <div className="flex flex-wrap gap-1.5">
                     {emojiOptions.map((emoji) => (
                       <button
                         key={emoji}
                         type="button"
                         onClick={() => setNewCategoryEmoji(emoji)}
                         className={cn(
-                          "w-10 h-10 rounded-lg text-xl flex items-center justify-center transition-all",
+                          "w-9 h-9 rounded-lg text-lg flex items-center justify-center transition-all",
                           newCategoryEmoji === emoji 
                             ? "bg-primary/20 ring-2 ring-primary" 
                             : "bg-muted/50 hover:bg-muted"
@@ -1353,15 +1353,15 @@ const Expenses = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="font-medium mb-2 block">Color</label>
-                  <div className="flex flex-wrap gap-2">
+                  <label className="text-sm font-medium mb-1.5 block">Color</label>
+                  <div className="flex flex-wrap gap-1.5">
                     {colorOptions.map((color) => (
                       <button
                         key={color}
                         type="button"
                         onClick={() => setNewCategoryColor(color)}
                         className={cn(
-                          "w-10 h-10 rounded-lg transition-all",
+                          "w-9 h-9 rounded-lg transition-all",
                           newCategoryColor === color 
                             ? "ring-2 ring-primary ring-offset-2 ring-offset-background" 
                             : "hover:scale-110"
@@ -1371,16 +1371,16 @@ const Expenses = () => {
                     ))}
                   </div>
                 </div>
-                <div className="p-4 rounded-xl bg-muted/30 border border-border">
-                  <label className="text-sm text-muted-foreground block mb-2">Preview</label>
-                  <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-muted/30 border border-border">
+                  <label className="text-xs text-muted-foreground block mb-1.5">Preview</label>
+                  <div className="flex items-center gap-2">
                     <div 
-                      className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
+                      className="w-9 h-9 rounded-lg flex items-center justify-center text-base"
                       style={{ backgroundColor: `${newCategoryColor}20` }}
                     >
                       {newCategoryEmoji}
                     </div>
-                    <span className="font-medium" style={{ color: newCategoryColor }}>
+                    <span className="text-sm font-medium" style={{ color: newCategoryColor }}>
                       {newCategoryLabel || "Category Name"}
                     </span>
                   </div>
