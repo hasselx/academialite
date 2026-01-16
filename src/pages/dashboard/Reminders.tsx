@@ -342,15 +342,15 @@ const Reminders = () => {
         total: filteredCompletedReminders.length,
       };
 
-  // Chart config for interactive pie
+  // Chart config for interactive pie - modern minimal palette
   const chartConfig = {
     count: { label: "Count" },
-    assignment: { label: "Assignments", color: "hsl(var(--primary))" },
-    exam: { label: "Exams", color: "hsl(var(--destructive))" },
-    project: { label: "Projects", color: "hsl(var(--success))" },
-    other: { label: "Other", color: "hsl(var(--muted-foreground))" },
-    onTime: { label: "On Time", color: "hsl(var(--success))" },
-    afterDue: { label: "After Due", color: "hsl(var(--destructive))" },
+    assignment: { label: "Assignments", color: "#7AA2F7" }, // soft indigo
+    exam: { label: "Exams", color: "#F7768E" }, // muted rose
+    project: { label: "Projects", color: "#9ECE6A" }, // muted green
+    other: { label: "Other", color: "#B8C1CC" }, // cool grey
+    onTime: { label: "On Time", color: "#6FCF97" }, // mint green
+    afterDue: { label: "After Due", color: "#EB5757" }, // soft red
   } satisfies ChartConfig;
 
   const pieChartData = recordViewType === "inspect" 
