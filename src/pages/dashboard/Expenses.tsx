@@ -55,19 +55,38 @@ interface Category {
   is_default?: boolean;
 }
 
+// Modern minimal 15-color palette for pie charts
+const CHART_PALETTE = [
+  "#E5C07B", // sand gold
+  "#7AA2F7", // soft indigo
+  "#9ECE6A", // muted green
+  "#F7768E", // muted rose
+  "#2AC3DE", // muted cyan
+  "#BB9AF7", // soft violet
+  "#F2C94C", // soft amber
+  "#56CCF2", // sky blue
+  "#6FCF97", // mint green
+  "#EB5757", // soft red
+  "#B8C1CC", // cool grey
+  "#A78BFA", // lavender
+  "#F2994A", // muted orange
+  "#4FD1C5", // teal
+  "#94A3B8", // slate grey-blue
+];
+
 const defaultCategories: Category[] = [
-  { value: "food", label: "Food", emoji: "🍔", color: "#344e41", is_default: true },
-  { value: "transport", label: "Transport", emoji: "🚗", color: "#ffb703", is_default: true },
-  { value: "education", label: "Education", emoji: "📚", color: "#7b2cbf", is_default: true },
-  { value: "entertainment", label: "Entertainment", emoji: "🎬", color: "#d90429", is_default: true },
-  { value: "shopping", label: "Shopping", emoji: "🛍️", color: "#3d348b", is_default: true },
-  { value: "health", label: "Health", emoji: "🏥", color: "#72808a", is_default: true },
-  { value: "bills", label: "Bills", emoji: "💡", color: "#0096c7", is_default: true },
-  { value: "other", label: "Other", emoji: "📌", color: "#2d6a4f", is_default: true },
+  { value: "food", label: "Food", emoji: "🍔", color: "#E5C07B", is_default: true },
+  { value: "transport", label: "Transport", emoji: "🚗", color: "#7AA2F7", is_default: true },
+  { value: "education", label: "Education", emoji: "📚", color: "#9ECE6A", is_default: true },
+  { value: "entertainment", label: "Entertainment", emoji: "🎬", color: "#F7768E", is_default: true },
+  { value: "shopping", label: "Shopping", emoji: "🛍️", color: "#2AC3DE", is_default: true },
+  { value: "health", label: "Health", emoji: "🏥", color: "#BB9AF7", is_default: true },
+  { value: "bills", label: "Bills", emoji: "💡", color: "#F2C94C", is_default: true },
+  { value: "other", label: "Other", emoji: "📌", color: "#56CCF2", is_default: true },
 ];
 
 const emojiOptions = ["🍔", "🚗", "📚", "🎬", "🛍️", "🏥", "💡", "📌", "💰", "🏠", "✈️", "🎮", "🎵", "📱", "💻", "🎁", "☕", "🍕", "🎨", "⚽"];
-const colorOptions = ["#344e41", "#ffb703", "#7b2cbf", "#d90429", "#3d348b", "#72808a", "#8f2d56", "#2d6a4f", "#a1c6ea"];
+const colorOptions = CHART_PALETTE;
 
 // Currency mapping based on country code
 const currencyMap: { [key: string]: { symbol: string; code: string } } = {
