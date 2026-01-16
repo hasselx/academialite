@@ -1316,7 +1316,7 @@ const Expenses = () => {
               setNewCategoryColor("#6366f1");
             }
           }}>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Plus className="w-5 h-5" />
