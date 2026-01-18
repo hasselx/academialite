@@ -982,11 +982,11 @@ const CGPACalculator = () => {
         </CardContent>
       </Card>
 
-      {/* Target CGPA Toggle & Arrear Mode */}
-      <Card className="overflow-hidden">
-        <CardContent className="p-4 space-y-4">
-          {/* Target Mode Row */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+      {/* Target CGPA Toggle & Arrear Mode - Bento Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Target Mode Card */}
+        <Card className={`overflow-hidden transition-colors ${targetMode ? 'border-primary/50' : ''}`}>
+          <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div 
                 className={`relative w-12 h-6 rounded-full cursor-pointer transition-colors ${targetMode ? 'bg-primary' : 'bg-muted'}`}
@@ -996,9 +996,12 @@ const CGPACalculator = () => {
                   setPredictionResult(null);
                   setShowResults(false);
                   if (!newMode) {
-                    // Turning off target mode - clear target data
                     setTargetModeSemesters([]);
                     setIsUsingLoadedData(false);
+                  }
+                  if (newMode) {
+                    setArrearMode(false);
+                    setQuickEarnedCredits("");
                   }
                 }}
               >
@@ -1009,9 +1012,44 @@ const CGPACalculator = () => {
                 <span className={`font-medium ${targetMode ? 'text-primary' : 'text-muted-foreground'}`}>Target CGPA Mode</span>
               </div>
             </div>
-            
-            {/* Dropdown to load saved records */}
-            {targetMode && (
+          </CardContent>
+        </Card>
+
+        {/* Arrear Mode Card */}
+        <Card className={`overflow-hidden transition-colors ${arrearMode ? 'border-warning/50' : ''}`}>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div 
+                className={`relative w-12 h-6 rounded-full cursor-pointer transition-colors ${arrearMode ? 'bg-warning' : 'bg-muted'}`}
+                onClick={() => {
+                  const newMode = !arrearMode;
+                  setArrearMode(newMode);
+                  setQuickEarnedCredits("");
+                  if (newMode) {
+                    setTargetMode(false);
+                    setPredictionResult(null);
+                    setShowResults(false);
+                    setTargetModeSemesters([]);
+                    setIsUsingLoadedData(false);
+                  }
+                }}
+              >
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-background transition-transform ${arrearMode ? 'translate-x-7' : 'translate-x-1'}`} />
+              </div>
+              <div className="flex items-center gap-2">
+                <Award className={`w-5 h-5 ${arrearMode ? 'text-warning' : 'text-muted-foreground'}`} />
+                <span className={`font-medium ${arrearMode ? 'text-warning' : 'text-muted-foreground'}`}>Arrear Mode</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Target Mode Options - Show when target mode is active */}
+      {targetMode && (
+        <Card className="overflow-hidden border-primary/30">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex flex-wrap items-center gap-4">
               <DropdownMenu onOpenChange={(open) => { if (open) fetchSavedRecords(); }}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-2">
@@ -1053,68 +1091,49 @@ const CGPACalculator = () => {
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
-            )}
-            
-            {targetMode && (
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-muted-foreground whitespace-nowrap">Total Semesters:</label>
-                  <Input
-                    type="number"
-                    placeholder="e.g., 8"
-                    value={totalSemestersTarget}
-                    onChange={(e) => setTotalSemestersTarget(e.target.value)}
-                    className="w-20"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-muted-foreground whitespace-nowrap">Target CGPA:</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max={maxCGPA}
-                    placeholder="e.g., 8.5"
-                    value={targetCGPA}
-                    onChange={(e) => setTargetCGPA(e.target.value)}
-                    className="w-20"
-                  />
-                </div>
+              
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-muted-foreground whitespace-nowrap">Total Semesters:</label>
+                <Input
+                  type="number"
+                  placeholder="e.g., 8"
+                  value={totalSemestersTarget}
+                  onChange={(e) => setTotalSemestersTarget(e.target.value)}
+                  className="w-20"
+                />
               </div>
-            )}
-          </div>
-          
-          {targetMode && (
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-muted-foreground whitespace-nowrap">Target CGPA:</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max={maxCGPA}
+                  placeholder="e.g., 8.5"
+                  value={targetCGPA}
+                  onChange={(e) => setTargetCGPA(e.target.value)}
+                  className="w-20"
+                />
+              </div>
+            </div>
             <p className="text-xs text-muted-foreground">
               Enter your completed semester data below, or load from saved records. Data is duplicated - deleting originals won't affect this calculation.
             </p>
-          )}
+          </CardContent>
+        </Card>
+      )}
 
-          {/* Arrear Mode Row - only show when not in target mode */}
-          {!targetMode && (
-            <div className="flex items-center gap-3 pt-2 border-t border-border/50">
-              <div 
-                className={`relative w-12 h-6 rounded-full cursor-pointer transition-colors ${arrearMode ? 'bg-warning' : 'bg-muted'}`}
-                onClick={() => {
-                  setArrearMode(!arrearMode);
-                  setQuickEarnedCredits("");
-                }}
-              >
-                <div className={`absolute top-1 w-4 h-4 rounded-full bg-background transition-transform ${arrearMode ? 'translate-x-7' : 'translate-x-1'}`} />
-              </div>
-              <div className="flex items-center gap-2">
-                <Award className={`w-5 h-5 ${arrearMode ? 'text-warning' : 'text-muted-foreground'}`} />
-                <span className={`font-medium ${arrearMode ? 'text-warning' : 'text-muted-foreground'}`}>Arrear Mode</span>
-              </div>
-              {arrearMode && (
-                <p className="text-xs text-muted-foreground ml-2">
-                  Track total credits vs earned credits for accurate CGPA with backlogs
-                </p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Arrear Mode Info - Show when arrear mode is active */}
+      {arrearMode && (
+        <Card className="overflow-hidden border-warning/30">
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground flex items-center gap-2">
+              <Award className="w-4 h-4 text-warning" />
+              Track total credits vs earned credits for accurate CGPA calculation with backlogs
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Mode Selection Tabs */}
       <Tabs value={mode} onValueChange={(v) => setMode(v as "quick" | "detailed")} className="w-full">
