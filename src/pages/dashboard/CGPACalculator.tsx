@@ -102,6 +102,7 @@ interface QuickSemester {
   name: string;
   sgpa: number;
   credits: number;
+  earnedCredits?: number; // For arrear mode - credits actually earned (passed)
 }
 
 const CGPACalculator = () => {
@@ -129,6 +130,10 @@ const CGPACalculator = () => {
   const [targetMode, setTargetMode] = useState(false);
   const [totalSemestersTarget, setTotalSemestersTarget] = useState("");
   const [targetCGPA, setTargetCGPA] = useState("");
+  
+  // Arrear mode - track total vs earned credits
+  const [arrearMode, setArrearMode] = useState(false);
+  const [quickEarnedCredits, setQuickEarnedCredits] = useState("");
   const [predictionResult, setPredictionResult] = useState<{ requiredSGPA: number; remainingSemesters: number; achievable: boolean } | null>(null);
   const [savedRecords, setSavedRecords] = useState<Array<{
     recordId: string;
@@ -384,21 +389,23 @@ const CGPACalculator = () => {
   };
 
   // Get current working data based on mode - session only for regular, targetModeSemesters for target
-  const getWorkingData = () => {
+  const getWorkingData = (): QuickSemester[] => {
     if (targetMode) {
       return targetModeSemesters;
     }
     return [
       ...sessionQuickSemesters,
-      ...sessionDetailedSemesters.map(s => ({ id: s.id, name: s.name, sgpa: s.sgpa, credits: s.credits }))
+      ...sessionDetailedSemesters.map(s => ({ id: s.id, name: s.name, sgpa: s.sgpa, credits: s.credits, earnedCredits: s.credits }))
     ];
   };
 
   const workingData = getWorkingData();
   const cgpa = calculateCGPA();
   const totalCredits = workingData.reduce((sum, sem) => sum + sem.credits, 0);
+  const totalEarnedCredits = workingData.reduce((sum, sem) => sum + (sem.earnedCredits ?? sem.credits), 0);
   const totalSemesters = workingData.length;
   const percentage = cgpa * 10;
+  const hasArrears = arrearMode && totalCredits > totalEarnedCredits;
 
   const getPerformance = (sgpa: number) => {
     if (sgpa >= 9.0) return { text: "EXCELLENT", class: "bg-success text-success-foreground" };
@@ -501,6 +508,28 @@ const CGPACalculator = () => {
       return;
     }
 
+    // Validate earned credits in arrear mode
+    let earnedCredits = credits;
+    if (arrearMode && quickEarnedCredits) {
+      earnedCredits = parseInt(quickEarnedCredits);
+      if (isNaN(earnedCredits) || earnedCredits < 0) {
+        toast({
+          title: "Invalid earned credits",
+          description: "Earned credits must be a non-negative number.",
+          variant: "destructive"
+        });
+        return;
+      }
+      if (earnedCredits > credits) {
+        toast({
+          title: "Invalid earned credits",
+          description: "Earned credits cannot exceed total credits.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
     const semesterNumber = sessionQuickSemesters.length + 1;
     const semesterName = `Semester ${semesterNumber}`;
 
@@ -508,16 +537,20 @@ const CGPACalculator = () => {
       id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name: semesterName,
       sgpa,
-      credits
+      credits,
+      earnedCredits: arrearMode ? earnedCredits : undefined
     };
 
     setSessionQuickSemesters([...sessionQuickSemesters, newSem]);
     setQuickCredits("");
     setQuickSgpa("");
+    setQuickEarnedCredits("");
     
     toast({
       title: "Semester added",
-      description: `${semesterName} added to current session.`
+      description: arrearMode 
+        ? `${semesterName} added (${earnedCredits}/${credits} credits earned).`
+        : `${semesterName} added to current session.`
     });
   };
 
@@ -949,9 +982,10 @@ const CGPACalculator = () => {
         </CardContent>
       </Card>
 
-      {/* Target CGPA Toggle */}
+      {/* Target CGPA Toggle & Arrear Mode */}
       <Card className="overflow-hidden">
-        <CardContent className="p-4">
+        <CardContent className="p-4 space-y-4">
+          {/* Target Mode Row */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex items-center gap-3">
               <div 
@@ -1051,9 +1085,33 @@ const CGPACalculator = () => {
           </div>
           
           {targetMode && (
-            <p className="text-xs text-muted-foreground mt-3">
+            <p className="text-xs text-muted-foreground">
               Enter your completed semester data below, or load from saved records. Data is duplicated - deleting originals won't affect this calculation.
             </p>
+          )}
+
+          {/* Arrear Mode Row - only show when not in target mode */}
+          {!targetMode && (
+            <div className="flex items-center gap-3 pt-2 border-t border-border/50">
+              <div 
+                className={`relative w-12 h-6 rounded-full cursor-pointer transition-colors ${arrearMode ? 'bg-warning' : 'bg-muted'}`}
+                onClick={() => {
+                  setArrearMode(!arrearMode);
+                  setQuickEarnedCredits("");
+                }}
+              >
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-background transition-transform ${arrearMode ? 'translate-x-7' : 'translate-x-1'}`} />
+              </div>
+              <div className="flex items-center gap-2">
+                <Award className={`w-5 h-5 ${arrearMode ? 'text-warning' : 'text-muted-foreground'}`} />
+                <span className={`font-medium ${arrearMode ? 'text-warning' : 'text-muted-foreground'}`}>Arrear Mode</span>
+              </div>
+              {arrearMode && (
+                <p className="text-xs text-muted-foreground ml-2">
+                  Track total credits vs earned credits for accurate CGPA with backlogs
+                </p>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -1087,7 +1145,7 @@ const CGPACalculator = () => {
                 </p>
 
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className={`grid gap-4 ${arrearMode && !targetMode ? 'grid-cols-3' : 'grid-cols-2'}`}>
                     <div className="space-y-2">
                       <label className="font-medium">Total Credits</label>
                       <Input
@@ -1097,6 +1155,18 @@ const CGPACalculator = () => {
                         onChange={(e) => setQuickCredits(e.target.value)}
                       />
                     </div>
+                    {arrearMode && !targetMode && (
+                      <div className="space-y-2">
+                        <label className="font-medium text-warning">Earned Credits</label>
+                        <Input
+                          type="number"
+                          placeholder="e.g., 20"
+                          value={quickEarnedCredits}
+                          onChange={(e) => setQuickEarnedCredits(e.target.value)}
+                          className="border-warning/50 focus:border-warning"
+                        />
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <label className="font-medium">SGPA</label>
                       <Input
@@ -1110,6 +1180,12 @@ const CGPACalculator = () => {
                       />
                     </div>
                   </div>
+
+                  {arrearMode && !targetMode && (
+                    <p className="text-xs text-muted-foreground bg-warning/10 p-2 rounded-md">
+                      <strong>Tip:</strong> Total Credits = all subjects attempted. Earned Credits = only passed subjects. SGPA should be calculated using earned credits.
+                    </p>
+                  )}
 
                   <Button onClick={targetMode ? handleAddTargetSemester : handleAddQuickSemester} className="w-full">
                     <Plus className="w-4 h-4 mr-2" />
@@ -1136,6 +1212,8 @@ const CGPACalculator = () => {
                 totalSemesters={totalSemesters}
                 cgpa={cgpa}
                 totalCredits={totalCredits}
+                totalEarnedCredits={totalEarnedCredits}
+                hasArrears={hasArrears}
                 percentage={percentage}
                 aiLoading={aiLoading}
                 aiMessage={aiMessage}
@@ -1289,6 +1367,8 @@ const CGPACalculator = () => {
                 totalSemesters={totalSemesters}
                 cgpa={cgpa}
                 totalCredits={totalCredits}
+                totalEarnedCredits={totalEarnedCredits}
+                hasArrears={hasArrears}
                 percentage={percentage}
                 aiLoading={aiLoading}
                 aiMessage={aiMessage}
@@ -1709,6 +1789,8 @@ const ResultsCard = ({
   totalSemesters,
   cgpa,
   totalCredits,
+  totalEarnedCredits,
+  hasArrears,
   percentage,
   aiLoading,
   aiMessage,
@@ -1722,6 +1804,8 @@ const ResultsCard = ({
   totalSemesters: number;
   cgpa: number;
   totalCredits: number;
+  totalEarnedCredits?: number;
+  hasArrears?: boolean;
   percentage: number;
   aiLoading: boolean;
   aiMessage: string | null;
@@ -2063,10 +2147,12 @@ const EnteredDataCard = ({
 }) => {
   const allSemesters = [
     ...quickSemesters.map((s, idx) => ({ ...s, type: 'quick' as const, displayNum: idx + 1 })),
-    ...semesters.map((s, idx) => ({ ...s, type: 'detailed' as const, displayNum: quickSemesters.length + idx + 1 }))
+    ...semesters.map((s, idx) => ({ ...s, type: 'detailed' as const, displayNum: quickSemesters.length + idx + 1, earnedCredits: s.credits }))
   ];
 
   const totalCredits = [...quickSemesters, ...semesters].reduce((sum, s) => sum + s.credits, 0);
+  const totalEarnedCredits = allSemesters.reduce((sum, s) => sum + (s.earnedCredits ?? s.credits), 0);
+  const hasArrears = totalCredits > totalEarnedCredits;
   const cgpaPreview = allSemesters.length > 0
     ? allSemesters.reduce((sum, s) => sum + (s.sgpa * s.credits), 0) / totalCredits
     : 0;
@@ -2100,7 +2186,7 @@ const EnteredDataCard = ({
         ) : (
           <div className="space-y-4">
             {/* Preview Stats */}
-            <div className="grid grid-cols-3 gap-3 p-4 bg-muted/50 rounded-lg">
+            <div className={`grid gap-3 p-4 bg-muted/50 rounded-lg ${hasArrears ? 'grid-cols-4' : 'grid-cols-3'}`}>
               <div className="text-center">
                 <div className="text-2xl font-bold text-primary">{cgpaPreview.toFixed(2)}</div>
                 <div className="text-xs text-muted-foreground">CGPA Preview</div>
@@ -2109,11 +2195,26 @@ const EnteredDataCard = ({
                 <div className="text-2xl font-bold text-success">{totalCredits}</div>
                 <div className="text-xs text-muted-foreground">Total Credits</div>
               </div>
+              {hasArrears && (
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-warning">{totalEarnedCredits}</div>
+                  <div className="text-xs text-muted-foreground">Earned Credits</div>
+                </div>
+              )}
               <div className="text-center">
                 <div className="text-2xl font-bold text-chart-4">{allSemesters.length}</div>
                 <div className="text-xs text-muted-foreground">Semesters</div>
               </div>
             </div>
+
+            {hasArrears && (
+              <div className="p-2 bg-warning/10 border border-warning/30 rounded-lg">
+                <p className="text-xs text-center">
+                  <span className="text-warning font-medium">⚠️ Arrears detected:</span>{' '}
+                  <span className="text-muted-foreground">{totalCredits - totalEarnedCredits} credits pending</span>
+                </p>
+              </div>
+            )}
 
             {isTargetMode && (
               <div className="p-2 bg-warning/10 border border-warning/30 rounded-lg">
@@ -2140,6 +2241,9 @@ const EnteredDataCard = ({
                         <div className="font-medium text-sm">Semester {sem.displayNum}</div>
                         <div className="text-xs text-muted-foreground">
                           SGPA: {sem.sgpa.toFixed(2)} • {sem.credits} credits
+                          {sem.earnedCredits !== undefined && sem.earnedCredits < sem.credits && (
+                            <span className="text-warning ml-1">({sem.earnedCredits} earned)</span>
+                          )}
                           {sem.type === 'detailed' && ' • Detailed'}
                         </div>
                       </div>
