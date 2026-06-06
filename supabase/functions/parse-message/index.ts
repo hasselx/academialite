@@ -63,25 +63,38 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are a smart assistant that extracts reminder information from messages. 
-    Parse the given text (which could be from WhatsApp, email, or any communication) and extract:
-    1. title: A clear, concise title for the reminder
-    2. type: One of "assignment", "exam", "project", or "other"
-    3. dueDate: The due date in YYYY-MM-DD format. If only a day/month is mentioned, assume the current or next year.
-    4. dueTime: The time in HH:MM format (24-hour). 
-       TIME PARSING RULES (CRITICAL - FOLLOW EXACTLY):
-       - If user says "pm", "PM", "afternoon", "evening", or "night" -> use PM time (add 12 to hour if < 12)
-       - If user says "am", "AM", or "morning" -> use AM time (hour as-is)
-       - If NO AM/PM indicator is present AT ALL (e.g., "at 1.30", "at 2", "at 3:00") -> ALWAYS use AM (hour as-is, do NOT add 12)
-       - Examples: "at 1.30" = 01:30, "at 2" = 02:00, "at 10" = 10:00, "at 2.30 pm" = 14:30
-       - Return null if no time mentioned at all.
-    5. priority: "critical" for exams/finals, "urgent" for assignments due within 3 days, "normal" otherwise
-    6. description: Any additional relevant details (room number, location, etc.)
-    
-    Today's date is ${new Date().toISOString().split('T')[0]}.
-    
-    Respond ONLY with a valid JSON object in this exact format:
-    {"title": "...", "type": "...", "dueDate": "YYYY-MM-DD", "dueTime": "HH:MM" or null, "priority": "...", "description": "..."}`;
+    const systemPrompt = `You are a smart assistant that extracts and SUMMARIZES reminder information from messages (WhatsApp, email, announcements, notices, etc.).
+
+Your job is to UNDERSTAND the message and produce a CONCISE structured reminder — never copy-paste large chunks of the original text.
+
+Extract:
+1. title: A short, action-oriented title. MAX 60 characters. Capture the core task (e.g. "Submit DBMS Assignment 3", "Maths Unit Test", "Project Review Meeting"). Do NOT include dates, times, room numbers, greetings, sender names, or boilerplate.
+2. type: One of "assignment", "exam", "project", or "other".
+3. dueDate: Due date in YYYY-MM-DD format. If only a day/month is mentioned, assume current or next year.
+4. dueTime: Time in HH:MM format (24-hour).
+   TIME PARSING RULES (CRITICAL - FOLLOW EXACTLY):
+   - "pm", "PM", "afternoon", "evening", "night" -> PM (add 12 if hour < 12)
+   - "am", "AM", "morning" -> AM (hour as-is)
+   - NO AM/PM indicator at all (e.g. "at 1.30", "at 2") -> AM (hour as-is, do NOT add 12)
+   - Examples: "at 1.30" = 01:30, "at 2" = 02:00, "at 10" = 10:00, "at 2.30 pm" = 14:30
+   - Return null if no time mentioned.
+5. priority: "critical" for exams/finals, "urgent" for assignments due within 3 days, "normal" otherwise.
+6. description: A SUMMARY of the important details only. MAX 200 characters. Include only what helps the student act:
+   - Venue / room / link (if any)
+   - Submission method (e.g. "submit on Google Classroom", "hard copy in class")
+   - Topics or syllabus scope (briefly)
+   - Special instructions (materials to bring, format, word count)
+   STRICT RULES for description:
+   - Do NOT copy the message verbatim.
+   - Do NOT include the title, date, or time again (they're separate fields).
+   - Do NOT include greetings ("Dear students"), signatures, phone numbers, generic encouragement, or repeated info.
+   - Rewrite in your own words, in clear short phrases. Use sentence fragments separated by ". " if needed.
+   - If there is nothing meaningfully actionable beyond title/date/time, return an empty string "".
+
+Today's date is ${new Date().toISOString().split('T')[0]}.
+
+Respond ONLY with a valid JSON object in this exact format:
+{"title": "...", "type": "...", "dueDate": "YYYY-MM-DD", "dueTime": "HH:MM" or null, "priority": "...", "description": "..."}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
