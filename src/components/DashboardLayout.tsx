@@ -161,7 +161,7 @@ const DashboardLayout = () => {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('timezone_offset, time_format')
+          .select('timezone_offset, time_format, timezone')
           .eq('user_id', user.id)
           .maybeSingle();
         
@@ -171,9 +171,10 @@ const DashboardLayout = () => {
         }
         
         if (data) {
-          // Prefer IANA timezone (DST-aware); fallback to offset match
           const tz = (data as any).timezone as string | null | undefined;
           if (tz) {
+            setSelectedTimezone(tz);
+            localStorage.setItem('userTimezone', tz);
             const country = countries.find(c => c.tz === tz);
             if (country) {
               setSelectedCountry(country.code);
@@ -184,7 +185,9 @@ const DashboardLayout = () => {
             const country = countries.find(c => getOffsetForTimezone(c.tz) === offsetNum);
             if (country) {
               setSelectedCountry(country.code);
+              setSelectedTimezone(country.tz);
               localStorage.setItem('userCountry', country.code);
+              localStorage.setItem('userTimezone', country.tz);
             }
           }
           if (data.time_format) {
@@ -218,13 +221,18 @@ const DashboardLayout = () => {
     localStorage.setItem('userCountry', selectedCountry);
   }, [selectedCountry]);
 
+  useEffect(() => {
+    localStorage.setItem('userTimezone', selectedTimezone);
+  }, [selectedTimezone]);
+
   const toggleTheme = () => {
     setIsDark(!isDark);
   };
 
   const handleSaveTimeSettings = async () => {
     const country = countries.find(c => c.code === selectedCountry);
-    const tz = country?.tz ?? 'Asia/Kolkata';
+    const tz = selectedTimezone || country?.tz || 'Asia/Kolkata';
+    const tzLabel = country?.tz === tz ? (country?.name || tz) : tz;
     const currentOffset = getOffsetForTimezone(tz);
 
     if (!user?.id) {
