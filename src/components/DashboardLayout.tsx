@@ -62,18 +62,15 @@ const navigation = {
   ],
 };
 
-const countries = [
-  { name: "India", code: "IN", offset: 5.5 },
-  { name: "Germany", code: "DE", offset: 1 },
-  { name: "United States (EST)", code: "US-EST", offset: -5 },
-  { name: "United States (PST)", code: "US-PST", offset: -8 },
-  { name: "United Kingdom", code: "GB", offset: 0 },
-  { name: "Japan", code: "JP", offset: 9 },
-  { name: "Australia (Sydney)", code: "AU-SYD", offset: 11 },
-  { name: "Singapore", code: "SG", offset: 8 },
-  { name: "UAE", code: "AE", offset: 4 },
-  { name: "Canada (Toronto)", code: "CA-TOR", offset: -5 },
-];
+import { countries, getOffsetForTimezone, getTimezoneForCountry } from "@/hooks/useTimeSettings";
+
+const formatOffset = (offset: number) => {
+  const sign = offset >= 0 ? '+' : '-';
+  const abs = Math.abs(offset);
+  const h = Math.floor(abs);
+  const m = Math.round((abs - h) * 60);
+  return m === 0 ? `${sign}${h}` : `${sign}${h}:${m.toString().padStart(2, '0')}`;
+};
 
 const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -115,27 +112,16 @@ const DashboardLayout = () => {
     return () => clearInterval(interval);
   }, [timeSheetOpen]);
 
-  // Get formatted time for selected timezone
+  // Get formatted time for selected timezone (DST-aware via Intl)
   const getLocalTimeForTimezone = () => {
-    const country = countries.find(c => c.code === selectedCountry);
-    const offset = country?.offset ?? 5.5;
-    
-    // Get UTC time
-    const utc = currentTime.getTime() + (currentTime.getTimezoneOffset() * 60000);
-    // Apply timezone offset
-    const localTime = new Date(utc + (offset * 3600000));
-    
-    const hours = localTime.getHours();
-    const minutes = localTime.getMinutes();
-    const seconds = localTime.getSeconds();
-    
-    if (timeFormat === '24hr') {
-      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    }
-    
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const hour12 = hours % 12 || 12;
-    return `${hour12}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')} ${period}`;
+    const tz = getTimezoneForCountry(selectedCountry);
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour: timeFormat === '24hr' ? '2-digit' : 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: timeFormat !== '24hr',
+    }).format(currentTime);
   };
 
   // Fetch user's time settings from database on load
@@ -156,9 +142,17 @@ const DashboardLayout = () => {
         }
         
         if (data) {
-          // Find country by offset
-          if (data.timezone_offset !== null) {
-            const country = countries.find(c => c.offset === Number(data.timezone_offset));
+          // Prefer IANA timezone (DST-aware); fallback to offset match
+          const tz = (data as any).timezone as string | null | undefined;
+          if (tz) {
+            const country = countries.find(c => c.tz === tz);
+            if (country) {
+              setSelectedCountry(country.code);
+              localStorage.setItem('userCountry', country.code);
+            }
+          } else if (data.timezone_offset !== null && data.timezone_offset !== undefined) {
+            const offsetNum = Number(data.timezone_offset);
+            const country = countries.find(c => getOffsetForTimezone(c.tz) === offsetNum);
             if (country) {
               setSelectedCountry(country.code);
               localStorage.setItem('userCountry', country.code);
@@ -201,7 +195,9 @@ const DashboardLayout = () => {
 
   const handleSaveTimeSettings = async () => {
     const country = countries.find(c => c.code === selectedCountry);
-    
+    const tz = country?.tz ?? 'Asia/Kolkata';
+    const currentOffset = getOffsetForTimezone(tz);
+
     if (!user?.id) {
       toast({
         title: "Time settings saved locally",
@@ -210,20 +206,21 @@ const DashboardLayout = () => {
       setTimeSheetOpen(false);
       return;
     }
-    
+
     setSavingTimeSettings(true);
     try {
-      // Save to database for email notifications
+      // Save to database for email notifications (store IANA tz for DST-aware delivery)
       const { error } = await supabase
         .from('profiles')
         .update({
-          timezone_offset: country?.offset ?? 5.5,
-          time_format: timeFormat
-        })
+          timezone_offset: currentOffset,
+          timezone: tz,
+          time_format: timeFormat,
+        } as any)
         .eq('user_id', user.id);
-      
+
       if (error) throw error;
-      
+
       toast({
         title: "Time settings saved",
         description: `${timeFormat === '12hr' ? '12-hour' : '24-hour'} format, ${country?.name || 'Unknown'} timezone. Email notifications will now use your timezone.`
@@ -455,11 +452,14 @@ const DashboardLayout = () => {
                             <SelectValue placeholder="Select your country" />
                           </SelectTrigger>
                           <SelectContent>
-                            {countries.map((country) => (
-                              <SelectItem key={country.code} value={country.code}>
-                                {country.name} (UTC{country.offset >= 0 ? '+' : ''}{country.offset})
-                              </SelectItem>
-                            ))}
+                            {countries.map((country) => {
+                              const off = getOffsetForTimezone(country.tz);
+                              return (
+                                <SelectItem key={country.code} value={country.code}>
+                                  {country.name} (UTC{formatOffset(off)})
+                                </SelectItem>
+                              );
+                            })}
                           </SelectContent>
                         </Select>
                         <p className="text-[10px] text-muted-foreground">
