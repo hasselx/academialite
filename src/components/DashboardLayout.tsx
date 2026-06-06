@@ -478,13 +478,20 @@ const DashboardLayout = () => {
                         </RadioGroup>
                       </div>
 
-                      {/* Country/Timezone */}
+                      {/* Quick Country Preset */}
                       <div className="space-y-2">
                         <Label className="text-xs font-medium flex items-center gap-1.5">
                           <Globe className="w-3.5 h-3.5" />
-                          Country / Timezone
+                          Quick Country Preset
                         </Label>
-                        <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                        <Select
+                          value={selectedCountry}
+                          onValueChange={(code) => {
+                            setSelectedCountry(code);
+                            const c = countries.find(x => x.code === code);
+                            if (c) setSelectedTimezone(c.tz);
+                          }}
+                        >
                           <SelectTrigger className="w-full h-9 text-sm">
                             <SelectValue placeholder="Select your country" />
                           </SelectTrigger>
@@ -499,8 +506,70 @@ const DashboardLayout = () => {
                             })}
                           </SelectContent>
                         </Select>
+                      </div>
+
+                      {/* IANA Timezone Picker */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium flex items-center gap-1.5">
+                          <Globe className="w-3.5 h-3.5" />
+                          Timezone (IANA)
+                        </Label>
+                        <Popover open={tzPickerOpen} onOpenChange={setTzPickerOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={tzPickerOpen}
+                              className="w-full h-9 justify-between text-sm font-normal"
+                            >
+                              <span className="truncate">
+                                {selectedTimezone} (UTC{formatOffset(getOffsetForTimezone(selectedTimezone))})
+                              </span>
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                            <Command
+                              filter={(value, search) => {
+                                const v = value.toLowerCase();
+                                const s = search.toLowerCase();
+                                return v.includes(s) || v.replace(/_/g, ' ').includes(s) ? 1 : 0;
+                              }}
+                            >
+                              <CommandInput placeholder="Search timezone..." className="h-9" />
+                              <CommandList className="max-h-64">
+                                <CommandEmpty>No timezone found.</CommandEmpty>
+                                <CommandGroup>
+                                  {allTimezones.map((tz) => (
+                                    <CommandItem
+                                      key={tz}
+                                      value={tz}
+                                      onSelect={(value) => {
+                                        setSelectedTimezone(value);
+                                        const match = countries.find(c => c.tz === value);
+                                        if (match) setSelectedCountry(match.code);
+                                        setTzPickerOpen(false);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          selectedTimezone === tz ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      <span className="flex-1 truncate">{tz.replace(/_/g, ' ')}</span>
+                                      <span className="ml-2 text-xs text-muted-foreground">
+                                        UTC{formatOffset(getOffsetForTimezone(tz))}
+                                      </span>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                         <p className="text-[10px] text-muted-foreground">
-                          Used for reminder notification timing
+                          Used for reminder notification timing (DST-aware)
                         </p>
                       </div>
 
@@ -514,7 +583,7 @@ const DashboardLayout = () => {
                           </span>
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {countries.find(c => c.code === selectedCountry)?.name || 'Unknown'}
+                          {selectedTimezone}
                         </p>
                       </div>
 
