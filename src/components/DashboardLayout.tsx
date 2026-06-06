@@ -144,9 +144,8 @@ const DashboardLayout = () => {
 
   // Get formatted time for selected timezone (DST-aware via Intl)
   const getLocalTimeForTimezone = () => {
-    const tz = getTimezoneForCountry(selectedCountry);
     return new Intl.DateTimeFormat('en-US', {
-      timeZone: tz,
+      timeZone: selectedTimezone,
       hour: timeFormat === '24hr' ? '2-digit' : 'numeric',
       minute: '2-digit',
       second: '2-digit',
