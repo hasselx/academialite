@@ -45,7 +45,7 @@ const handler = async (req: Request): Promise<Response> => {
       // Get user's timezone and time format from their profile
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('timezone_offset, time_format')
+        .select('timezone_offset, time_format, timezone')
         .eq('user_id', reminder.user_id)
         .maybeSingle();
       
@@ -53,13 +53,26 @@ const handler = async (req: Request): Promise<Response> => {
         console.log(`Error fetching profile for user ${reminder.user_id}:`, profileError);
       }
       
-      // Use user's timezone offset or default to IST
-      const timezoneOffset = profile?.timezone_offset !== null && profile?.timezone_offset !== undefined 
-        ? Number(profile.timezone_offset) 
-        : DEFAULT_TIMEZONE_OFFSET;
+      // Prefer IANA timezone (DST-aware). Fall back to stored offset, then IST.
+      const ianaTz = (profile as any)?.timezone as string | null | undefined;
+      let timezoneOffset: number;
+      if (ianaTz) {
+        try {
+          const dtf = new Intl.DateTimeFormat('en-US', { timeZone: ianaTz, timeZoneName: 'shortOffset' });
+          const tzPart = dtf.formatToParts(now).find(p => p.type === 'timeZoneName')?.value || 'GMT+0';
+          const m = tzPart.match(/GMT([+-]?\d+)(?::(\d+))?/);
+          const h = m ? parseInt(m[1], 10) : 0;
+          const min = m && m[2] ? parseInt(m[2], 10) : 0;
+          timezoneOffset = h + (h < 0 ? -min / 60 : min / 60);
+        } catch {
+          timezoneOffset = profile?.timezone_offset != null ? Number(profile.timezone_offset) : DEFAULT_TIMEZONE_OFFSET;
+        }
+      } else {
+        timezoneOffset = profile?.timezone_offset != null ? Number(profile.timezone_offset) : DEFAULT_TIMEZONE_OFFSET;
+      }
       const timeFormat = (profile?.time_format as '12hr' | '24hr') || DEFAULT_TIME_FORMAT;
       
-      console.log(`User ${reminder.user_id}: timezone_offset=${timezoneOffset}, time_format=${timeFormat}`);
+      console.log(`User ${reminder.user_id}: tz=${ianaTz ?? 'n/a'}, timezone_offset=${timezoneOffset}, time_format=${timeFormat}`);
 
       // Helper function to format time based on user preference
       const formatTimeForEmail = (time: string): string => {
