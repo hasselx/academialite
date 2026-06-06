@@ -238,7 +238,7 @@ const DashboardLayout = () => {
     if (!user?.id) {
       toast({
         title: "Time settings saved locally",
-        description: `${timeFormat === '12hr' ? '12-hour' : '24-hour'} format, ${country?.name || 'Unknown'} timezone`
+        description: `${timeFormat === '12hr' ? '12-hour' : '24-hour'} format, ${tzLabel} timezone`
       });
       setTimeSheetOpen(false);
       return;
@@ -260,7 +260,7 @@ const DashboardLayout = () => {
 
       toast({
         title: "Time settings saved",
-        description: `${timeFormat === '12hr' ? '12-hour' : '24-hour'} format, ${country?.name || 'Unknown'} timezone. Email notifications will now use your timezone.`
+        description: `${timeFormat === '12hr' ? '12-hour' : '24-hour'} format, ${tzLabel} timezone. Email notifications will now use your timezone.`
       });
     } catch (error: any) {
       console.error('Error saving time settings:', error);
