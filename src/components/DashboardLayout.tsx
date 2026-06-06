@@ -46,6 +46,16 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const navigation = {
@@ -98,6 +108,26 @@ const DashboardLayout = () => {
     }
     return 'IN';
   });
+  const [selectedTimezone, setSelectedTimezone] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('userTimezone');
+      if (saved) return saved;
+      const code = localStorage.getItem('userCountry') || 'IN';
+      return getTimezoneForCountry(code);
+    }
+    return 'Asia/Kolkata';
+  });
+  const [tzPickerOpen, setTzPickerOpen] = useState(false);
+
+  // Full list of IANA timezones (browser-provided, fallback to common list)
+  const allTimezones = (() => {
+    try {
+      // @ts-ignore - supportedValuesOf is supported in modern browsers
+      const list = (Intl as any).supportedValuesOf?.('timeZone') as string[] | undefined;
+      if (list && list.length) return list;
+    } catch {}
+    return countries.map(c => c.tz);
+  })();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -114,9 +144,8 @@ const DashboardLayout = () => {
 
   // Get formatted time for selected timezone (DST-aware via Intl)
   const getLocalTimeForTimezone = () => {
-    const tz = getTimezoneForCountry(selectedCountry);
     return new Intl.DateTimeFormat('en-US', {
-      timeZone: tz,
+      timeZone: selectedTimezone,
       hour: timeFormat === '24hr' ? '2-digit' : 'numeric',
       minute: '2-digit',
       second: '2-digit',
@@ -132,7 +161,7 @@ const DashboardLayout = () => {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('timezone_offset, time_format')
+          .select('timezone_offset, time_format, timezone')
           .eq('user_id', user.id)
           .maybeSingle();
         
@@ -142,9 +171,10 @@ const DashboardLayout = () => {
         }
         
         if (data) {
-          // Prefer IANA timezone (DST-aware); fallback to offset match
           const tz = (data as any).timezone as string | null | undefined;
           if (tz) {
+            setSelectedTimezone(tz);
+            localStorage.setItem('userTimezone', tz);
             const country = countries.find(c => c.tz === tz);
             if (country) {
               setSelectedCountry(country.code);
@@ -155,7 +185,9 @@ const DashboardLayout = () => {
             const country = countries.find(c => getOffsetForTimezone(c.tz) === offsetNum);
             if (country) {
               setSelectedCountry(country.code);
+              setSelectedTimezone(country.tz);
               localStorage.setItem('userCountry', country.code);
+              localStorage.setItem('userTimezone', country.tz);
             }
           }
           if (data.time_format) {
@@ -189,19 +221,24 @@ const DashboardLayout = () => {
     localStorage.setItem('userCountry', selectedCountry);
   }, [selectedCountry]);
 
+  useEffect(() => {
+    localStorage.setItem('userTimezone', selectedTimezone);
+  }, [selectedTimezone]);
+
   const toggleTheme = () => {
     setIsDark(!isDark);
   };
 
   const handleSaveTimeSettings = async () => {
     const country = countries.find(c => c.code === selectedCountry);
-    const tz = country?.tz ?? 'Asia/Kolkata';
+    const tz = selectedTimezone || country?.tz || 'Asia/Kolkata';
+    const tzLabel = country?.tz === tz ? (country?.name || tz) : tz;
     const currentOffset = getOffsetForTimezone(tz);
 
     if (!user?.id) {
       toast({
         title: "Time settings saved locally",
-        description: `${timeFormat === '12hr' ? '12-hour' : '24-hour'} format, ${country?.name || 'Unknown'} timezone`
+        description: `${timeFormat === '12hr' ? '12-hour' : '24-hour'} format, ${tzLabel} timezone`
       });
       setTimeSheetOpen(false);
       return;
@@ -223,7 +260,7 @@ const DashboardLayout = () => {
 
       toast({
         title: "Time settings saved",
-        description: `${timeFormat === '12hr' ? '12-hour' : '24-hour'} format, ${country?.name || 'Unknown'} timezone. Email notifications will now use your timezone.`
+        description: `${timeFormat === '12hr' ? '12-hour' : '24-hour'} format, ${tzLabel} timezone. Email notifications will now use your timezone.`
       });
     } catch (error: any) {
       console.error('Error saving time settings:', error);
@@ -441,13 +478,20 @@ const DashboardLayout = () => {
                         </RadioGroup>
                       </div>
 
-                      {/* Country/Timezone */}
+                      {/* Quick Country Preset */}
                       <div className="space-y-2">
                         <Label className="text-xs font-medium flex items-center gap-1.5">
                           <Globe className="w-3.5 h-3.5" />
-                          Country / Timezone
+                          Quick Country Preset
                         </Label>
-                        <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                        <Select
+                          value={selectedCountry}
+                          onValueChange={(code) => {
+                            setSelectedCountry(code);
+                            const c = countries.find(x => x.code === code);
+                            if (c) setSelectedTimezone(c.tz);
+                          }}
+                        >
                           <SelectTrigger className="w-full h-9 text-sm">
                             <SelectValue placeholder="Select your country" />
                           </SelectTrigger>
@@ -462,8 +506,70 @@ const DashboardLayout = () => {
                             })}
                           </SelectContent>
                         </Select>
+                      </div>
+
+                      {/* IANA Timezone Picker */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium flex items-center gap-1.5">
+                          <Globe className="w-3.5 h-3.5" />
+                          Timezone (IANA)
+                        </Label>
+                        <Popover open={tzPickerOpen} onOpenChange={setTzPickerOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={tzPickerOpen}
+                              className="w-full h-9 justify-between text-sm font-normal"
+                            >
+                              <span className="truncate">
+                                {selectedTimezone} (UTC{formatOffset(getOffsetForTimezone(selectedTimezone))})
+                              </span>
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                            <Command
+                              filter={(value, search) => {
+                                const v = value.toLowerCase();
+                                const s = search.toLowerCase();
+                                return v.includes(s) || v.replace(/_/g, ' ').includes(s) ? 1 : 0;
+                              }}
+                            >
+                              <CommandInput placeholder="Search timezone..." className="h-9" />
+                              <CommandList className="max-h-64">
+                                <CommandEmpty>No timezone found.</CommandEmpty>
+                                <CommandGroup>
+                                  {allTimezones.map((tz) => (
+                                    <CommandItem
+                                      key={tz}
+                                      value={tz}
+                                      onSelect={(value) => {
+                                        setSelectedTimezone(value);
+                                        const match = countries.find(c => c.tz === value);
+                                        if (match) setSelectedCountry(match.code);
+                                        setTzPickerOpen(false);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          selectedTimezone === tz ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      <span className="flex-1 truncate">{tz.replace(/_/g, ' ')}</span>
+                                      <span className="ml-2 text-xs text-muted-foreground">
+                                        UTC{formatOffset(getOffsetForTimezone(tz))}
+                                      </span>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                         <p className="text-[10px] text-muted-foreground">
-                          Used for reminder notification timing
+                          Used for reminder notification timing (DST-aware)
                         </p>
                       </div>
 
@@ -477,7 +583,7 @@ const DashboardLayout = () => {
                           </span>
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {countries.find(c => c.code === selectedCountry)?.name || 'Unknown'}
+                          {selectedTimezone}
                         </p>
                       </div>
 
