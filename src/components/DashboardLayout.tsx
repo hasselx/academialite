@@ -46,6 +46,16 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const navigation = {
@@ -98,6 +108,26 @@ const DashboardLayout = () => {
     }
     return 'IN';
   });
+  const [selectedTimezone, setSelectedTimezone] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('userTimezone');
+      if (saved) return saved;
+      const code = localStorage.getItem('userCountry') || 'IN';
+      return getTimezoneForCountry(code);
+    }
+    return 'Asia/Kolkata';
+  });
+  const [tzPickerOpen, setTzPickerOpen] = useState(false);
+
+  // Full list of IANA timezones (browser-provided, fallback to common list)
+  const allTimezones = (() => {
+    try {
+      // @ts-ignore - supportedValuesOf is supported in modern browsers
+      const list = (Intl as any).supportedValuesOf?.('timeZone') as string[] | undefined;
+      if (list && list.length) return list;
+    } catch {}
+    return countries.map(c => c.tz);
+  })();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
