@@ -140,6 +140,15 @@ Respond ONLY with a valid JSON object in this exact format:
     }
     
     const parsed = JSON.parse(jsonMatch[0]);
+
+    // Safety-net: enforce concise lengths even if the model overshoots
+    if (typeof parsed.title === 'string' && parsed.title.length > 80) {
+      parsed.title = parsed.title.slice(0, 77).trimEnd() + '…';
+    }
+    if (typeof parsed.description === 'string' && parsed.description.length > 240) {
+      parsed.description = parsed.description.slice(0, 237).trimEnd() + '…';
+    }
+
     console.log("Parsed reminder data:", parsed);
 
     return new Response(
