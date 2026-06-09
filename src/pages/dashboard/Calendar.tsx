@@ -243,8 +243,8 @@ const CalendarPage = () => {
                           {isTodayHoliday ? "Today!" : isPast ? "Passed" : `${daysLeft} days`}
                         </span>
                       </div>
-                      <h4 className="font-semibold text-sm text-foreground">{holiday.title}</h4>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <h4 className="font-semibold text-xs sm:text-sm text-foreground line-clamp-2">{holiday.title}</h4>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
                         {format(new Date(holiday.date), "MMM d, yyyy")}
                       </p>
                     </div>
