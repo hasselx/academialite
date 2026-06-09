@@ -953,11 +953,11 @@ const HistoryPage = () => {
           </div>
 
             {/* Footer Buttons */}
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setShowAnalysis(false)}>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setShowAnalysis(false)} className="w-full sm:w-auto">
                 Close
               </Button>
-              <Button className="gradient-primary" onClick={exportToPDF} disabled={exportingPdf}>
+              <Button className="gradient-primary w-full sm:w-auto" onClick={exportToPDF} disabled={exportingPdf}>
                 {exportingPdf ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
