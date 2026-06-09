@@ -730,17 +730,17 @@ const HistoryPage = () => {
 
       {/* CGPA Analysis Dialog */}
       <Dialog open={showAnalysis} onOpenChange={setShowAnalysis}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl w-[calc(100vw-1rem)] sm:w-full max-h-[90vh] overflow-y-auto p-3 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <BarChart3 className="w-6 h-6 text-primary" />
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-xl">
+              <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
               CGPA Analysis & Trends
             </DialogTitle>
           </DialogHeader>
 
-          <div ref={analysisContentRef} className="space-y-8 bg-background p-4 rounded-lg">
+          <div ref={analysisContentRef} className="space-y-6 sm:space-y-8 bg-background p-2 sm:p-4 rounded-lg">
             {/* Stats Row */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <Card className="p-4 border-2 border-primary/20">
                 <div className="flex items-center gap-3">
                   <Target className="w-10 h-10 text-primary" />
