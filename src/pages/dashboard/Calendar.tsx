@@ -193,9 +193,9 @@ const CalendarPage = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <CalendarIcon className="w-8 h-8 text-primary" />
-        <h1 className="text-2xl font-bold">Calendar</h1>
+      <div className="flex items-center gap-2 sm:gap-3">
+        <CalendarIcon className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+        <h1 className="text-xl sm:text-2xl font-bold">Calendar</h1>
       </div>
 
       <Tabs defaultValue="calendar" className="w-full">
