@@ -730,17 +730,17 @@ const HistoryPage = () => {
 
       {/* CGPA Analysis Dialog */}
       <Dialog open={showAnalysis} onOpenChange={setShowAnalysis}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl w-[calc(100vw-1rem)] sm:w-full max-h-[90vh] overflow-y-auto p-3 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <BarChart3 className="w-6 h-6 text-primary" />
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-xl">
+              <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
               CGPA Analysis & Trends
             </DialogTitle>
           </DialogHeader>
 
-          <div ref={analysisContentRef} className="space-y-8 bg-background p-4 rounded-lg">
+          <div ref={analysisContentRef} className="space-y-6 sm:space-y-8 bg-background p-2 sm:p-4 rounded-lg">
             {/* Stats Row */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <Card className="p-4 border-2 border-primary/20">
                 <div className="flex items-center gap-3">
                   <Target className="w-10 h-10 text-primary" />
@@ -779,7 +779,7 @@ const HistoryPage = () => {
                 <TrendingUp className="w-4 h-4" />
                 Scale Conversions
               </h4>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <Card className="p-4 text-center">
                   <div className="text-2xl font-bold text-info">{convert4Scale().toFixed(2)}</div>
                   <div className="text-sm text-muted-foreground">4.0 Scale (US)</div>
@@ -885,77 +885,79 @@ const HistoryPage = () => {
 
             {/* Semester Table */}
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                   <Calculator className="w-5 h-5" />
                   Semester-wise Breakdown
                 </CardTitle>
-                <Button size="sm" className="bg-success hover:bg-success/90">
+                <Button size="sm" className="bg-success hover:bg-success/90 w-full sm:w-auto">
                   <Plus className="w-4 h-4 mr-2" />
                   Add New Semester
                 </Button>
               </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Semester</TableHead>
-                      <TableHead>SGPA</TableHead>
-                      <TableHead>Credits</TableHead>
-                      <TableHead>Grade Points</TableHead>
-                      <TableHead>Performance</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {semesters.map((sem) => {
-                      const performance = getPerformance(sem.sgpa);
-                      return (
-                        <TableRow key={sem.id}>
-                          <TableCell className="font-medium">{sem.name}</TableCell>
-                          <TableCell>{sem.sgpa.toFixed(2)}</TableCell>
-                          <TableCell>{sem.credits}</TableCell>
-                          <TableCell>{(sem.sgpa * sem.credits).toFixed(2)}</TableCell>
-                          <TableCell>
-                            <Badge className={performance.class}>
-                              {performance.text}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleEditSemester(sem)}
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => handleDeleteSemester(sem.id)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+              <CardContent className="p-2 sm:p-6">
+                <div className="overflow-x-auto -mx-2 sm:mx-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Semester</TableHead>
+                        <TableHead>SGPA</TableHead>
+                        <TableHead>Credits</TableHead>
+                        <TableHead className="whitespace-nowrap">Grade Points</TableHead>
+                        <TableHead>Performance</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {semesters.map((sem) => {
+                        const performance = getPerformance(sem.sgpa);
+                        return (
+                          <TableRow key={sem.id}>
+                            <TableCell className="font-medium whitespace-nowrap">{sem.name}</TableCell>
+                            <TableCell>{sem.sgpa.toFixed(2)}</TableCell>
+                            <TableCell>{sem.credits}</TableCell>
+                            <TableCell>{(sem.sgpa * sem.credits).toFixed(2)}</TableCell>
+                            <TableCell>
+                              <Badge className={`${performance.class} whitespace-nowrap`}>
+                                {performance.text}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleEditSemester(sem)}
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => handleDeleteSemester(sem.id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
 
           </div>
 
             {/* Footer Buttons */}
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setShowAnalysis(false)}>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setShowAnalysis(false)} className="w-full sm:w-auto">
                 Close
               </Button>
-              <Button className="gradient-primary" onClick={exportToPDF} disabled={exportingPdf}>
+              <Button className="gradient-primary w-full sm:w-auto" onClick={exportToPDF} disabled={exportingPdf}>
                 {exportingPdf ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (

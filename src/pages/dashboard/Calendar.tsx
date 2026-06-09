@@ -256,15 +256,15 @@ const CalendarPage = () => {
 
           {/* Main Calendar - Compact Design */}
           <Card className="overflow-hidden">
-            <CardContent className="p-6">
+            <CardContent className="p-3 sm:p-6">
               {/* Calendar Header with Month/Year Dropdowns */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" onClick={handlePrevMonth} className="h-8 w-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+                  <Button variant="ghost" size="icon" onClick={handlePrevMonth} className="h-8 w-8 shrink-0">
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
                   <Select value={currentDate.getMonth().toString()} onValueChange={handleMonthChange}>
-                    <SelectTrigger className="w-[100px] h-8 text-sm border-border">
+                    <SelectTrigger className="w-[90px] sm:w-[100px] h-8 text-sm border-border">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -274,7 +274,7 @@ const CalendarPage = () => {
                     </SelectContent>
                   </Select>
                   <Select value={currentDate.getFullYear().toString()} onValueChange={handleYearChange}>
-                    <SelectTrigger className="w-[90px] h-8 text-sm border-border">
+                    <SelectTrigger className="w-[80px] sm:w-[90px] h-8 text-sm border-border">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -283,20 +283,21 @@ const CalendarPage = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button variant="ghost" size="icon" onClick={handleNextMonth} className="h-8 w-8">
+                  <Button variant="ghost" size="icon" onClick={handleNextMonth} className="h-8 w-8 shrink-0">
                     <ChevronRight className="w-4 h-4" />
                   </Button>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())} className="h-8">
-                    <CalendarIcon className="w-4 h-4 mr-2" />
-                    Today
+                  <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())} className="h-8 flex-1 sm:flex-none">
+                    <CalendarIcon className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Today</span>
                   </Button>
                   <Dialog open={showAddEvent} onOpenChange={setShowAddEvent}>
                     <DialogTrigger asChild>
-                      <Button size="sm" className="gradient-primary h-8">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Event
+                      <Button size="sm" className="gradient-primary h-8 flex-1 sm:flex-none">
+                        <Plus className="w-4 h-4 sm:mr-2" />
+                        <span className="hidden sm:inline">Add Event</span>
+                        <span className="sm:hidden">Event</span>
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
