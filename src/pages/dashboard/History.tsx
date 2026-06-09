@@ -779,7 +779,7 @@ const HistoryPage = () => {
                 <TrendingUp className="w-4 h-4" />
                 Scale Conversions
               </h4>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <Card className="p-4 text-center">
                   <div className="text-2xl font-bold text-info">{convert4Scale().toFixed(2)}</div>
                   <div className="text-sm text-muted-foreground">4.0 Scale (US)</div>
