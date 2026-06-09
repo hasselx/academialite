@@ -896,7 +896,49 @@ const HistoryPage = () => {
                 </Button>
               </CardHeader>
               <CardContent className="p-2 sm:p-6">
-                <div className="overflow-x-auto -mx-2 sm:mx-0">
+                {/* Mobile card layout */}
+                <div className="md:hidden space-y-2">
+                  {semesters.map((sem) => {
+                    const performance = getPerformance(sem.sgpa);
+                    return (
+                      <div key={sem.id} className="rounded-lg border border-border p-3 bg-card">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-sm truncate">{sem.name}</div>
+                            <Badge className={`${performance.class} mt-1 text-[10px] whitespace-nowrap`}>
+                              {performance.text}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditSemester(sem)}>
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteSemester(sem.id)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-center text-xs pt-2 border-t border-border">
+                          <div>
+                            <div className="text-muted-foreground">SGPA</div>
+                            <div className="font-semibold text-sm text-foreground">{sem.sgpa.toFixed(2)}</div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Credits</div>
+                            <div className="font-semibold text-sm text-foreground">{sem.credits}</div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Points</div>
+                            <div className="font-semibold text-sm text-foreground">{(sem.sgpa * sem.credits).toFixed(2)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop table */}
+                <div className="hidden md:block overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -924,19 +966,10 @@ const HistoryPage = () => {
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleEditSemester(sem)}
-                                >
+                                <Button variant="ghost" size="icon" onClick={() => handleEditSemester(sem)}>
                                   <Edit2 className="w-4 h-4" />
                                 </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-destructive hover:text-destructive"
-                                  onClick={() => handleDeleteSemester(sem.id)}
-                                >
+                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteSemester(sem.id)}>
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
                               </div>
