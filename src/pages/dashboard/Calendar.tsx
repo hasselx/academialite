@@ -405,9 +405,9 @@ const CalendarPage = () => {
                   <Star className="w-5 h-5 text-warning" />
                   Academic Holidays
                 </CardTitle>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                   <Select value={selectedYear} onValueChange={setSelectedYear}>
-                    <SelectTrigger className="w-[120px]">
+                    <SelectTrigger className="flex-1 sm:w-[120px] sm:flex-none">
                       <SelectValue placeholder="Year" />
                     </SelectTrigger>
                     <SelectContent>
@@ -417,7 +417,7 @@ const CalendarPage = () => {
                     </SelectContent>
                   </Select>
                   <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger className="w-[140px]">
+                    <SelectTrigger className="flex-1 sm:w-[140px] sm:flex-none">
                       <SelectValue placeholder="Month" />
                     </SelectTrigger>
                     <SelectContent>
@@ -430,13 +430,13 @@ const CalendarPage = () => {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 sm:p-6">
               {filteredHolidays.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   No holidays found for the selected period.
                 </div>
               ) : (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   {filteredHolidays.map((holiday) => {
                     const daysLeft = getDaysLeft(holiday.date);
                     const isPast = daysLeft < 0;
