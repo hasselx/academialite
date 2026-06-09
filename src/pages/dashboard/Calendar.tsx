@@ -229,7 +229,7 @@ const CalendarPage = () => {
                   return (
                     <div
                       key={holiday.id}
-                      className="p-4 rounded-xl border border-warning/30 bg-warning/5 hover:bg-warning/10 transition-colors"
+                      className="p-2.5 sm:p-4 rounded-lg sm:rounded-xl border border-warning/30 bg-warning/5 hover:bg-warning/10 transition-colors"
                     >
                       <div className="flex items-start justify-between mb-2">
                         <Star className="w-4 h-4 text-warning" />
