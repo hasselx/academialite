@@ -256,7 +256,7 @@ const CalendarPage = () => {
 
           {/* Main Calendar - Compact Design */}
           <Card className="overflow-hidden">
-            <CardContent className="p-6">
+            <CardContent className="p-3 sm:p-6">
               {/* Calendar Header with Month/Year Dropdowns */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
                 <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
