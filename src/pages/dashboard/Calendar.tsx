@@ -219,8 +219,8 @@ const CalendarPage = () => {
                 Upcoming Holidays
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <CardContent className="p-3 sm:p-6">
+              <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-5">
                 {upcomingHolidays.map((holiday) => {
                   const daysLeft = getDaysLeft(holiday.date);
                   const isPast = daysLeft < 0;
