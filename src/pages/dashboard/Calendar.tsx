@@ -193,9 +193,9 @@ const CalendarPage = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <CalendarIcon className="w-8 h-8 text-primary" />
-        <h1 className="text-2xl font-bold">Calendar</h1>
+      <div className="flex items-center gap-2 sm:gap-3">
+        <CalendarIcon className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+        <h1 className="text-xl sm:text-2xl font-bold">Calendar</h1>
       </div>
 
       <Tabs defaultValue="calendar" className="w-full">
@@ -219,8 +219,8 @@ const CalendarPage = () => {
                 Upcoming Holidays
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <CardContent className="p-3 sm:p-6">
+              <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-5">
                 {upcomingHolidays.map((holiday) => {
                   const daysLeft = getDaysLeft(holiday.date);
                   const isPast = daysLeft < 0;
@@ -229,7 +229,7 @@ const CalendarPage = () => {
                   return (
                     <div
                       key={holiday.id}
-                      className="p-4 rounded-xl border border-warning/30 bg-warning/5 hover:bg-warning/10 transition-colors"
+                      className="p-2.5 sm:p-4 rounded-lg sm:rounded-xl border border-warning/30 bg-warning/5 hover:bg-warning/10 transition-colors"
                     >
                       <div className="flex items-start justify-between mb-2">
                         <Star className="w-4 h-4 text-warning" />
@@ -243,8 +243,8 @@ const CalendarPage = () => {
                           {isTodayHoliday ? "Today!" : isPast ? "Passed" : `${daysLeft} days`}
                         </span>
                       </div>
-                      <h4 className="font-semibold text-sm text-foreground">{holiday.title}</h4>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <h4 className="font-semibold text-xs sm:text-sm text-foreground line-clamp-2">{holiday.title}</h4>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
                         {format(new Date(holiday.date), "MMM d, yyyy")}
                       </p>
                     </div>
@@ -343,7 +343,7 @@ const CalendarPage = () => {
               </div>
 
               {/* Calendar Grid - Compact */}
-              <div className="grid grid-cols-7 gap-1">
+              <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
                 {days.map((day, index) => {
                   const dayEvents = getEventsForDate(day.date);
                   const hasEvents = dayEvents.length > 0;
@@ -353,16 +353,16 @@ const CalendarPage = () => {
                     <div
                       key={index}
                       className={`
-                        relative flex flex-col items-center justify-center p-2 rounded-lg aspect-square
+                        relative flex flex-col items-center justify-center p-1 sm:p-2 rounded-md sm:rounded-lg aspect-square
                         ${!day.isCurrentMonth ? 'text-muted-foreground/50' : ''}
                         ${isToday(day.date) ? 'bg-foreground text-background font-semibold' : ''}
                         ${hasHoliday && !isToday(day.date) ? 'bg-warning/10' : ''}
                         hover:bg-muted/50 transition-colors cursor-pointer
                       `}
                     >
-                      <span className="text-sm">{day.day}</span>
+                      <span className="text-xs sm:text-sm">{day.day}</span>
                       {hasEvents && !isToday(day.date) && (
-                        <div className="absolute bottom-1 flex gap-0.5">
+                        <div className="absolute bottom-0.5 sm:bottom-1 flex gap-0.5">
                           {dayEvents.slice(0, 3).map((event, i) => (
                             <div
                               key={i}
@@ -379,7 +379,7 @@ const CalendarPage = () => {
               </div>
 
               {/* Legend */}
-              <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border">
+              <div className="flex items-center flex-wrap gap-3 sm:gap-4 mt-4 pt-4 border-t border-border">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <div className="w-2 h-2 rounded-full bg-warning" />
                   <span>Holiday</span>
@@ -405,9 +405,9 @@ const CalendarPage = () => {
                   <Star className="w-5 h-5 text-warning" />
                   Academic Holidays
                 </CardTitle>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                   <Select value={selectedYear} onValueChange={setSelectedYear}>
-                    <SelectTrigger className="w-[120px]">
+                    <SelectTrigger className="flex-1 sm:w-[120px] sm:flex-none">
                       <SelectValue placeholder="Year" />
                     </SelectTrigger>
                     <SelectContent>
@@ -417,7 +417,7 @@ const CalendarPage = () => {
                     </SelectContent>
                   </Select>
                   <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger className="w-[140px]">
+                    <SelectTrigger className="flex-1 sm:w-[140px] sm:flex-none">
                       <SelectValue placeholder="Month" />
                     </SelectTrigger>
                     <SelectContent>
@@ -430,13 +430,13 @@ const CalendarPage = () => {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 sm:p-6">
               {filteredHolidays.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   No holidays found for the selected period.
                 </div>
               ) : (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   {filteredHolidays.map((holiday) => {
                     const daysLeft = getDaysLeft(holiday.date);
                     const isPast = daysLeft < 0;

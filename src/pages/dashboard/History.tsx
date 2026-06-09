@@ -740,34 +740,34 @@ const HistoryPage = () => {
 
           <div ref={analysisContentRef} className="space-y-6 sm:space-y-8 bg-background p-2 sm:p-4 rounded-lg">
             {/* Stats Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-              <Card className="p-4 border-2 border-primary/20">
-                <div className="flex items-center gap-3">
-                  <Target className="w-10 h-10 text-primary" />
-                  <div>
-                    <div className="text-3xl font-bold text-foreground">{cgpa.toFixed(2)}</div>
-                    <div className="text-sm text-muted-foreground">Overall CGPA</div>
-                    <div className="text-xs text-primary">10.0 Scale</div>
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+              <Card className="p-3 sm:p-4 border-2 border-primary/20">
+                <div className="flex flex-col sm:flex-row items-center sm:items-center gap-1 sm:gap-3 text-center sm:text-left">
+                  <Target className="w-6 h-6 sm:w-10 sm:h-10 text-primary shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-lg sm:text-3xl font-bold text-foreground">{cgpa.toFixed(2)}</div>
+                    <div className="text-[10px] sm:text-sm text-muted-foreground leading-tight">Overall CGPA</div>
+                    <div className="text-[10px] sm:text-xs text-primary hidden sm:block">10.0 Scale</div>
                   </div>
                 </div>
               </Card>
-              <Card className="p-4 border-2 border-success/20">
-                <div className="flex items-center gap-3">
-                  <BarChart3 className="w-10 h-10 text-success" />
-                  <div>
-                    <div className="text-3xl font-bold text-foreground">{totalCredits}</div>
-                    <div className="text-sm text-muted-foreground">Total Credits</div>
-                    <div className="text-xs text-success">{semesters.length} Semesters</div>
+              <Card className="p-3 sm:p-4 border-2 border-success/20">
+                <div className="flex flex-col sm:flex-row items-center sm:items-center gap-1 sm:gap-3 text-center sm:text-left">
+                  <BarChart3 className="w-6 h-6 sm:w-10 sm:h-10 text-success shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-lg sm:text-3xl font-bold text-foreground">{totalCredits}</div>
+                    <div className="text-[10px] sm:text-sm text-muted-foreground leading-tight">Total Credits</div>
+                    <div className="text-[10px] sm:text-xs text-success hidden sm:block">{semesters.length} Semesters</div>
                   </div>
                 </div>
               </Card>
-              <Card className="p-4 border-2 border-chart-4/20">
-                <div className="flex items-center gap-3">
-                  <TrendingUp className="w-10 h-10 text-chart-4" />
-                  <div>
-                    <div className="text-3xl font-bold text-foreground">{avgSgpa.toFixed(2)}</div>
-                    <div className="text-sm text-muted-foreground">Average SGPA</div>
-                    <div className="text-xs text-chart-4">{(cgpa * totalCredits).toFixed(2)} Points</div>
+              <Card className="p-3 sm:p-4 border-2 border-chart-4/20">
+                <div className="flex flex-col sm:flex-row items-center sm:items-center gap-1 sm:gap-3 text-center sm:text-left">
+                  <TrendingUp className="w-6 h-6 sm:w-10 sm:h-10 text-chart-4 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-lg sm:text-3xl font-bold text-foreground">{avgSgpa.toFixed(2)}</div>
+                    <div className="text-[10px] sm:text-sm text-muted-foreground leading-tight">Avg SGPA</div>
+                    <div className="text-[10px] sm:text-xs text-chart-4 hidden sm:block">{(cgpa * totalCredits).toFixed(2)} Points</div>
                   </div>
                 </div>
               </Card>
@@ -775,45 +775,47 @@ const HistoryPage = () => {
 
             {/* Scale Conversions */}
             <div>
-              <h4 className="font-medium mb-3 flex items-center gap-2">
+              <h4 className="font-medium mb-3 flex items-center gap-2 text-sm sm:text-base">
                 <TrendingUp className="w-4 h-4" />
                 Scale Conversions
               </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                <Card className="p-4 text-center">
-                  <div className="text-2xl font-bold text-info">{convert4Scale().toFixed(2)}</div>
-                  <div className="text-sm text-muted-foreground">4.0 Scale (US)</div>
-                  <div className="text-xs text-muted-foreground mt-1">Formula: (CGPA - 5) × 4 / 5</div>
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                <Card className="p-2 sm:p-4 text-center">
+                  <div className="text-base sm:text-2xl font-bold text-info">{convert4Scale().toFixed(2)}</div>
+                  <div className="text-[10px] sm:text-sm text-muted-foreground leading-tight">4.0 Scale (US)</div>
+                  <div className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">Formula: (CGPA - 5) × 4 / 5</div>
                 </Card>
-                <Card className="p-4 text-center">
-                  <div className="text-2xl font-bold text-success">{(cgpa / 2).toFixed(2)}</div>
-                  <div className="text-sm text-muted-foreground">5.0 Scale</div>
-                  <div className="text-xs text-muted-foreground mt-1">Formula: CGPA / 2</div>
+                <Card className="p-2 sm:p-4 text-center">
+                  <div className="text-base sm:text-2xl font-bold text-success">{(cgpa / 2).toFixed(2)}</div>
+                  <div className="text-[10px] sm:text-sm text-muted-foreground leading-tight">5.0 Scale</div>
+                  <div className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">Formula: CGPA / 2</div>
                 </Card>
-                <Card className="p-4 text-center">
-                  <div className="text-2xl font-bold text-chart-4">{((cgpa - 0.5) * 10).toFixed(1)}%</div>
-                  <div className="text-sm text-muted-foreground">Percentage</div>
-                  <div className="text-xs text-muted-foreground mt-1">Formula: (CGPA - 0.5) × 10</div>
+                <Card className="p-2 sm:p-4 text-center">
+                  <div className="text-base sm:text-2xl font-bold text-chart-4">{((cgpa - 0.5) * 10).toFixed(1)}%</div>
+                  <div className="text-[10px] sm:text-sm text-muted-foreground leading-tight">Percentage</div>
+                  <div className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">Formula: (CGPA - 0.5) × 10</div>
                 </Card>
               </div>
             </div>
 
+
+
             {/* Charts */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card className="p-4">
-                <h4 className="font-semibold mb-4 flex items-center gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <Card className="p-3 sm:p-4">
+                <h4 className="font-semibold mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <BarChart3 className="w-4 h-4" />
                   SGPA vs Credits by Semester
                 </h4>
-                <div className="h-[250px]">
+                <div className="h-[200px] sm:h-[250px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData}>
+                    <BarChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                      <XAxis dataKey="name" fontSize={10} />
-                      <YAxis yAxisId="left" fontSize={12} />
-                      <YAxis yAxisId="right" orientation="right" fontSize={12} />
+                      <XAxis dataKey="name" fontSize={10} tickFormatter={(v: string) => v.replace('Semester ', 'S')} />
+                      <YAxis yAxisId="left" fontSize={10} />
+                      <YAxis yAxisId="right" orientation="right" fontSize={10} />
                       <Tooltip />
-                      <Legend />
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
                       <Bar yAxisId="left" dataKey="SGPA" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                       <Bar yAxisId="right" dataKey="Credits" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
                     </BarChart>
@@ -821,17 +823,17 @@ const HistoryPage = () => {
                 </div>
               </Card>
 
-              <Card className="p-4">
-                <h4 className="font-semibold mb-4 flex items-center gap-2">
+              <Card className="p-3 sm:p-4">
+                <h4 className="font-semibold mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <TrendingUp className="w-4 h-4" />
                   SGPA Trend Over Semesters
                 </h4>
-                <div className="h-[250px]">
+                <div className="h-[200px] sm:h-[250px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
+                    <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                      <XAxis dataKey="name" fontSize={10} />
-                      <YAxis domain={[0, 10]} fontSize={12} />
+                      <XAxis dataKey="name" fontSize={10} tickFormatter={(v: string) => v.replace('Semester ', 'S')} />
+                      <YAxis domain={[0, 10]} fontSize={10} />
                       <Tooltip />
                       <Line 
                         type="monotone" 
@@ -842,7 +844,7 @@ const HistoryPage = () => {
                           <circle
                             cx={cx}
                             cy={cy}
-                            r={6}
+                            r={5}
                             fill={getPerformanceColor(payload.SGPA)}
                             stroke="white"
                             strokeWidth={2}
@@ -854,14 +856,14 @@ const HistoryPage = () => {
                 </div>
                 
                 {/* Performance Legend */}
-                <div className="mt-4 text-center">
-                  <div className="text-sm font-medium mb-2">Performance Gradient</div>
+                <div className="mt-3 sm:mt-4 text-center">
+                  <div className="text-xs sm:text-sm font-medium mb-2">Performance Gradient</div>
                   <div className="flex items-center justify-center gap-2 text-xs">
                     <span className="text-destructive">Low</span>
-                    <div className="w-24 h-2 rounded-full bg-gradient-to-r from-destructive via-warning to-success" />
+                    <div className="w-20 sm:w-24 h-2 rounded-full bg-gradient-to-r from-destructive via-warning to-success" />
                     <span className="text-success">High</span>
                   </div>
-                  <div className="flex items-center justify-center gap-4 mt-2 text-xs">
+                  <div className="flex items-center justify-center flex-wrap gap-x-3 gap-y-1 mt-2 text-[10px] sm:text-xs">
                     <span className="flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-destructive" />
                       Needs Improvement
@@ -896,7 +898,49 @@ const HistoryPage = () => {
                 </Button>
               </CardHeader>
               <CardContent className="p-2 sm:p-6">
-                <div className="overflow-x-auto -mx-2 sm:mx-0">
+                {/* Mobile card layout */}
+                <div className="md:hidden space-y-2">
+                  {semesters.map((sem) => {
+                    const performance = getPerformance(sem.sgpa);
+                    return (
+                      <div key={sem.id} className="rounded-lg border border-border p-3 bg-card">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-sm truncate">{sem.name}</div>
+                            <Badge className={`${performance.class} mt-1 text-[10px] whitespace-nowrap`}>
+                              {performance.text}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditSemester(sem)}>
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteSemester(sem.id)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-center text-xs pt-2 border-t border-border">
+                          <div>
+                            <div className="text-muted-foreground">SGPA</div>
+                            <div className="font-semibold text-sm text-foreground">{sem.sgpa.toFixed(2)}</div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Credits</div>
+                            <div className="font-semibold text-sm text-foreground">{sem.credits}</div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Points</div>
+                            <div className="font-semibold text-sm text-foreground">{(sem.sgpa * sem.credits).toFixed(2)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop table */}
+                <div className="hidden md:block overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -924,19 +968,10 @@ const HistoryPage = () => {
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleEditSemester(sem)}
-                                >
+                                <Button variant="ghost" size="icon" onClick={() => handleEditSemester(sem)}>
                                   <Edit2 className="w-4 h-4" />
                                 </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-destructive hover:text-destructive"
-                                  onClick={() => handleDeleteSemester(sem.id)}
-                                >
+                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteSemester(sem.id)}>
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
                               </div>
