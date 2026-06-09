@@ -799,21 +799,21 @@ const HistoryPage = () => {
             </div>
 
             {/* Charts */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card className="p-4">
-                <h4 className="font-semibold mb-4 flex items-center gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <Card className="p-3 sm:p-4">
+                <h4 className="font-semibold mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <BarChart3 className="w-4 h-4" />
                   SGPA vs Credits by Semester
                 </h4>
-                <div className="h-[250px]">
+                <div className="h-[200px] sm:h-[250px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData}>
+                    <BarChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                      <XAxis dataKey="name" fontSize={10} />
-                      <YAxis yAxisId="left" fontSize={12} />
-                      <YAxis yAxisId="right" orientation="right" fontSize={12} />
+                      <XAxis dataKey="name" fontSize={10} tickFormatter={(v: string) => v.replace('Semester ', 'S')} />
+                      <YAxis yAxisId="left" fontSize={10} />
+                      <YAxis yAxisId="right" orientation="right" fontSize={10} />
                       <Tooltip />
-                      <Legend />
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
                       <Bar yAxisId="left" dataKey="SGPA" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                       <Bar yAxisId="right" dataKey="Credits" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
                     </BarChart>
@@ -821,17 +821,17 @@ const HistoryPage = () => {
                 </div>
               </Card>
 
-              <Card className="p-4">
-                <h4 className="font-semibold mb-4 flex items-center gap-2">
+              <Card className="p-3 sm:p-4">
+                <h4 className="font-semibold mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <TrendingUp className="w-4 h-4" />
                   SGPA Trend Over Semesters
                 </h4>
-                <div className="h-[250px]">
+                <div className="h-[200px] sm:h-[250px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
+                    <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                      <XAxis dataKey="name" fontSize={10} />
-                      <YAxis domain={[0, 10]} fontSize={12} />
+                      <XAxis dataKey="name" fontSize={10} tickFormatter={(v: string) => v.replace('Semester ', 'S')} />
+                      <YAxis domain={[0, 10]} fontSize={10} />
                       <Tooltip />
                       <Line 
                         type="monotone" 
@@ -842,7 +842,7 @@ const HistoryPage = () => {
                           <circle
                             cx={cx}
                             cy={cy}
-                            r={6}
+                            r={5}
                             fill={getPerformanceColor(payload.SGPA)}
                             stroke="white"
                             strokeWidth={2}
@@ -854,14 +854,14 @@ const HistoryPage = () => {
                 </div>
                 
                 {/* Performance Legend */}
-                <div className="mt-4 text-center">
-                  <div className="text-sm font-medium mb-2">Performance Gradient</div>
+                <div className="mt-3 sm:mt-4 text-center">
+                  <div className="text-xs sm:text-sm font-medium mb-2">Performance Gradient</div>
                   <div className="flex items-center justify-center gap-2 text-xs">
                     <span className="text-destructive">Low</span>
-                    <div className="w-24 h-2 rounded-full bg-gradient-to-r from-destructive via-warning to-success" />
+                    <div className="w-20 sm:w-24 h-2 rounded-full bg-gradient-to-r from-destructive via-warning to-success" />
                     <span className="text-success">High</span>
                   </div>
-                  <div className="flex items-center justify-center gap-4 mt-2 text-xs">
+                  <div className="flex items-center justify-center flex-wrap gap-x-3 gap-y-1 mt-2 text-[10px] sm:text-xs">
                     <span className="flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-destructive" />
                       Needs Improvement
