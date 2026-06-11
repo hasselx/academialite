@@ -211,43 +211,57 @@ const CalendarPage = () => {
           {/* Upcoming Holidays Section */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Clock className="w-5 h-5 text-primary" />
-                Upcoming Holidays
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-3 sm:p-6">
-              <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-5">
-                {upcomingHolidays.map((holiday) => {
-                  const daysLeft = getDaysLeft(holiday.date);
-                  const isPast = daysLeft < 0;
-                  const isTodayHoliday = daysLeft === 0;
-                  
-                  return (
-                    <div
-                      key={holiday.id}
-                      className="p-2.5 sm:p-4 rounded-lg sm:rounded-xl border border-warning/30 bg-warning/5 hover:bg-warning/10 transition-colors"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <Star className="w-4 h-4 text-warning" />
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                          isTodayHoliday 
-                            ? 'bg-success/20 text-success' 
-                            : isPast 
-                              ? 'bg-muted text-muted-foreground' 
-                              : 'bg-primary/20 text-primary'
-                        }`}>
-                          {isTodayHoliday ? "Today!" : isPast ? "Passed" : `${daysLeft} days`}
-                        </span>
-                      </div>
-                      <h4 className="font-semibold text-xs sm:text-sm text-foreground line-clamp-2">{holiday.title}</h4>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-                        {format(new Date(holiday.date), "MMM d, yyyy")}
-                      </p>
-                    </div>
-                  );
-                })}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <Clock className="w-5 h-5 text-primary" />
+                  Upcoming Holidays
+                </CardTitle>
+                {countryName && (
+                  <span className="inline-flex items-center gap-1.5 self-start sm:self-auto px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                    <Globe className="w-3 h-3" />
+                    {countryName}
+                  </span>
+                )}
               </div>
+            </CardHeader>
+            <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+              {upcomingHolidays.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No upcoming public holidays.
+                </p>
+              ) : (
+                <div className="flex gap-2 overflow-x-auto -mx-3 px-3 pb-1 snap-x snap-mandatory sm:mx-0 sm:px-0 sm:pb-0 sm:overflow-visible sm:grid sm:gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  {upcomingHolidays.map((holiday) => {
+                    const daysLeft = getDaysLeft(holiday.date);
+                    const isPast = daysLeft < 0;
+                    const isTodayHoliday = daysLeft === 0;
+
+                    return (
+                      <div
+                        key={holiday.id}
+                        className="shrink-0 snap-start w-[160px] sm:w-auto p-3 sm:p-4 rounded-xl border border-warning/30 bg-warning/5 hover:bg-warning/10 transition-colors"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <Star className="w-4 h-4 text-warning" />
+                          <span className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                            isTodayHoliday
+                              ? 'bg-success/20 text-success'
+                              : isPast
+                                ? 'bg-muted text-muted-foreground'
+                                : 'bg-primary/20 text-primary'
+                          }`}>
+                            {isTodayHoliday ? "Today!" : isPast ? "Passed" : `${daysLeft}d`}
+                          </span>
+                        </div>
+                        <h4 className="font-semibold text-xs sm:text-sm text-foreground line-clamp-2 leading-tight">{holiday.title}</h4>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                          {format(new Date(holiday.date), "MMM d, yyyy")}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 
