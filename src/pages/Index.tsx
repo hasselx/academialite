@@ -69,10 +69,10 @@ const creator = [
   {
     id: 1,
     name: "Naveen Krishnan R",
-    designation: "@hasselx",
+    designation: "@naveen",
     image: creatorAvatar,
     verified: true,
-    link: "https://heypage.online/hasselx?referrer=academia&type=redirect"
+    link: "https://www.heypage.online/naveen?referrer=academia&type=redirect"
   }
 ];
 
