@@ -173,7 +173,7 @@ const CalendarPage = () => {
         return yearMatch && monthMatch;
       })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [selectedYear, selectedMonth]);
+  }, [selectedYear, selectedMonth, allHolidays]);
 
   // Get upcoming holidays (future only, sorted by date)
   const upcomingHolidays = useMemo(() => {
@@ -185,7 +185,7 @@ const CalendarPage = () => {
       })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(0, 5);
-  }, []);
+  }, [allHolidays]);
 
   return (
     <div className="space-y-6 animate-fade-in">
