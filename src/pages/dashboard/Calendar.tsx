@@ -410,15 +410,23 @@ const CalendarPage = () => {
 
         <TabsContent value="holidays" className="mt-6">
           <Card>
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <CardTitle className="flex items-center gap-2">
-                  <Star className="w-5 h-5 text-warning" />
-                  Academic Holidays
-                </CardTitle>
-                <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <CardHeader className="pb-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="flex flex-col gap-1.5 min-w-0">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Star className="w-5 h-5 text-warning shrink-0" />
+                    <span className="truncate">Public Holidays</span>
+                  </CardTitle>
+                  {countryName && (
+                    <span className="inline-flex items-center gap-1.5 self-start px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-medium">
+                      <Globe className="w-3 h-3" />
+                      {countryName}
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto sm:gap-3">
                   <Select value={selectedYear} onValueChange={setSelectedYear}>
-                    <SelectTrigger className="flex-1 sm:w-[120px] sm:flex-none">
+                    <SelectTrigger className="w-full sm:w-[120px] h-9">
                       <SelectValue placeholder="Year" />
                     </SelectTrigger>
                     <SelectContent>
@@ -428,7 +436,7 @@ const CalendarPage = () => {
                     </SelectContent>
                   </Select>
                   <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger className="flex-1 sm:w-[140px] sm:flex-none">
+                    <SelectTrigger className="w-full sm:w-[150px] h-9">
                       <SelectValue placeholder="Month" />
                     </SelectTrigger>
                     <SelectContent>
