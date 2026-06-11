@@ -5,9 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, Star, Clock } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, Star, Clock, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { differenceInDays, format, isBefore, startOfDay } from "date-fns";
+import { getHolidaysForCountry } from "@/data/holidays";
+import useTimeSettings from "@/hooks/useTimeSettings";
 
 interface Event {
   id: string;
@@ -16,26 +18,6 @@ interface Event {
   type: "event" | "holiday";
   color?: string;
 }
-
-// Extended holidays list for multiple years
-const allHolidays: Event[] = [
-  // 2025
-  { id: "h1-2025", title: "New Year's Day", date: "2025-01-01", type: "holiday" },
-  { id: "h2-2025", title: "Republic Day", date: "2025-01-26", type: "holiday" },
-  { id: "h3-2025", title: "Holi", date: "2025-03-14", type: "holiday" },
-  { id: "h4-2025", title: "Independence Day", date: "2025-08-15", type: "holiday" },
-  { id: "h5-2025", title: "Gandhi Jayanti", date: "2025-10-02", type: "holiday" },
-  { id: "h6-2025", title: "Diwali", date: "2025-11-01", type: "holiday" },
-  { id: "h7-2025", title: "Christmas", date: "2025-12-25", type: "holiday" },
-  // 2026
-  { id: "h1-2026", title: "New Year's Day", date: "2026-01-01", type: "holiday" },
-  { id: "h2-2026", title: "Republic Day", date: "2026-01-26", type: "holiday" },
-  { id: "h3-2026", title: "Holi", date: "2026-03-04", type: "holiday" },
-  { id: "h4-2026", title: "Independence Day", date: "2026-08-15", type: "holiday" },
-  { id: "h5-2026", title: "Gandhi Jayanti", date: "2026-10-02", type: "holiday" },
-  { id: "h6-2026", title: "Diwali", date: "2026-10-21", type: "holiday" },
-  { id: "h7-2026", title: "Christmas", date: "2026-12-25", type: "holiday" },
-];
 
 const CalendarPage = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
