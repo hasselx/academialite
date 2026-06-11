@@ -231,8 +231,7 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ 
         success: true, 
         checked: reminders?.length || 0,
-        emailsSent: emailsSent.length,
-        details: emailsSent 
+        emailsSent: emailsSent.length
       }),
       {
         status: 200,
