@@ -5,9 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, Star, Clock } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, Star, Clock, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { differenceInDays, format, isBefore, startOfDay } from "date-fns";
+import { getHolidaysForCountry } from "@/data/holidays";
+import useTimeSettings from "@/hooks/useTimeSettings";
 
 interface Event {
   id: string;
@@ -17,27 +19,22 @@ interface Event {
   color?: string;
 }
 
-// Extended holidays list for multiple years
-const allHolidays: Event[] = [
-  // 2025
-  { id: "h1-2025", title: "New Year's Day", date: "2025-01-01", type: "holiday" },
-  { id: "h2-2025", title: "Republic Day", date: "2025-01-26", type: "holiday" },
-  { id: "h3-2025", title: "Holi", date: "2025-03-14", type: "holiday" },
-  { id: "h4-2025", title: "Independence Day", date: "2025-08-15", type: "holiday" },
-  { id: "h5-2025", title: "Gandhi Jayanti", date: "2025-10-02", type: "holiday" },
-  { id: "h6-2025", title: "Diwali", date: "2025-11-01", type: "holiday" },
-  { id: "h7-2025", title: "Christmas", date: "2025-12-25", type: "holiday" },
-  // 2026
-  { id: "h1-2026", title: "New Year's Day", date: "2026-01-01", type: "holiday" },
-  { id: "h2-2026", title: "Republic Day", date: "2026-01-26", type: "holiday" },
-  { id: "h3-2026", title: "Holi", date: "2026-03-04", type: "holiday" },
-  { id: "h4-2026", title: "Independence Day", date: "2026-08-15", type: "holiday" },
-  { id: "h5-2026", title: "Gandhi Jayanti", date: "2026-10-02", type: "holiday" },
-  { id: "h6-2026", title: "Diwali", date: "2026-10-21", type: "holiday" },
-  { id: "h7-2026", title: "Christmas", date: "2026-12-25", type: "holiday" },
-];
-
 const CalendarPage = () => {
+  const { countryCode, countries } = useTimeSettings();
+  const countryName = countries.find(c => c.code === countryCode)?.name ?? "";
+
+  // Country-aware holidays list, recomputed when the user changes their country
+  const allHolidays: Event[] = useMemo(
+    () =>
+      getHolidaysForCountry(countryCode).map((h, i) => ({
+        id: `h-${countryCode}-${i}-${h.date}`,
+        title: h.title,
+        date: h.date,
+        type: "holiday" as const,
+      })),
+    [countryCode]
+  );
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
   const [showAddEvent, setShowAddEvent] = useState(false);
@@ -176,7 +173,7 @@ const CalendarPage = () => {
         return yearMatch && monthMatch;
       })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [selectedYear, selectedMonth]);
+  }, [selectedYear, selectedMonth, allHolidays]);
 
   // Get upcoming holidays (future only, sorted by date)
   const upcomingHolidays = useMemo(() => {
@@ -188,7 +185,7 @@ const CalendarPage = () => {
       })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(0, 5);
-  }, []);
+  }, [allHolidays]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -214,43 +211,57 @@ const CalendarPage = () => {
           {/* Upcoming Holidays Section */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Clock className="w-5 h-5 text-primary" />
-                Upcoming Holidays
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-3 sm:p-6">
-              <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-5">
-                {upcomingHolidays.map((holiday) => {
-                  const daysLeft = getDaysLeft(holiday.date);
-                  const isPast = daysLeft < 0;
-                  const isTodayHoliday = daysLeft === 0;
-                  
-                  return (
-                    <div
-                      key={holiday.id}
-                      className="p-2.5 sm:p-4 rounded-lg sm:rounded-xl border border-warning/30 bg-warning/5 hover:bg-warning/10 transition-colors"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <Star className="w-4 h-4 text-warning" />
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                          isTodayHoliday 
-                            ? 'bg-success/20 text-success' 
-                            : isPast 
-                              ? 'bg-muted text-muted-foreground' 
-                              : 'bg-primary/20 text-primary'
-                        }`}>
-                          {isTodayHoliday ? "Today!" : isPast ? "Passed" : `${daysLeft} days`}
-                        </span>
-                      </div>
-                      <h4 className="font-semibold text-xs sm:text-sm text-foreground line-clamp-2">{holiday.title}</h4>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
-                        {format(new Date(holiday.date), "MMM d, yyyy")}
-                      </p>
-                    </div>
-                  );
-                })}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <Clock className="w-5 h-5 text-primary" />
+                  Upcoming Holidays
+                </CardTitle>
+                {countryName && (
+                  <span className="inline-flex items-center gap-1.5 self-start sm:self-auto px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                    <Globe className="w-3 h-3" />
+                    {countryName}
+                  </span>
+                )}
               </div>
+            </CardHeader>
+            <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+              {upcomingHolidays.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No upcoming public holidays.
+                </p>
+              ) : (
+                <div className="flex gap-2 overflow-x-auto -mx-3 px-3 pb-1 snap-x snap-mandatory sm:mx-0 sm:px-0 sm:pb-0 sm:overflow-visible sm:grid sm:gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  {upcomingHolidays.map((holiday) => {
+                    const daysLeft = getDaysLeft(holiday.date);
+                    const isPast = daysLeft < 0;
+                    const isTodayHoliday = daysLeft === 0;
+
+                    return (
+                      <div
+                        key={holiday.id}
+                        className="shrink-0 snap-start w-[160px] sm:w-auto p-3 sm:p-4 rounded-xl border border-warning/30 bg-warning/5 hover:bg-warning/10 transition-colors"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <Star className="w-4 h-4 text-warning" />
+                          <span className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                            isTodayHoliday
+                              ? 'bg-success/20 text-success'
+                              : isPast
+                                ? 'bg-muted text-muted-foreground'
+                                : 'bg-primary/20 text-primary'
+                          }`}>
+                            {isTodayHoliday ? "Today!" : isPast ? "Passed" : `${daysLeft}d`}
+                          </span>
+                        </div>
+                        <h4 className="font-semibold text-xs sm:text-sm text-foreground line-clamp-2 leading-tight">{holiday.title}</h4>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                          {format(new Date(holiday.date), "MMM d, yyyy")}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -399,15 +410,23 @@ const CalendarPage = () => {
 
         <TabsContent value="holidays" className="mt-6">
           <Card>
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <CardTitle className="flex items-center gap-2">
-                  <Star className="w-5 h-5 text-warning" />
-                  Academic Holidays
-                </CardTitle>
-                <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <CardHeader className="pb-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="flex flex-col gap-1.5 min-w-0">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Star className="w-5 h-5 text-warning shrink-0" />
+                    <span className="truncate">Public Holidays</span>
+                  </CardTitle>
+                  {countryName && (
+                    <span className="inline-flex items-center gap-1.5 self-start px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-medium">
+                      <Globe className="w-3 h-3" />
+                      {countryName}
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto sm:gap-3">
                   <Select value={selectedYear} onValueChange={setSelectedYear}>
-                    <SelectTrigger className="flex-1 sm:w-[120px] sm:flex-none">
+                    <SelectTrigger className="w-full sm:w-[120px] h-9">
                       <SelectValue placeholder="Year" />
                     </SelectTrigger>
                     <SelectContent>
@@ -417,7 +436,7 @@ const CalendarPage = () => {
                     </SelectContent>
                   </Select>
                   <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger className="flex-1 sm:w-[140px] sm:flex-none">
+                    <SelectTrigger className="w-full sm:w-[150px] h-9">
                       <SelectValue placeholder="Month" />
                     </SelectTrigger>
                     <SelectContent>
