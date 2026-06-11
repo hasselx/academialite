@@ -5,6 +5,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const sanitize = (s: string) => s.replace(/[<>"']/g, "").slice(0, 200);
+
+// Allowed origins for verification links — prevents phishing via attacker-controlled URLs
+const ALLOWED_ORIGINS = [
+  "https://academialite.lovable.app",
+  "https://id-preview--a6495585-1eca-485b-8609-4c3fff25d197.lovable.app",
+];
+
 interface VerificationEmailRequest {
   to: string;
   user_name: string;
@@ -12,21 +21,39 @@ interface VerificationEmailRequest {
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  console.log("send-verification-email function called");
-
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const { to, user_name, verification_link }: VerificationEmailRequest = await req.json();
-    
-    // Validate required fields
-    if (!to || !user_name) {
-      throw new Error("Missing required fields: to and user_name are required");
+
+    // Strict input validation
+    if (!to || typeof to !== "string" || !EMAIL_RE.test(to) || to.length > 255) {
+      return new Response(JSON.stringify({ error: "Invalid email" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
-    
-    console.log(`Sending verification email to: ${to}, user: ${user_name}`);
+    if (!user_name || typeof user_name !== "string" || user_name.length > 100) {
+      return new Response(JSON.stringify({ error: "Invalid name" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    // Validate verification_link is one of our trusted origins (prevents phishing relay)
+    let safeLink = "https://academialite.lovable.app/auth";
+    if (verification_link && typeof verification_link === "string") {
+      try {
+        const parsed = new URL(verification_link);
+        if (ALLOWED_ORIGINS.includes(parsed.origin)) {
+          safeLink = parsed.toString();
+        }
+      } catch {
+        // ignore invalid URL, fall back to default
+      }
+    }
 
     const EMAILJS_SERVICE_ID = Deno.env.get("EMAILJS_SERVICE_ID");
     const EMAILJS_TEMPLATE_ID = Deno.env.get("EMAILJS_TEMPLATE_ID");
@@ -34,75 +61,61 @@ const handler = async (req: Request): Promise<Response> => {
     const EMAILJS_PRIVATE_KEY = Deno.env.get("EMAILJS_PRIVATE_KEY");
 
     if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY || !EMAILJS_PRIVATE_KEY) {
-      console.error("Missing EmailJS configuration");
       throw new Error("Email configuration is incomplete");
     }
 
-    const emailjsUrl = "https://api.emailjs.com/api/v1.0/email/send";
+    const safeName = sanitize(user_name);
 
-    // Template params matching the reminder template structure but with welcome content
     const templateParams = {
       email: to,
       to_email: to,
-      reminder_title: `Welcome to Academia, ${user_name}!`,
+      reminder_title: `Welcome to Academia, ${safeName}!`,
       reminder_type: "Account Verification",
-      due_date: new Date().toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
+      due_date: new Date().toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
       }),
       priority_level: "Important",
       priority_icon: "✉️",
-      description: `Your account has been created successfully. Please click the link below to verify your email and start using Academia.\n\nVerification Link: ${verification_link}`,
+      description: `Your account has been created successfully. Please click the link below to verify your email and start using Academia.\n\nVerification Link: ${safeLink}`,
       timing_text: "🎉 Welcome to Academia!",
-      settings_link: verification_link,
+      settings_link: safeLink,
     };
 
-    const emailPayload = {
-      service_id: EMAILJS_SERVICE_ID,
-      template_id: EMAILJS_TEMPLATE_ID,
-      user_id: EMAILJS_PUBLIC_KEY,
-      accessToken: EMAILJS_PRIVATE_KEY,
-      template_params: templateParams,
-    };
-
-    console.log("Sending to EmailJS with payload:", JSON.stringify({ ...emailPayload, accessToken: "[REDACTED]" }));
-
-    const response = await fetch(emailjsUrl, {
+    const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Origin": "https://academialite.lovable.app",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       },
-      body: JSON.stringify(emailPayload),
+      body: JSON.stringify({
+        service_id: EMAILJS_SERVICE_ID,
+        template_id: EMAILJS_TEMPLATE_ID,
+        user_id: EMAILJS_PUBLIC_KEY,
+        accessToken: EMAILJS_PRIVATE_KEY,
+        template_params: templateParams,
+      }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error("EmailJS error:", errorText);
-      throw new Error(`EmailJS failed: ${errorText}`);
+      throw new Error("Email send failed");
     }
 
-    console.log("Verification email sent successfully via EmailJS");
-
-    return new Response(
-      JSON.stringify({ success: true }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
-    );
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
   } catch (error: any) {
     console.error("Error sending verification email:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
-    );
+    return new Response(JSON.stringify({ error: "Failed to send email" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
   }
 };
 

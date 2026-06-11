@@ -17,6 +17,16 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Require shared secret — only the trusted cron job should invoke this endpoint
+  const cronSecret = req.headers.get("x-cron-secret");
+  const expected = Deno.env.get("CRON_SECRET");
+  if (!expected || cronSecret !== expected) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
+  }
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -221,8 +231,7 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ 
         success: true, 
         checked: reminders?.length || 0,
-        emailsSent: emailsSent.length,
-        details: emailsSent 
+        emailsSent: emailsSent.length
       }),
       {
         status: 200,
