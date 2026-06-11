@@ -20,6 +20,21 @@ interface Event {
 }
 
 const CalendarPage = () => {
+  const { countryCode, countries } = useTimeSettings();
+  const countryName = countries.find(c => c.code === countryCode)?.name ?? "";
+
+  // Country-aware holidays list, recomputed when the user changes their country
+  const allHolidays: Event[] = useMemo(
+    () =>
+      getHolidaysForCountry(countryCode).map((h, i) => ({
+        id: `h-${countryCode}-${i}-${h.date}`,
+        title: h.title,
+        date: h.date,
+        type: "holiday" as const,
+      })),
+    [countryCode]
+  );
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
   const [showAddEvent, setShowAddEvent] = useState(false);
