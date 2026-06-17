@@ -446,8 +446,9 @@ const Expenses = () => {
           category,
           amount: parseFloat(amount),
           description: description || null,
-          date: format(expenseDate, 'yyyy-MM-dd')
-        })
+          date: format(expenseDate, 'yyyy-MM-dd'),
+          type: transactionType
+        } as any)
         .select()
         .single();
 
@@ -458,7 +459,8 @@ const Expenses = () => {
         category: data.category,
         amount: Number(data.amount),
         description: data.description || '',
-        date: data.date
+        date: data.date,
+        type: ((data as any).type as TxType) || transactionType
       }, ...expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
 
       resetForm();
@@ -631,8 +633,9 @@ const Expenses = () => {
           description: description || null,
           frequency: recurringFrequency,
           day_of_month: dayValue,
-          is_active: true
-        })
+          is_active: true,
+          type: transactionType
+        } as any)
         .select()
         .single();
 
@@ -646,7 +649,8 @@ const Expenses = () => {
         frequency: data.frequency,
         day_of_month: data.day_of_month,
         is_active: data.is_active,
-        last_generated: data.last_generated
+        last_generated: data.last_generated,
+        type: ((data as any).type as TxType) || transactionType
       }, ...recurringExpenses]);
 
       resetForm();
