@@ -81,6 +81,10 @@ const HistoryPage = () => {
   const [editingSemester, setEditingSemester] = useState<Semester | null>(null);
   const [editSgpa, setEditSgpa] = useState("");
   const [editCredits, setEditCredits] = useState("");
+  const [addingSemester, setAddingSemester] = useState(false);
+  const [addSgpa, setAddSgpa] = useState("");
+  const [addCredits, setAddCredits] = useState("");
+  const [addingSaving, setAddingSaving] = useState(false);
   const [expandedSemester, setExpandedSemester] = useState<string | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const analysisContentRef = useRef<HTMLDivElement>(null);
@@ -442,6 +446,60 @@ const HistoryPage = () => {
       });
     }
   };
+
+  const handleAddSemester = async () => {
+    if (!user || !selectedRecord) {
+      toast({ title: "No record selected", description: "Select a CGPA record first.", variant: "destructive" });
+      return;
+    }
+    const nextSgpa = parseFloat(addSgpa);
+    const nextCredits = parseInt(addCredits);
+    if (isNaN(nextSgpa) || nextSgpa < 0 || nextSgpa > 10 || isNaN(nextCredits) || nextCredits <= 0) {
+      toast({ title: "Invalid input", description: "Enter SGPA (0-10) and credits (>0).", variant: "destructive" });
+      return;
+    }
+    try {
+      setAddingSaving(true);
+      const name = `Semester ${selectedRecord.semesters.length + 1}`;
+      const recordId = selectedRecord.id === 'legacy' ? null : selectedRecord.id;
+      const { data, error } = await supabase
+        .from('semesters')
+        .insert({
+          user_id: user.id,
+          record_id: recordId,
+          name,
+          sgpa: nextSgpa,
+          credits: nextCredits,
+        })
+        .select('id, name, sgpa, credits, created_at, record_id')
+        .single();
+      if (error) throw error;
+
+      const newSem: Semester = {
+        id: data.id,
+        name: data.name,
+        sgpa: Number(data.sgpa),
+        credits: data.credits,
+        created_at: data.created_at,
+        record_id: data.record_id,
+        courses: [],
+      };
+      setCgpaRecords((prev) =>
+        prev.map((r) =>
+          r.id === selectedRecord.id ? { ...r, semesters: [...r.semesters, newSem] } : r
+        )
+      );
+      setAddingSemester(false);
+      setAddSgpa("");
+      setAddCredits("");
+      toast({ title: "Semester added", description: `${name} added successfully.` });
+    } catch (error: any) {
+      toast({ title: "Error adding", description: error.message, variant: "destructive" });
+    } finally {
+      setAddingSaving(false);
+    }
+  };
+
 
   const getAttendanceStatus = (attended: number, total: number, required: number) => {
     const percentage = (attended / total) * 100;
@@ -892,7 +950,12 @@ const HistoryPage = () => {
                   <Calculator className="w-5 h-5" />
                   Semester-wise Breakdown
                 </CardTitle>
-                <Button size="sm" className="bg-success hover:bg-success/90 w-full sm:w-auto">
+                <Button
+                  size="sm"
+                  className="bg-success hover:bg-success/90 w-full sm:w-auto"
+                  onClick={() => setAddingSemester(true)}
+                  disabled={!selectedRecord}
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Add New Semester
                 </Button>
@@ -1033,6 +1096,47 @@ const HistoryPage = () => {
                 Save Changes
               </Button>
               <Button variant="outline" onClick={() => setEditingSemester(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Semester Dialog */}
+      <Dialog open={addingSemester} onOpenChange={(open) => { if (!open) { setAddingSemester(false); setAddSgpa(""); setAddCredits(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Semester {selectedRecord ? selectedRecord.semesters.length + 1 : ""}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">SGPA</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                max="10"
+                placeholder="0 - 10"
+                value={addSgpa}
+                onChange={(e) => setAddSgpa(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Credits</label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="e.g., 20"
+                value={addCredits}
+                onChange={(e) => setAddCredits(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleAddSemester} disabled={addingSaving} className="flex-1 gradient-primary">
+                {addingSaving ? "Adding..." : "Add Semester"}
+              </Button>
+              <Button variant="outline" onClick={() => setAddingSemester(false)}>
                 Cancel
               </Button>
             </div>
