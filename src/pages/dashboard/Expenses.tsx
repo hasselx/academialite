@@ -1892,6 +1892,16 @@ const Expenses = () => {
               <SelectItem value="all">All Time</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={filterType} onValueChange={(v) => setFilterType(v as any)}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="income">+ Income</SelectItem>
+              <SelectItem value="expense">− Expense</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={filterCategory} onValueChange={setFilterCategory}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="All Categories" />
@@ -1905,21 +1915,25 @@ const Expenses = () => {
               ))}
             </SelectContent>
           </Select>
-          {(filterCategory !== "all" || filterPeriod !== "month") && (
+          {(filterCategory !== "all" || filterPeriod !== "month" || filterType !== "all") && (
             <Button 
               variant="ghost" 
               size="sm"
               onClick={() => {
                 setFilterCategory("all");
                 setFilterPeriod("month");
+                setFilterType("all");
               }}
             >
               Clear Filters
             </Button>
           )}
-          <div className="ml-auto text-sm text-muted-foreground">
-            Showing: {formatCurrency(filteredTotal)} ({filteredExpenses.length} transactions)
+          <div className="ml-auto text-sm text-muted-foreground flex flex-wrap gap-x-3">
+            <span className="text-[#2d6a4f] font-medium">+{formatCurrency(filteredIncomeTotal)}</span>
+            <span className="text-[#d62828] font-medium">−{formatCurrency(filteredExpenseTotal)}</span>
+            <span>({filteredExpenses.length} txn)</span>
           </div>
+
         </div>
       </Card>
 
@@ -2032,11 +2046,11 @@ const Expenses = () => {
                       <div 
                         className="text-sm font-bold px-2 py-1 rounded-lg"
                         style={{ 
-                          color: catInfo.color,
-                          backgroundColor: `${catInfo.color}15`
+                          color: expense.type === 'income' ? INCOME_COLOR : EXPENSE_COLOR,
+                          backgroundColor: expense.type === 'income' ? `${INCOME_COLOR}15` : `${EXPENSE_COLOR}15`
                         }}
                       >
-                        {formatCurrency(expense.amount)}
+                        {expense.type === 'income' ? '+' : '−'}{formatCurrency(expense.amount)}
                       </div>
                       <div className="flex items-center">
                         <Button
