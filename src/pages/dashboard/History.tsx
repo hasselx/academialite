@@ -447,6 +447,60 @@ const HistoryPage = () => {
     }
   };
 
+  const handleAddSemester = async () => {
+    if (!user || !selectedRecord) {
+      toast({ title: "No record selected", description: "Select a CGPA record first.", variant: "destructive" });
+      return;
+    }
+    const nextSgpa = parseFloat(addSgpa);
+    const nextCredits = parseInt(addCredits);
+    if (isNaN(nextSgpa) || nextSgpa < 0 || nextSgpa > 10 || isNaN(nextCredits) || nextCredits <= 0) {
+      toast({ title: "Invalid input", description: "Enter SGPA (0-10) and credits (>0).", variant: "destructive" });
+      return;
+    }
+    try {
+      setAddingSaving(true);
+      const name = `Semester ${selectedRecord.semesters.length + 1}`;
+      const recordId = selectedRecord.id === 'legacy' ? null : selectedRecord.id;
+      const { data, error } = await supabase
+        .from('semesters')
+        .insert({
+          user_id: user.id,
+          record_id: recordId,
+          name,
+          sgpa: nextSgpa,
+          credits: nextCredits,
+        })
+        .select('id, name, sgpa, credits, created_at, record_id')
+        .single();
+      if (error) throw error;
+
+      const newSem: Semester = {
+        id: data.id,
+        name: data.name,
+        sgpa: Number(data.sgpa),
+        credits: data.credits,
+        created_at: data.created_at,
+        record_id: data.record_id,
+        courses: [],
+      };
+      setCgpaRecords((prev) =>
+        prev.map((r) =>
+          r.id === selectedRecord.id ? { ...r, semesters: [...r.semesters, newSem] } : r
+        )
+      );
+      setAddingSemester(false);
+      setAddSgpa("");
+      setAddCredits("");
+      toast({ title: "Semester added", description: `${name} added successfully.` });
+    } catch (error: any) {
+      toast({ title: "Error adding", description: error.message, variant: "destructive" });
+    } finally {
+      setAddingSaving(false);
+    }
+  };
+
+
   const getAttendanceStatus = (attended: number, total: number, required: number) => {
     const percentage = (attended / total) * 100;
     if (percentage >= required) return { label: "safe", color: "text-success", bg: "border-success" };
