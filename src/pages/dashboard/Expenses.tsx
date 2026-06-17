@@ -1706,9 +1706,76 @@ const Expenses = () => {
         </div>
       </div>
 
-      {/* Budget & Stats Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Monthly Budget */}
+      {/* Income / Expense two-column summary */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Income */}
+        <Card className="relative overflow-hidden border-2 border-[#2d6a4f]/40 bg-[#2d6a4f]/10 backdrop-blur-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-9 h-9 rounded-lg bg-[#2d6a4f]/20 flex items-center justify-center border border-[#2d6a4f]/30 shrink-0">
+                <TrendingUp className="w-5 h-5 text-[#2d6a4f]" />
+              </div>
+              <div className="text-xs font-medium text-[#2d6a4f] uppercase tracking-wide">Income</div>
+            </div>
+            <div className="text-xl sm:text-2xl font-bold text-[#2d6a4f] truncate">
+              +{formatCurrency(currentMonthIncomeTotal)}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1">
+              {currentMonthIncome.length} {currentMonthIncome.length === 1 ? 'entry' : 'entries'} this month
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Expense */}
+        <Card className="relative overflow-hidden border-2 border-[#d62828]/40 bg-[#d62828]/10 backdrop-blur-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-9 h-9 rounded-lg bg-[#d62828]/20 flex items-center justify-center border border-[#d62828]/30 shrink-0">
+                <ArrowDownCircle className="w-5 h-5 text-[#d62828]" />
+              </div>
+              <div className="text-xs font-medium text-[#d62828] uppercase tracking-wide">Expense</div>
+            </div>
+            <div className="text-xl sm:text-2xl font-bold text-[#d62828] truncate">
+              −{formatCurrency(currentMonthTotal)}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1">
+              {currentMonthExpenses.length} {currentMonthExpenses.length === 1 ? 'entry' : 'entries'} this month
+              {previousMonthTotal > 0 && (
+                <span className={`ml-1 font-semibold ${expenseChangePercent > 0 ? 'text-[#d62828]' : 'text-[#2d6a4f]'}`}>
+                  · {expenseChangePercent > 0 ? '↑' : '↓'}{Math.abs(expenseChangePercent).toFixed(0)}%
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Net & Budget Row */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Net Balance */}
+        <Card className={`relative overflow-hidden border-2 ${
+          netBalance >= 0 ? 'border-[#2d6a4f]/40 bg-[#2d6a4f]/5' : 'border-[#d62828]/40 bg-[#d62828]/5'
+        } backdrop-blur-sm`}>
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border ${
+                netBalance >= 0 ? 'bg-[#2d6a4f]/20 border-[#2d6a4f]/30' : 'bg-[#d62828]/20 border-[#d62828]/30'
+              }`}>
+                <DollarSign className={`w-5 h-5 ${netBalance >= 0 ? 'text-[#2d6a4f]' : 'text-[#d62828]'}`} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className={`text-xl sm:text-2xl font-bold truncate ${
+                  netBalance >= 0 ? 'text-[#2d6a4f]' : 'text-[#d62828]'
+                }`}>
+                  {netBalance >= 0 ? '+' : '−'}{formatCurrency(Math.abs(netBalance))}
+                </div>
+                <div className="text-xs text-muted-foreground">Net Balance</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Budget */}
         <Card className="relative overflow-hidden border-2 border-border/50 bg-card/80 backdrop-blur-sm">
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
@@ -1724,108 +1791,8 @@ const Expenses = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* This Month's Expenses */}
-        <Card className="relative overflow-hidden border-2 border-border/50 bg-card/80 backdrop-blur-sm">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <div className="relative w-10 h-10 shrink-0">
-                <div className="w-10 h-10 rounded-lg bg-[#d62828]/20 flex items-center justify-center border border-[#d62828]/30">
-                  <ArrowDownCircle className="w-5 h-5 text-[#d62828]" />
-                </div>
-                {previousMonthTotal > 0 && (
-                  <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold border-2 border-card ${
-                    expenseChangePercent > 0 ? 'bg-[#d62828] text-white' : 'bg-[#2d6a4f] text-white'
-                  }`}>
-                    {expenseChangePercent > 0 ? '↑' : '↓'}
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-xl sm:text-2xl font-bold text-foreground truncate">
-                  {formatCurrency(currentMonthTotal)}
-                </div>
-                <div className="text-xs text-muted-foreground">This Month's Expenses</div>
-                {previousMonthTotal > 0 && (
-                  <div className={`text-xs font-semibold mt-1 flex items-center gap-1 ${
-                    expenseChangePercent > 0 ? 'text-[#d62828]' : 'text-[#2d6a4f]'
-                  }`}>
-                    <span className={`inline-flex items-center justify-center w-4 h-4 rounded ${
-                      expenseChangePercent > 0 ? 'bg-[#d62828]/20' : 'bg-[#2d6a4f]/20'
-                    }`}>
-                      {expenseChangePercent > 0 ? '↑' : '↓'}
-                    </span>
-                    {expenseChangePercent > 0 ? '+' : ''}{expenseChangePercent.toFixed(1)}% vs last month
-                  </div>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Remaining/Balance */}
-        <Card className={`relative overflow-hidden border-2 ${
-          balance >= 0 ? 'border-[#2d6a4f]/40 bg-[#2d6a4f]/10' : 'border-[#d62828]/40 bg-[#d62828]/10'
-        } backdrop-blur-sm`}>
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border ${
-                balance >= 0 ? 'bg-[#2d6a4f]/20 border-[#2d6a4f]/30' : 'bg-[#d62828]/20 border-[#d62828]/30'
-              }`}>
-                <DollarSign className={`w-5 h-5 ${balance >= 0 ? 'text-[#2d6a4f]' : 'text-[#d62828]'}`} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className={`text-xl sm:text-2xl font-bold truncate ${
-                  balance >= 0 ? 'text-[#2d6a4f]' : 'text-[#d62828]'
-                }`}>
-                  {monthlyBudget > 0 ? formatCurrency(Math.abs(balance)) : "—"}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {balance >= 0 ? "Remaining" : "Over Budget"}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Transactions */}
-        <Card className="relative overflow-hidden border-2 border-border/50 bg-card/80 backdrop-blur-sm">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <div className="relative w-10 h-10 shrink-0">
-                <div className="w-10 h-10 rounded-lg bg-[#ffb703]/20 flex items-center justify-center border border-[#ffb703]/30">
-                  <TrendingUp className="w-5 h-5 text-[#ffb703]" />
-                </div>
-                {previousMonthExpenses.length > 0 && (
-                  <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold border-2 border-card ${
-                    transactionChangePercent > 0 ? 'bg-[#ffb703] text-black' : 'bg-muted text-muted-foreground'
-                  }`}>
-                    {transactionChangePercent > 0 ? '↑' : '↓'}
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-xl sm:text-2xl font-bold text-foreground">
-                  {currentMonthExpenses.length}
-                </div>
-                <div className="text-xs text-muted-foreground">Transactions This Month</div>
-                {previousMonthExpenses.length > 0 && (
-                  <div className={`text-xs font-semibold mt-1 flex items-center gap-1 ${
-                    transactionChangePercent > 0 ? 'text-[#ffb703]' : 'text-muted-foreground'
-                  }`}>
-                    <span className={`inline-flex items-center justify-center w-4 h-4 rounded ${
-                      transactionChangePercent > 0 ? 'bg-[#ffb703]/20' : 'bg-muted/30'
-                    }`}>
-                      {transactionChangePercent > 0 ? '↑' : '↓'}
-                    </span>
-                    {transactionChangePercent > 0 ? '+' : ''}{transactionChangePercent.toFixed(1)}% vs last month
-                  </div>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
+
 
       {/* Budget Progress Bar */}
       {monthlyBudget > 0 && (
