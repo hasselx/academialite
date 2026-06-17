@@ -339,59 +339,70 @@ const Expenses = () => {
     }
   }, [recurringExpenses.length]);
 
-  // Filter expenses based on category and period
+  // Filter expenses based on category, period, and type
   const filteredExpenses = useMemo(() => {
     const now = new Date();
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
 
     return expenses.filter(expense => {
-      // Category filter
+      if (filterType !== "all" && expense.type !== filterType) return false;
       if (filterCategory !== "all" && expense.category !== filterCategory) {
         return false;
       }
-
-      // Period filter
       if (filterPeriod === "month") {
         const expenseDate = parseISO(expense.date);
         return isWithinInterval(expenseDate, { start: monthStart, end: monthEnd });
       }
-
       return true;
     });
-  }, [expenses, filterCategory, filterPeriod]);
+  }, [expenses, filterCategory, filterPeriod, filterType]);
 
-  // Current month expenses for stats
-  const currentMonthExpenses = useMemo(() => {
+  // Current month transactions for stats
+  const currentMonthAll = useMemo(() => {
     const now = new Date();
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
-
     return expenses.filter(expense => {
       const expenseDate = parseISO(expense.date);
       return isWithinInterval(expenseDate, { start: monthStart, end: monthEnd });
     });
   }, [expenses]);
 
-  // Previous month expenses for comparison
-  const previousMonthExpenses = useMemo(() => {
+  const currentMonthExpenses = useMemo(
+    () => currentMonthAll.filter(e => e.type === 'expense'),
+    [currentMonthAll]
+  );
+  const currentMonthIncome = useMemo(
+    () => currentMonthAll.filter(e => e.type === 'income'),
+    [currentMonthAll]
+  );
+
+  // Previous month for comparison
+  const previousMonthAll = useMemo(() => {
     const now = new Date();
     const prevMonth = subMonths(now, 1);
     const monthStart = startOfMonth(prevMonth);
     const monthEnd = endOfMonth(prevMonth);
-
     return expenses.filter(expense => {
       const expenseDate = parseISO(expense.date);
       return isWithinInterval(expenseDate, { start: monthStart, end: monthEnd });
     });
   }, [expenses]);
+  const previousMonthExpenses = useMemo(
+    () => previousMonthAll.filter(e => e.type === 'expense'),
+    [previousMonthAll]
+  );
 
   const currentMonthTotal = currentMonthExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const currentMonthIncomeTotal = currentMonthIncome.reduce((sum, exp) => sum + exp.amount, 0);
+  const netBalance = currentMonthIncomeTotal - currentMonthTotal;
   const previousMonthTotal = previousMonthExpenses.reduce((sum, exp) => sum + exp.amount, 0);
   const filteredTotal = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const filteredIncomeTotal = filteredExpenses.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
+  const filteredExpenseTotal = filteredExpenses.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
   const balance = monthlyBudget - currentMonthTotal;
 
-  // Calculate percentage changes
   const expenseChangePercent = previousMonthTotal > 0 
     ? ((currentMonthTotal - previousMonthTotal) / previousMonthTotal) * 100 
     : 0;
@@ -401,22 +412,23 @@ const Expenses = () => {
 
   const getCategoryData = () => {
     const categoryTotals: { [key: string]: number } = {};
-    
-    filteredExpenses.forEach(exp => {
+    // Pie chart shows EXPENSES only
+    filteredExpenses.filter(e => e.type === 'expense').forEach(exp => {
       categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + exp.amount;
     });
-
+    const total = Object.values(categoryTotals).reduce((s, v) => s + v, 0);
     return categories
       .filter(cat => categoryTotals[cat.value])
       .map(cat => ({
         name: cat.label,
         value: categoryTotals[cat.value],
         color: cat.color,
-        percentage: filteredTotal > 0 ? ((categoryTotals[cat.value] / filteredTotal) * 100).toFixed(1) : "0"
+        percentage: total > 0 ? ((categoryTotals[cat.value] / total) * 100).toFixed(1) : "0"
       }));
   };
 
   const pieData = getCategoryData();
+
 
   const resetForm = () => {
     setCategory("");
