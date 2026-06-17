@@ -206,7 +206,8 @@ const Expenses = () => {
         frequency: r.frequency,
         day_of_month: r.day_of_month,
         is_active: r.is_active,
-        last_generated: r.last_generated
+        last_generated: r.last_generated,
+        type: ((r as any).type as TxType) || 'expense'
       })) || []);
     } catch (error: any) {
       console.error('Error fetching recurring expenses:', error);
@@ -230,7 +231,8 @@ const Expenses = () => {
         category: e.category,
         amount: Number(e.amount),
         description: e.description || '',
-        date: e.date
+        date: e.date,
+        type: ((e as any).type as TxType) || 'expense'
       })) || []);
     } catch (error: any) {
       toast({
