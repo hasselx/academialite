@@ -130,6 +130,8 @@ const Expenses = () => {
   const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterPeriod, setFilterPeriod] = useState<string>("month");
+  const [filterType, setFilterType] = useState<"all" | TxType>("all");
+  const [transactionType, setTransactionType] = useState<TxType>("expense");
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [monthlyBudget, setMonthlyBudget] = useState<number>(() => {
     const saved = localStorage.getItem('monthlyBudget');
