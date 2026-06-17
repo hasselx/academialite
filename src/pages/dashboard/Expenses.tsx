@@ -1596,6 +1596,7 @@ const Expenses = () => {
                     </Button>
                   </div>
                 </div>
+                <div>
                   <label className="font-medium mb-2 block">Category</label>
                   <Select value={category} onValueChange={setCategory}>
                     <SelectTrigger>
