@@ -27,12 +27,15 @@ const frequencies = [
   { value: "yearly", label: "Yearly" },
 ];
 
+type TxType = "income" | "expense";
+
 interface Expense {
   id: string;
   category: string;
   amount: number;
   description: string;
   date: string;
+  type: TxType;
 }
 
 interface RecurringExpense {
@@ -44,7 +47,11 @@ interface RecurringExpense {
   day_of_month: number;
   is_active: boolean;
   last_generated: string | null;
+  type: TxType;
 }
+
+const INCOME_COLOR = "#2d6a4f";
+const EXPENSE_COLOR = "#d62828";
 
 interface Category {
   value: string;
@@ -123,6 +130,8 @@ const Expenses = () => {
   const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterPeriod, setFilterPeriod] = useState<string>("month");
+  const [filterType, setFilterType] = useState<"all" | TxType>("all");
+  const [transactionType, setTransactionType] = useState<TxType>("expense");
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [monthlyBudget, setMonthlyBudget] = useState<number>(() => {
     const saved = localStorage.getItem('monthlyBudget');
@@ -199,7 +208,8 @@ const Expenses = () => {
         frequency: r.frequency,
         day_of_month: r.day_of_month,
         is_active: r.is_active,
-        last_generated: r.last_generated
+        last_generated: r.last_generated,
+        type: ((r as any).type as TxType) || 'expense'
       })) || []);
     } catch (error: any) {
       console.error('Error fetching recurring expenses:', error);
@@ -223,7 +233,8 @@ const Expenses = () => {
         category: e.category,
         amount: Number(e.amount),
         description: e.description || '',
-        date: e.date
+        date: e.date,
+        type: ((e as any).type as TxType) || 'expense'
       })) || []);
     } catch (error: any) {
       toast({
@@ -292,8 +303,9 @@ const Expenses = () => {
               category: recurring.category,
               amount: recurring.amount,
               description: `${recurring.description || ''} (Recurring)`.trim(),
-              date: format(expenseDate, 'yyyy-MM-dd')
-            });
+              date: format(expenseDate, 'yyyy-MM-dd'),
+              type: recurring.type
+            } as any);
 
           if (insertError) throw insertError;
 
@@ -327,59 +339,70 @@ const Expenses = () => {
     }
   }, [recurringExpenses.length]);
 
-  // Filter expenses based on category and period
+  // Filter expenses based on category, period, and type
   const filteredExpenses = useMemo(() => {
     const now = new Date();
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
 
     return expenses.filter(expense => {
-      // Category filter
+      if (filterType !== "all" && expense.type !== filterType) return false;
       if (filterCategory !== "all" && expense.category !== filterCategory) {
         return false;
       }
-
-      // Period filter
       if (filterPeriod === "month") {
         const expenseDate = parseISO(expense.date);
         return isWithinInterval(expenseDate, { start: monthStart, end: monthEnd });
       }
-
       return true;
     });
-  }, [expenses, filterCategory, filterPeriod]);
+  }, [expenses, filterCategory, filterPeriod, filterType]);
 
-  // Current month expenses for stats
-  const currentMonthExpenses = useMemo(() => {
+  // Current month transactions for stats
+  const currentMonthAll = useMemo(() => {
     const now = new Date();
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
-
     return expenses.filter(expense => {
       const expenseDate = parseISO(expense.date);
       return isWithinInterval(expenseDate, { start: monthStart, end: monthEnd });
     });
   }, [expenses]);
 
-  // Previous month expenses for comparison
-  const previousMonthExpenses = useMemo(() => {
+  const currentMonthExpenses = useMemo(
+    () => currentMonthAll.filter(e => e.type === 'expense'),
+    [currentMonthAll]
+  );
+  const currentMonthIncome = useMemo(
+    () => currentMonthAll.filter(e => e.type === 'income'),
+    [currentMonthAll]
+  );
+
+  // Previous month for comparison
+  const previousMonthAll = useMemo(() => {
     const now = new Date();
     const prevMonth = subMonths(now, 1);
     const monthStart = startOfMonth(prevMonth);
     const monthEnd = endOfMonth(prevMonth);
-
     return expenses.filter(expense => {
       const expenseDate = parseISO(expense.date);
       return isWithinInterval(expenseDate, { start: monthStart, end: monthEnd });
     });
   }, [expenses]);
+  const previousMonthExpenses = useMemo(
+    () => previousMonthAll.filter(e => e.type === 'expense'),
+    [previousMonthAll]
+  );
 
   const currentMonthTotal = currentMonthExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const currentMonthIncomeTotal = currentMonthIncome.reduce((sum, exp) => sum + exp.amount, 0);
+  const netBalance = currentMonthIncomeTotal - currentMonthTotal;
   const previousMonthTotal = previousMonthExpenses.reduce((sum, exp) => sum + exp.amount, 0);
   const filteredTotal = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const filteredIncomeTotal = filteredExpenses.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
+  const filteredExpenseTotal = filteredExpenses.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
   const balance = monthlyBudget - currentMonthTotal;
 
-  // Calculate percentage changes
   const expenseChangePercent = previousMonthTotal > 0 
     ? ((currentMonthTotal - previousMonthTotal) / previousMonthTotal) * 100 
     : 0;
@@ -389,22 +412,23 @@ const Expenses = () => {
 
   const getCategoryData = () => {
     const categoryTotals: { [key: string]: number } = {};
-    
-    filteredExpenses.forEach(exp => {
+    // Pie chart shows EXPENSES only
+    filteredExpenses.filter(e => e.type === 'expense').forEach(exp => {
       categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + exp.amount;
     });
-
+    const total = Object.values(categoryTotals).reduce((s, v) => s + v, 0);
     return categories
       .filter(cat => categoryTotals[cat.value])
       .map(cat => ({
         name: cat.label,
         value: categoryTotals[cat.value],
         color: cat.color,
-        percentage: filteredTotal > 0 ? ((categoryTotals[cat.value] / filteredTotal) * 100).toFixed(1) : "0"
+        percentage: total > 0 ? ((categoryTotals[cat.value] / total) * 100).toFixed(1) : "0"
       }));
   };
 
   const pieData = getCategoryData();
+
 
   const resetForm = () => {
     setCategory("");
@@ -415,6 +439,7 @@ const Expenses = () => {
     setRecurringFrequency("monthly");
     setRecurringDayOfWeek("1");
     setRecurringMonth("1");
+    setTransactionType("expense");
   };
 
   const handleAddExpense = async () => {
@@ -435,8 +460,9 @@ const Expenses = () => {
           category,
           amount: parseFloat(amount),
           description: description || null,
-          date: format(expenseDate, 'yyyy-MM-dd')
-        })
+          date: format(expenseDate, 'yyyy-MM-dd'),
+          type: transactionType
+        } as any)
         .select()
         .single();
 
@@ -447,7 +473,8 @@ const Expenses = () => {
         category: data.category,
         amount: Number(data.amount),
         description: data.description || '',
-        date: data.date
+        date: data.date,
+        type: ((data as any).type as TxType) || transactionType
       }, ...expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
 
       resetForm();
@@ -472,6 +499,7 @@ const Expenses = () => {
     setAmount(expense.amount.toString());
     setDescription(expense.description);
     setExpenseDate(parseISO(expense.date));
+    setTransactionType(expense.type);
     setShowEditDialog(true);
   };
 
@@ -492,15 +520,16 @@ const Expenses = () => {
           category,
           amount: parseFloat(amount),
           description: description || null,
-          date: format(expenseDate, 'yyyy-MM-dd')
-        })
+          date: format(expenseDate, 'yyyy-MM-dd'),
+          type: transactionType
+        } as any)
         .eq('id', editingExpense.id);
 
       if (error) throw error;
 
       setExpenses(expenses.map(e => 
         e.id === editingExpense.id 
-          ? { ...e, category, amount: parseFloat(amount), description, date: format(expenseDate, 'yyyy-MM-dd') }
+          ? { ...e, category, amount: parseFloat(amount), description, date: format(expenseDate, 'yyyy-MM-dd'), type: transactionType }
           : e
       ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
 
@@ -620,8 +649,9 @@ const Expenses = () => {
           description: description || null,
           frequency: recurringFrequency,
           day_of_month: dayValue,
-          is_active: true
-        })
+          is_active: true,
+          type: transactionType
+        } as any)
         .select()
         .single();
 
@@ -635,7 +665,8 @@ const Expenses = () => {
         frequency: data.frequency,
         day_of_month: data.day_of_month,
         is_active: data.is_active,
-        last_generated: data.last_generated
+        last_generated: data.last_generated,
+        type: ((data as any).type as TxType) || transactionType
       }, ...recurringExpenses]);
 
       resetForm();
@@ -710,6 +741,7 @@ const Expenses = () => {
     setAmount(recurring.amount.toString());
     setDescription(recurring.description);
     setRecurringFrequency(recurring.frequency);
+    setTransactionType(recurring.type);
     
     if (recurring.frequency === 'weekly') {
       setRecurringDayOfWeek(recurring.day_of_month.toString());
@@ -780,8 +812,9 @@ const Expenses = () => {
           amount: parseFloat(amount),
           description: description || null,
           frequency: recurringFrequency,
-          day_of_month: dayValue
-        })
+          day_of_month: dayValue,
+          type: transactionType
+        } as any)
         .eq('id', editingRecurring.id);
 
       if (error) throw error;
@@ -794,7 +827,8 @@ const Expenses = () => {
               amount: parseFloat(amount), 
               description: description || '', 
               frequency: recurringFrequency, 
-              day_of_month: dayValue 
+              day_of_month: dayValue,
+              type: transactionType
             } 
           : r
       ));
@@ -1025,7 +1059,7 @@ const Expenses = () => {
               </SheetHeader>
               <div className="mt-6">
                 <ExpenseAnalytics 
-                  expenses={expenses} 
+                  expenses={expenses.filter(e => e.type === 'expense')} 
                   categories={categories} 
                   currency={currency} 
                 />
@@ -1170,6 +1204,17 @@ const Expenses = () => {
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
+                <div>
+                  <label className="font-medium mb-2 block">Type</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button type="button" variant={transactionType === 'income' ? 'default' : 'outline'}
+                      className={transactionType === 'income' ? 'bg-[#2d6a4f] hover:bg-[#2d6a4f]/90 text-white' : 'border-[#2d6a4f]/40 text-[#2d6a4f]'}
+                      onClick={() => setTransactionType('income')}>+ Income</Button>
+                    <Button type="button" variant={transactionType === 'expense' ? 'default' : 'outline'}
+                      className={transactionType === 'expense' ? 'bg-[#d62828] hover:bg-[#d62828]/90 text-white' : 'border-[#d62828]/40 text-[#d62828]'}
+                      onClick={() => setTransactionType('expense')}>− Expense</Button>
+                  </div>
+                </div>
                 <div>
                   <label className="font-medium mb-2 block">Category</label>
                   <Select value={category} onValueChange={setCategory}>
@@ -1515,18 +1560,53 @@ const Expenses = () => {
               </div>
             </DialogContent>
           </Dialog>
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+          <Dialog open={showAddDialog} onOpenChange={(open) => {
+            setShowAddDialog(open);
+            if (!open) resetForm();
+          }}>
             <DialogTrigger asChild>
-              <Button className="gradient-primary">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Expense
+              <Button
+                variant="outline"
+                className="border-[#2d6a4f]/40 text-[#2d6a4f] hover:bg-[#2d6a4f]/10"
+                onClick={() => setTransactionType('income')}
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Income
               </Button>
             </DialogTrigger>
+            <Button
+              className="gradient-primary"
+              onClick={() => { setTransactionType('expense'); setShowAddDialog(true); }}
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Expense
+            </Button>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add New Expense</DialogTitle>
+                <DialogTitle>Add {transactionType === 'income' ? 'Income' : 'Expense'}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
+                <div>
+                  <label className="font-medium mb-2 block">Type</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={transactionType === 'income' ? 'default' : 'outline'}
+                      className={transactionType === 'income' ? 'bg-[#2d6a4f] hover:bg-[#2d6a4f]/90 text-white' : 'border-[#2d6a4f]/40 text-[#2d6a4f]'}
+                      onClick={() => setTransactionType('income')}
+                    >
+                      + Income
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={transactionType === 'expense' ? 'default' : 'outline'}
+                      className={transactionType === 'expense' ? 'bg-[#d62828] hover:bg-[#d62828]/90 text-white' : 'border-[#d62828]/40 text-[#d62828]'}
+                      onClick={() => setTransactionType('expense')}
+                    >
+                      − Expense
+                    </Button>
+                  </div>
+                </div>
                 <div>
                   <label className="font-medium mb-2 block">Category</label>
                   <Select value={category} onValueChange={setCategory}>
@@ -1602,9 +1682,20 @@ const Expenses = () => {
           }}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Edit Expense</DialogTitle>
+                <DialogTitle>Edit {transactionType === 'income' ? 'Income' : 'Expense'}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
+                <div>
+                  <label className="font-medium mb-2 block">Type</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button type="button" variant={transactionType === 'income' ? 'default' : 'outline'}
+                      className={transactionType === 'income' ? 'bg-[#2d6a4f] hover:bg-[#2d6a4f]/90 text-white' : 'border-[#2d6a4f]/40 text-[#2d6a4f]'}
+                      onClick={() => setTransactionType('income')}>+ Income</Button>
+                    <Button type="button" variant={transactionType === 'expense' ? 'default' : 'outline'}
+                      className={transactionType === 'expense' ? 'bg-[#d62828] hover:bg-[#d62828]/90 text-white' : 'border-[#d62828]/40 text-[#d62828]'}
+                      onClick={() => setTransactionType('expense')}>− Expense</Button>
+                  </div>
+                </div>
                 <div>
                   <label className="font-medium mb-2 block">Category</label>
                   <Select value={category} onValueChange={setCategory}>
@@ -1672,9 +1763,76 @@ const Expenses = () => {
         </div>
       </div>
 
-      {/* Budget & Stats Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Monthly Budget */}
+      {/* Income / Expense two-column summary */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Income */}
+        <Card className="relative overflow-hidden border-2 border-[#2d6a4f]/40 bg-[#2d6a4f]/10 backdrop-blur-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-9 h-9 rounded-lg bg-[#2d6a4f]/20 flex items-center justify-center border border-[#2d6a4f]/30 shrink-0">
+                <TrendingUp className="w-5 h-5 text-[#2d6a4f]" />
+              </div>
+              <div className="text-xs font-medium text-[#2d6a4f] uppercase tracking-wide">Income</div>
+            </div>
+            <div className="text-xl sm:text-2xl font-bold text-[#2d6a4f] truncate">
+              +{formatCurrency(currentMonthIncomeTotal)}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1">
+              {currentMonthIncome.length} {currentMonthIncome.length === 1 ? 'entry' : 'entries'} this month
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Expense */}
+        <Card className="relative overflow-hidden border-2 border-[#d62828]/40 bg-[#d62828]/10 backdrop-blur-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-9 h-9 rounded-lg bg-[#d62828]/20 flex items-center justify-center border border-[#d62828]/30 shrink-0">
+                <ArrowDownCircle className="w-5 h-5 text-[#d62828]" />
+              </div>
+              <div className="text-xs font-medium text-[#d62828] uppercase tracking-wide">Expense</div>
+            </div>
+            <div className="text-xl sm:text-2xl font-bold text-[#d62828] truncate">
+              −{formatCurrency(currentMonthTotal)}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1">
+              {currentMonthExpenses.length} {currentMonthExpenses.length === 1 ? 'entry' : 'entries'} this month
+              {previousMonthTotal > 0 && (
+                <span className={`ml-1 font-semibold ${expenseChangePercent > 0 ? 'text-[#d62828]' : 'text-[#2d6a4f]'}`}>
+                  · {expenseChangePercent > 0 ? '↑' : '↓'}{Math.abs(expenseChangePercent).toFixed(0)}%
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Net & Budget Row */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Net Balance */}
+        <Card className={`relative overflow-hidden border-2 ${
+          netBalance >= 0 ? 'border-[#2d6a4f]/40 bg-[#2d6a4f]/5' : 'border-[#d62828]/40 bg-[#d62828]/5'
+        } backdrop-blur-sm`}>
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border ${
+                netBalance >= 0 ? 'bg-[#2d6a4f]/20 border-[#2d6a4f]/30' : 'bg-[#d62828]/20 border-[#d62828]/30'
+              }`}>
+                <DollarSign className={`w-5 h-5 ${netBalance >= 0 ? 'text-[#2d6a4f]' : 'text-[#d62828]'}`} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className={`text-xl sm:text-2xl font-bold truncate ${
+                  netBalance >= 0 ? 'text-[#2d6a4f]' : 'text-[#d62828]'
+                }`}>
+                  {netBalance >= 0 ? '+' : '−'}{formatCurrency(Math.abs(netBalance))}
+                </div>
+                <div className="text-xs text-muted-foreground">Net Balance</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Budget */}
         <Card className="relative overflow-hidden border-2 border-border/50 bg-card/80 backdrop-blur-sm">
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
@@ -1690,108 +1848,8 @@ const Expenses = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* This Month's Expenses */}
-        <Card className="relative overflow-hidden border-2 border-border/50 bg-card/80 backdrop-blur-sm">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <div className="relative w-10 h-10 shrink-0">
-                <div className="w-10 h-10 rounded-lg bg-[#d62828]/20 flex items-center justify-center border border-[#d62828]/30">
-                  <ArrowDownCircle className="w-5 h-5 text-[#d62828]" />
-                </div>
-                {previousMonthTotal > 0 && (
-                  <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold border-2 border-card ${
-                    expenseChangePercent > 0 ? 'bg-[#d62828] text-white' : 'bg-[#2d6a4f] text-white'
-                  }`}>
-                    {expenseChangePercent > 0 ? '↑' : '↓'}
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-xl sm:text-2xl font-bold text-foreground truncate">
-                  {formatCurrency(currentMonthTotal)}
-                </div>
-                <div className="text-xs text-muted-foreground">This Month's Expenses</div>
-                {previousMonthTotal > 0 && (
-                  <div className={`text-xs font-semibold mt-1 flex items-center gap-1 ${
-                    expenseChangePercent > 0 ? 'text-[#d62828]' : 'text-[#2d6a4f]'
-                  }`}>
-                    <span className={`inline-flex items-center justify-center w-4 h-4 rounded ${
-                      expenseChangePercent > 0 ? 'bg-[#d62828]/20' : 'bg-[#2d6a4f]/20'
-                    }`}>
-                      {expenseChangePercent > 0 ? '↑' : '↓'}
-                    </span>
-                    {expenseChangePercent > 0 ? '+' : ''}{expenseChangePercent.toFixed(1)}% vs last month
-                  </div>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Remaining/Balance */}
-        <Card className={`relative overflow-hidden border-2 ${
-          balance >= 0 ? 'border-[#2d6a4f]/40 bg-[#2d6a4f]/10' : 'border-[#d62828]/40 bg-[#d62828]/10'
-        } backdrop-blur-sm`}>
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border ${
-                balance >= 0 ? 'bg-[#2d6a4f]/20 border-[#2d6a4f]/30' : 'bg-[#d62828]/20 border-[#d62828]/30'
-              }`}>
-                <DollarSign className={`w-5 h-5 ${balance >= 0 ? 'text-[#2d6a4f]' : 'text-[#d62828]'}`} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className={`text-xl sm:text-2xl font-bold truncate ${
-                  balance >= 0 ? 'text-[#2d6a4f]' : 'text-[#d62828]'
-                }`}>
-                  {monthlyBudget > 0 ? formatCurrency(Math.abs(balance)) : "—"}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {balance >= 0 ? "Remaining" : "Over Budget"}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Transactions */}
-        <Card className="relative overflow-hidden border-2 border-border/50 bg-card/80 backdrop-blur-sm">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <div className="relative w-10 h-10 shrink-0">
-                <div className="w-10 h-10 rounded-lg bg-[#ffb703]/20 flex items-center justify-center border border-[#ffb703]/30">
-                  <TrendingUp className="w-5 h-5 text-[#ffb703]" />
-                </div>
-                {previousMonthExpenses.length > 0 && (
-                  <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold border-2 border-card ${
-                    transactionChangePercent > 0 ? 'bg-[#ffb703] text-black' : 'bg-muted text-muted-foreground'
-                  }`}>
-                    {transactionChangePercent > 0 ? '↑' : '↓'}
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-xl sm:text-2xl font-bold text-foreground">
-                  {currentMonthExpenses.length}
-                </div>
-                <div className="text-xs text-muted-foreground">Transactions This Month</div>
-                {previousMonthExpenses.length > 0 && (
-                  <div className={`text-xs font-semibold mt-1 flex items-center gap-1 ${
-                    transactionChangePercent > 0 ? 'text-[#ffb703]' : 'text-muted-foreground'
-                  }`}>
-                    <span className={`inline-flex items-center justify-center w-4 h-4 rounded ${
-                      transactionChangePercent > 0 ? 'bg-[#ffb703]/20' : 'bg-muted/30'
-                    }`}>
-                      {transactionChangePercent > 0 ? '↑' : '↓'}
-                    </span>
-                    {transactionChangePercent > 0 ? '+' : ''}{transactionChangePercent.toFixed(1)}% vs last month
-                  </div>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
+
 
       {/* Budget Progress Bar */}
       {monthlyBudget > 0 && (
@@ -1834,6 +1892,16 @@ const Expenses = () => {
               <SelectItem value="all">All Time</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={filterType} onValueChange={(v) => setFilterType(v as any)}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="income">+ Income</SelectItem>
+              <SelectItem value="expense">− Expense</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={filterCategory} onValueChange={setFilterCategory}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="All Categories" />
@@ -1847,21 +1915,25 @@ const Expenses = () => {
               ))}
             </SelectContent>
           </Select>
-          {(filterCategory !== "all" || filterPeriod !== "month") && (
+          {(filterCategory !== "all" || filterPeriod !== "month" || filterType !== "all") && (
             <Button 
               variant="ghost" 
               size="sm"
               onClick={() => {
                 setFilterCategory("all");
                 setFilterPeriod("month");
+                setFilterType("all");
               }}
             >
               Clear Filters
             </Button>
           )}
-          <div className="ml-auto text-sm text-muted-foreground">
-            Showing: {formatCurrency(filteredTotal)} ({filteredExpenses.length} transactions)
+          <div className="ml-auto text-sm text-muted-foreground flex flex-wrap gap-x-3">
+            <span className="text-[#2d6a4f] font-medium">+{formatCurrency(filteredIncomeTotal)}</span>
+            <span className="text-[#d62828] font-medium">−{formatCurrency(filteredExpenseTotal)}</span>
+            <span>({filteredExpenses.length} txn)</span>
           </div>
+
         </div>
       </Card>
 
@@ -1974,11 +2046,11 @@ const Expenses = () => {
                       <div 
                         className="text-sm font-bold px-2 py-1 rounded-lg"
                         style={{ 
-                          color: catInfo.color,
-                          backgroundColor: `${catInfo.color}15`
+                          color: expense.type === 'income' ? INCOME_COLOR : EXPENSE_COLOR,
+                          backgroundColor: expense.type === 'income' ? `${INCOME_COLOR}15` : `${EXPENSE_COLOR}15`
                         }}
                       >
-                        {formatCurrency(expense.amount)}
+                        {expense.type === 'income' ? '+' : '−'}{formatCurrency(expense.amount)}
                       </div>
                       <div className="flex items-center">
                         <Button
