@@ -1205,6 +1205,17 @@ const Expenses = () => {
               </DialogHeader>
               <div className="space-y-4 pt-4">
                 <div>
+                  <label className="font-medium mb-2 block">Type</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button type="button" variant={transactionType === 'income' ? 'default' : 'outline'}
+                      className={transactionType === 'income' ? 'bg-[#2d6a4f] hover:bg-[#2d6a4f]/90 text-white' : 'border-[#2d6a4f]/40 text-[#2d6a4f]'}
+                      onClick={() => setTransactionType('income')}>+ Income</Button>
+                    <Button type="button" variant={transactionType === 'expense' ? 'default' : 'outline'}
+                      className={transactionType === 'expense' ? 'bg-[#d62828] hover:bg-[#d62828]/90 text-white' : 'border-[#d62828]/40 text-[#d62828]'}
+                      onClick={() => setTransactionType('expense')}>− Expense</Button>
+                  </div>
+                </div>
+                <div>
                   <label className="font-medium mb-2 block">Category</label>
                   <Select value={category} onValueChange={setCategory}>
                     <SelectTrigger>
@@ -1671,9 +1682,20 @@ const Expenses = () => {
           }}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Edit Expense</DialogTitle>
+                <DialogTitle>Edit {transactionType === 'income' ? 'Income' : 'Expense'}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
+                <div>
+                  <label className="font-medium mb-2 block">Type</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button type="button" variant={transactionType === 'income' ? 'default' : 'outline'}
+                      className={transactionType === 'income' ? 'bg-[#2d6a4f] hover:bg-[#2d6a4f]/90 text-white' : 'border-[#2d6a4f]/40 text-[#2d6a4f]'}
+                      onClick={() => setTransactionType('income')}>+ Income</Button>
+                    <Button type="button" variant={transactionType === 'expense' ? 'default' : 'outline'}
+                      className={transactionType === 'expense' ? 'bg-[#d62828] hover:bg-[#d62828]/90 text-white' : 'border-[#d62828]/40 text-[#d62828]'}
+                      onClick={() => setTransactionType('expense')}>− Expense</Button>
+                  </div>
+                </div>
                 <div>
                   <label className="font-medium mb-2 block">Category</label>
                   <Select value={category} onValueChange={setCategory}>
