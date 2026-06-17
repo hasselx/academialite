@@ -81,6 +81,10 @@ const HistoryPage = () => {
   const [editingSemester, setEditingSemester] = useState<Semester | null>(null);
   const [editSgpa, setEditSgpa] = useState("");
   const [editCredits, setEditCredits] = useState("");
+  const [addingSemester, setAddingSemester] = useState(false);
+  const [addSgpa, setAddSgpa] = useState("");
+  const [addCredits, setAddCredits] = useState("");
+  const [addingSaving, setAddingSaving] = useState(false);
   const [expandedSemester, setExpandedSemester] = useState<string | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const analysisContentRef = useRef<HTMLDivElement>(null);
