@@ -27,12 +27,15 @@ const frequencies = [
   { value: "yearly", label: "Yearly" },
 ];
 
+type TxType = "income" | "expense";
+
 interface Expense {
   id: string;
   category: string;
   amount: number;
   description: string;
   date: string;
+  type: TxType;
 }
 
 interface RecurringExpense {
@@ -44,7 +47,11 @@ interface RecurringExpense {
   day_of_month: number;
   is_active: boolean;
   last_generated: string | null;
+  type: TxType;
 }
+
+const INCOME_COLOR = "#2d6a4f";
+const EXPENSE_COLOR = "#d62828";
 
 interface Category {
   value: string;
