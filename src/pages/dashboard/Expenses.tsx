@@ -1059,7 +1059,7 @@ const Expenses = () => {
               </SheetHeader>
               <div className="mt-6">
                 <ExpenseAnalytics 
-                  expenses={expenses} 
+                  expenses={expenses.filter(e => e.type === 'expense')} 
                   categories={categories} 
                   currency={currency} 
                 />
@@ -1549,19 +1549,53 @@ const Expenses = () => {
               </div>
             </DialogContent>
           </Dialog>
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+          <Dialog open={showAddDialog} onOpenChange={(open) => {
+            setShowAddDialog(open);
+            if (!open) resetForm();
+          }}>
             <DialogTrigger asChild>
-              <Button className="gradient-primary">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Expense
+              <Button
+                variant="outline"
+                className="border-[#2d6a4f]/40 text-[#2d6a4f] hover:bg-[#2d6a4f]/10"
+                onClick={() => setTransactionType('income')}
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Income
               </Button>
             </DialogTrigger>
+            <Button
+              className="gradient-primary"
+              onClick={() => { setTransactionType('expense'); setShowAddDialog(true); }}
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Expense
+            </Button>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add New Expense</DialogTitle>
+                <DialogTitle>Add {transactionType === 'income' ? 'Income' : 'Expense'}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
                 <div>
+                  <label className="font-medium mb-2 block">Type</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={transactionType === 'income' ? 'default' : 'outline'}
+                      className={transactionType === 'income' ? 'bg-[#2d6a4f] hover:bg-[#2d6a4f]/90 text-white' : 'border-[#2d6a4f]/40 text-[#2d6a4f]'}
+                      onClick={() => setTransactionType('income')}
+                    >
+                      + Income
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={transactionType === 'expense' ? 'default' : 'outline'}
+                      className={transactionType === 'expense' ? 'bg-[#d62828] hover:bg-[#d62828]/90 text-white' : 'border-[#d62828]/40 text-[#d62828]'}
+                      onClick={() => setTransactionType('expense')}
+                    >
+                      − Expense
+                    </Button>
+                  </div>
+                </div>
                   <label className="font-medium mb-2 block">Category</label>
                   <Select value={category} onValueChange={setCategory}>
                     <SelectTrigger>
