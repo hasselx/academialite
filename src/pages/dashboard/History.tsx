@@ -950,7 +950,12 @@ const HistoryPage = () => {
                   <Calculator className="w-5 h-5" />
                   Semester-wise Breakdown
                 </CardTitle>
-                <Button size="sm" className="bg-success hover:bg-success/90 w-full sm:w-auto">
+                <Button
+                  size="sm"
+                  className="bg-success hover:bg-success/90 w-full sm:w-auto"
+                  onClick={() => setAddingSemester(true)}
+                  disabled={!selectedRecord}
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Add New Semester
                 </Button>
