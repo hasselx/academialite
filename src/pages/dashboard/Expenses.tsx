@@ -303,8 +303,9 @@ const Expenses = () => {
               category: recurring.category,
               amount: recurring.amount,
               description: `${recurring.description || ''} (Recurring)`.trim(),
-              date: format(expenseDate, 'yyyy-MM-dd')
-            });
+              date: format(expenseDate, 'yyyy-MM-dd'),
+              type: recurring.type
+            } as any);
 
           if (insertError) throw insertError;
 
@@ -426,6 +427,7 @@ const Expenses = () => {
     setRecurringFrequency("monthly");
     setRecurringDayOfWeek("1");
     setRecurringMonth("1");
+    setTransactionType("expense");
   };
 
   const handleAddExpense = async () => {
@@ -485,6 +487,7 @@ const Expenses = () => {
     setAmount(expense.amount.toString());
     setDescription(expense.description);
     setExpenseDate(parseISO(expense.date));
+    setTransactionType(expense.type);
     setShowEditDialog(true);
   };
 
@@ -505,15 +508,16 @@ const Expenses = () => {
           category,
           amount: parseFloat(amount),
           description: description || null,
-          date: format(expenseDate, 'yyyy-MM-dd')
-        })
+          date: format(expenseDate, 'yyyy-MM-dd'),
+          type: transactionType
+        } as any)
         .eq('id', editingExpense.id);
 
       if (error) throw error;
 
       setExpenses(expenses.map(e => 
         e.id === editingExpense.id 
-          ? { ...e, category, amount: parseFloat(amount), description, date: format(expenseDate, 'yyyy-MM-dd') }
+          ? { ...e, category, amount: parseFloat(amount), description, date: format(expenseDate, 'yyyy-MM-dd'), type: transactionType }
           : e
       ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
 
@@ -725,6 +729,7 @@ const Expenses = () => {
     setAmount(recurring.amount.toString());
     setDescription(recurring.description);
     setRecurringFrequency(recurring.frequency);
+    setTransactionType(recurring.type);
     
     if (recurring.frequency === 'weekly') {
       setRecurringDayOfWeek(recurring.day_of_month.toString());
@@ -795,8 +800,9 @@ const Expenses = () => {
           amount: parseFloat(amount),
           description: description || null,
           frequency: recurringFrequency,
-          day_of_month: dayValue
-        })
+          day_of_month: dayValue,
+          type: transactionType
+        } as any)
         .eq('id', editingRecurring.id);
 
       if (error) throw error;
@@ -809,7 +815,8 @@ const Expenses = () => {
               amount: parseFloat(amount), 
               description: description || '', 
               frequency: recurringFrequency, 
-              day_of_month: dayValue 
+              day_of_month: dayValue,
+              type: transactionType
             } 
           : r
       ));
