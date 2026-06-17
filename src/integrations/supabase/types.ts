@@ -192,6 +192,7 @@ export type Database = {
           date: string
           description: string | null
           id: string
+          type: string
           user_id: string
         }
         Insert: {
@@ -201,6 +202,7 @@ export type Database = {
           date?: string
           description?: string | null
           id?: string
+          type?: string
           user_id: string
         }
         Update: {
@@ -210,6 +212,7 @@ export type Database = {
           date?: string
           description?: string | null
           id?: string
+          type?: string
           user_id?: string
         }
         Relationships: []
@@ -264,6 +267,7 @@ export type Database = {
           id: string
           is_active: boolean
           last_generated: string | null
+          type: string
           user_id: string
         }
         Insert: {
@@ -276,6 +280,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_generated?: string | null
+          type?: string
           user_id: string
         }
         Update: {
@@ -288,6 +293,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_generated?: string | null
+          type?: string
           user_id?: string
         }
         Relationships: []
