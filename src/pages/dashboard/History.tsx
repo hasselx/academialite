@@ -1102,6 +1102,47 @@ const HistoryPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Add Semester Dialog */}
+      <Dialog open={addingSemester} onOpenChange={(open) => { if (!open) { setAddingSemester(false); setAddSgpa(""); setAddCredits(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Semester {selectedRecord ? selectedRecord.semesters.length + 1 : ""}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">SGPA</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                max="10"
+                placeholder="0 - 10"
+                value={addSgpa}
+                onChange={(e) => setAddSgpa(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Credits</label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="e.g., 20"
+                value={addCredits}
+                onChange={(e) => setAddCredits(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleAddSemester} disabled={addingSaving} className="flex-1 gradient-primary">
+                {addingSaving ? "Adding..." : "Add Semester"}
+              </Button>
+              <Button variant="outline" onClick={() => setAddingSemester(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
