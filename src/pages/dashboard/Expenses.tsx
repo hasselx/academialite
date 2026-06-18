@@ -443,21 +443,25 @@ const Expenses = () => {
   };
 
   const handleAddExpense = async () => {
-    if (!category || !amount) {
+    if (!amount || (transactionType === 'expense' && !category)) {
       toast({
         title: "Missing information",
-        description: "Please select a category and enter an amount.",
+        description: transactionType === 'expense'
+          ? "Please select a category and enter an amount."
+          : "Please enter an amount.",
         variant: "destructive"
       });
       return;
     }
+
+    const effectiveCategory = transactionType === 'income' ? 'income' : category;
 
     try {
       const { data, error } = await supabase
         .from('expenses')
         .insert({
           user_id: user?.id,
-          category,
+          category: effectiveCategory,
           amount: parseFloat(amount),
           description: description || null,
           date: format(expenseDate, 'yyyy-MM-dd'),
@@ -504,20 +508,24 @@ const Expenses = () => {
   };
 
   const handleUpdateExpense = async () => {
-    if (!editingExpense || !category || !amount) {
+    if (!editingExpense || !amount || (transactionType === 'expense' && !category)) {
       toast({
         title: "Missing information",
-        description: "Please select a category and enter an amount.",
+        description: transactionType === 'expense'
+          ? "Please select a category and enter an amount."
+          : "Please enter an amount.",
         variant: "destructive"
       });
       return;
     }
 
+    const effectiveCategory = transactionType === 'income' ? 'income' : category;
+
     try {
       const { error } = await supabase
         .from('expenses')
         .update({
-          category,
+          category: effectiveCategory,
           amount: parseFloat(amount),
           description: description || null,
           date: format(expenseDate, 'yyyy-MM-dd'),
@@ -529,7 +537,7 @@ const Expenses = () => {
 
       setExpenses(expenses.map(e => 
         e.id === editingExpense.id 
-          ? { ...e, category, amount: parseFloat(amount), description, date: format(expenseDate, 'yyyy-MM-dd'), type: transactionType }
+          ? { ...e, category: effectiveCategory, amount: parseFloat(amount), description, date: format(expenseDate, 'yyyy-MM-dd'), type: transactionType }
           : e
       ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
 
@@ -594,10 +602,12 @@ const Expenses = () => {
   };
 
   const handleAddRecurringExpense = async () => {
-    if (!category || !amount) {
+    if (!amount || (transactionType === 'expense' && !category)) {
       toast({
         title: "Missing information",
-        description: "Please select a category and enter an amount.",
+        description: transactionType === 'expense'
+          ? "Please select a category and enter an amount."
+          : "Please enter an amount.",
         variant: "destructive"
       });
       return;
@@ -639,12 +649,14 @@ const Expenses = () => {
       }
     }
 
+    const effectiveCategory = transactionType === 'income' ? 'income' : category;
+
     try {
       const { data, error } = await supabase
         .from('recurring_expenses')
         .insert({
           user_id: user?.id,
-          category,
+          category: effectiveCategory,
           amount: parseFloat(amount),
           description: description || null,
           frequency: recurringFrequency,
@@ -759,10 +771,12 @@ const Expenses = () => {
   };
 
   const handleUpdateRecurringExpense = async () => {
-    if (!editingRecurring || !category || !amount) {
+    if (!editingRecurring || !amount || (transactionType === 'expense' && !category)) {
       toast({
         title: "Missing information",
-        description: "Please select a category and enter an amount.",
+        description: transactionType === 'expense'
+          ? "Please select a category and enter an amount."
+          : "Please enter an amount.",
         variant: "destructive"
       });
       return;
@@ -804,11 +818,13 @@ const Expenses = () => {
       }
     }
 
+    const effectiveCategory = transactionType === 'income' ? 'income' : category;
+
     try {
       const { error } = await supabase
         .from('recurring_expenses')
         .update({
-          category,
+          category: effectiveCategory,
           amount: parseFloat(amount),
           description: description || null,
           frequency: recurringFrequency,
@@ -823,7 +839,7 @@ const Expenses = () => {
         r.id === editingRecurring.id 
           ? { 
               ...r, 
-              category, 
+              category: effectiveCategory, 
               amount: parseFloat(amount), 
               description: description || '', 
               frequency: recurringFrequency, 
@@ -1215,21 +1231,23 @@ const Expenses = () => {
                       onClick={() => setTransactionType('expense')}>− Expense</Button>
                   </div>
                 </div>
-                <div>
-                  <label className="font-medium mb-2 block">Category</label>
-                  <Select value={category} onValueChange={setCategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.value} value={cat.value}>
-                          {cat.emoji} {cat.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {transactionType === 'expense' && (
+                  <div>
+                    <label className="font-medium mb-2 block">Category</label>
+                    <Select value={category} onValueChange={setCategory}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.emoji} {cat.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div>
                   <label className="font-medium mb-2 block">Amount ({currency.code})</label>
                   <Input 
@@ -1607,21 +1625,23 @@ const Expenses = () => {
                     </Button>
                   </div>
                 </div>
-                <div>
-                  <label className="font-medium mb-2 block">Category</label>
-                  <Select value={category} onValueChange={setCategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.value} value={cat.value}>
-                          {cat.emoji} {cat.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {transactionType === 'expense' && (
+                  <div>
+                    <label className="font-medium mb-2 block">Category</label>
+                    <Select value={category} onValueChange={setCategory}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.emoji} {cat.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div>
                   <label className="font-medium mb-2 block">Amount ({currency.code})</label>
                   <Input 
@@ -1696,21 +1716,23 @@ const Expenses = () => {
                       onClick={() => setTransactionType('expense')}>− Expense</Button>
                   </div>
                 </div>
-                <div>
-                  <label className="font-medium mb-2 block">Category</label>
-                  <Select value={category} onValueChange={setCategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.value} value={cat.value}>
-                          {cat.emoji} {cat.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {transactionType === 'expense' && (
+                  <div>
+                    <label className="font-medium mb-2 block">Category</label>
+                    <Select value={category} onValueChange={setCategory}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.emoji} {cat.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div>
                   <label className="font-medium mb-2 block">Amount ({currency.code})</label>
                   <Input 
