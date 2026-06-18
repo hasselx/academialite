@@ -818,11 +818,13 @@ const Expenses = () => {
       }
     }
 
+    const effectiveCategory = transactionType === 'income' ? 'income' : category;
+
     try {
       const { error } = await supabase
         .from('recurring_expenses')
         .update({
-          category,
+          category: effectiveCategory,
           amount: parseFloat(amount),
           description: description || null,
           frequency: recurringFrequency,
@@ -837,7 +839,7 @@ const Expenses = () => {
         r.id === editingRecurring.id 
           ? { 
               ...r, 
-              category, 
+              category: effectiveCategory, 
               amount: parseFloat(amount), 
               description: description || '', 
               frequency: recurringFrequency, 
