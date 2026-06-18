@@ -508,20 +508,24 @@ const Expenses = () => {
   };
 
   const handleUpdateExpense = async () => {
-    if (!editingExpense || !category || !amount) {
+    if (!editingExpense || !amount || (transactionType === 'expense' && !category)) {
       toast({
         title: "Missing information",
-        description: "Please select a category and enter an amount.",
+        description: transactionType === 'expense'
+          ? "Please select a category and enter an amount."
+          : "Please enter an amount.",
         variant: "destructive"
       });
       return;
     }
 
+    const effectiveCategory = transactionType === 'income' ? 'income' : category;
+
     try {
       const { error } = await supabase
         .from('expenses')
         .update({
-          category,
+          category: effectiveCategory,
           amount: parseFloat(amount),
           description: description || null,
           date: format(expenseDate, 'yyyy-MM-dd'),
@@ -533,7 +537,7 @@ const Expenses = () => {
 
       setExpenses(expenses.map(e => 
         e.id === editingExpense.id 
-          ? { ...e, category, amount: parseFloat(amount), description, date: format(expenseDate, 'yyyy-MM-dd'), type: transactionType }
+          ? { ...e, category: effectiveCategory, amount: parseFloat(amount), description, date: format(expenseDate, 'yyyy-MM-dd'), type: transactionType }
           : e
       ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
 
