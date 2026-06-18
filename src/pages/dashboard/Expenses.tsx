@@ -443,21 +443,25 @@ const Expenses = () => {
   };
 
   const handleAddExpense = async () => {
-    if (!category || !amount) {
+    if (!amount || (transactionType === 'expense' && !category)) {
       toast({
         title: "Missing information",
-        description: "Please select a category and enter an amount.",
+        description: transactionType === 'expense'
+          ? "Please select a category and enter an amount."
+          : "Please enter an amount.",
         variant: "destructive"
       });
       return;
     }
+
+    const effectiveCategory = transactionType === 'income' ? 'income' : category;
 
     try {
       const { data, error } = await supabase
         .from('expenses')
         .insert({
           user_id: user?.id,
-          category,
+          category: effectiveCategory,
           amount: parseFloat(amount),
           description: description || null,
           date: format(expenseDate, 'yyyy-MM-dd'),
