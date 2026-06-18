@@ -602,10 +602,12 @@ const Expenses = () => {
   };
 
   const handleAddRecurringExpense = async () => {
-    if (!category || !amount) {
+    if (!amount || (transactionType === 'expense' && !category)) {
       toast({
         title: "Missing information",
-        description: "Please select a category and enter an amount.",
+        description: transactionType === 'expense'
+          ? "Please select a category and enter an amount."
+          : "Please enter an amount.",
         variant: "destructive"
       });
       return;
