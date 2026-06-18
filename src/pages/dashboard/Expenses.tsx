@@ -649,12 +649,14 @@ const Expenses = () => {
       }
     }
 
+    const effectiveCategory = transactionType === 'income' ? 'income' : category;
+
     try {
       const { data, error } = await supabase
         .from('recurring_expenses')
         .insert({
           user_id: user?.id,
-          category,
+          category: effectiveCategory,
           amount: parseFloat(amount),
           description: description || null,
           frequency: recurringFrequency,
