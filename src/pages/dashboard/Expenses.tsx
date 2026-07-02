@@ -411,24 +411,29 @@ const Expenses = () => {
     ? ((currentMonthExpenses.length - previousMonthExpenses.length) / previousMonthExpenses.length) * 100 
     : 0;
 
-  const getCategoryData = () => {
+  const getCategoryData = (view: TxType) => {
     const categoryTotals: { [key: string]: number } = {};
-    // Pie chart shows EXPENSES only
-    filteredExpenses.filter(e => e.type === 'expense').forEach(exp => {
+    filteredExpenses.filter(e => e.type === view).forEach(exp => {
       categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + exp.amount;
     });
     const total = Object.values(categoryTotals).reduce((s, v) => s + v, 0);
-    return categories
-      .filter(cat => categoryTotals[cat.value])
-      .map(cat => ({
-        name: cat.label,
-        value: categoryTotals[cat.value],
-        color: cat.color,
-        percentage: total > 0 ? ((categoryTotals[cat.value] / total) * 100).toFixed(1) : "0"
-      }));
+    // Ensure "income" pseudo-category exists in the lookup
+    const lookup = [...categories, { value: 'income', label: 'Income', emoji: '💰', color: INCOME_COLOR }];
+    return Object.keys(categoryTotals)
+      .map(key => {
+        const cat = lookup.find(c => c.value === key) || { value: key, label: key, emoji: '📌', color: '#6366f1' };
+        return {
+          name: cat.label,
+          emoji: cat.emoji,
+          value: categoryTotals[key],
+          color: cat.color,
+          percentage: total > 0 ? ((categoryTotals[key] / total) * 100).toFixed(1) : "0"
+        };
+      })
+      .sort((a, b) => b.value - a.value);
   };
 
-  const pieData = getCategoryData();
+  const pieData = getCategoryData(chartView);
 
 
   const resetForm = () => {
