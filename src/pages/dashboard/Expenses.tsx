@@ -1782,8 +1782,8 @@ const Expenses = () => {
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </div>
-                <Button onClick={handleUpdateExpense} className="w-full gradient-primary">
-                  Update Expense
+                <Button onClick={handleUpdateExpense} className={`w-full ${transactionType === 'income' ? 'bg-[#2d6a4f] hover:bg-[#2d6a4f]/90 text-white' : 'gradient-primary'}`}>
+                  Update {transactionType === 'income' ? 'Income' : 'Expense'}
                 </Button>
               </div>
             </DialogContent>
