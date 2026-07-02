@@ -1059,9 +1059,9 @@ const Expenses = () => {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Wallet className="w-7 h-7 text-primary" />
-            Your Expenses
+            Income &amp; Expenses
           </h1>
-          <p className="text-muted-foreground">Track and manage your spending • {currentMonth}</p>
+          <p className="text-muted-foreground">Track your money in and out • {currentMonth}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {/* Analytics Sheet */}
