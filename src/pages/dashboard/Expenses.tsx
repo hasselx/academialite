@@ -1968,67 +1968,105 @@ const Expenses = () => {
       {expenses.length === 0 ? (
         <Card className="p-12 text-center">
           <Wallet className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">No expenses recorded yet. Add your first expense above!</p>
+          <p className="text-muted-foreground">No transactions recorded yet. Add your first income or expense above!</p>
         </Card>
       ) : filteredExpenses.length === 0 ? (
         <Card className="p-12 text-center">
           <Filter className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">No expenses match your filters. Try adjusting them.</p>
+          <p className="text-muted-foreground">No transactions match your filters. Try adjusting them.</p>
         </Card>
       ) : (
         <>
           {/* Main Content */}
           <div className="grid lg:grid-cols-2 gap-8">
-            {/* Pie Chart */}
+            {/* Pie Chart with Income/Expense toggle */}
             <Card className="p-6">
-              <h3 className="font-semibold mb-4 flex items-center gap-2">
-                <PieChart className="w-5 h-5 text-primary" />
-                Expense Distribution
-              </h3>
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <PieChart className="w-5 h-5 text-primary" />
+                  {chartView === 'income' ? 'Income' : 'Expense'} Distribution
+                </h3>
+                <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/40">
+                  <button
+                    type="button"
+                    onClick={() => setChartView('income')}
+                    className={cn(
+                      "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                      chartView === 'income' ? 'bg-[#2d6a4f] text-white' : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    + Income
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChartView('expense')}
+                    className={cn(
+                      "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                      chartView === 'expense' ? 'bg-[#d62828] text-white' : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    − Expense
+                  </button>
+                </div>
+              </div>
               <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsPie>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value: number, name: string) => [formatCurrency(value), name]}
-                    />
-                    <Legend />
-                  </RechartsPie>
-                </ResponsiveContainer>
+                {pieData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground text-center px-6">
+                    No {chartView} entries for the current filter.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsPie>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                      />
+                      <Legend />
+                    </RechartsPie>
+                  </ResponsiveContainer>
+                )}
               </div>
             </Card>
 
             {/* Category Breakdown */}
             <Card className="p-6">
-              <h3 className="font-semibold mb-4">Category Breakdown</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {pieData.map((item) => (
-                  <div key={item.name} className="p-4 rounded-xl border border-border/50 hover:border-border transition-colors">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                      <span className="font-medium">{item.name}</span>
+              <h3 className="font-semibold mb-4">
+                {chartView === 'income' ? 'Income Sources' : 'Category Breakdown'}
+              </h3>
+              {pieData.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-10 text-center">
+                  Nothing to break down yet for {chartView}.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  {pieData.map((item) => (
+                    <div key={item.name} className="p-4 rounded-xl border border-border/50 hover:border-border transition-colors">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="font-medium truncate">{item.emoji} {item.name}</span>
+                      </div>
+                      <div className="text-xl font-bold" style={{ color: item.color }}>
+                        {chartView === 'income' ? '+' : '−'}{formatCurrency(item.value)}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {item.percentage}% of total
+                      </div>
                     </div>
-                    <div className="text-xl font-bold" style={{ color: item.color }}>
-                      {formatCurrency(item.value)}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {item.percentage}% of total
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </Card>
           </div>
 
