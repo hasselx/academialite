@@ -132,6 +132,7 @@ const Expenses = () => {
   const [filterPeriod, setFilterPeriod] = useState<string>("month");
   const [filterType, setFilterType] = useState<"all" | TxType>("all");
   const [transactionType, setTransactionType] = useState<TxType>("expense");
+  const [chartView, setChartView] = useState<TxType>("expense");
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [monthlyBudget, setMonthlyBudget] = useState<number>(() => {
     const saved = localStorage.getItem('monthlyBudget');
@@ -410,24 +411,29 @@ const Expenses = () => {
     ? ((currentMonthExpenses.length - previousMonthExpenses.length) / previousMonthExpenses.length) * 100 
     : 0;
 
-  const getCategoryData = () => {
+  const getCategoryData = (view: TxType) => {
     const categoryTotals: { [key: string]: number } = {};
-    // Pie chart shows EXPENSES only
-    filteredExpenses.filter(e => e.type === 'expense').forEach(exp => {
+    filteredExpenses.filter(e => e.type === view).forEach(exp => {
       categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + exp.amount;
     });
     const total = Object.values(categoryTotals).reduce((s, v) => s + v, 0);
-    return categories
-      .filter(cat => categoryTotals[cat.value])
-      .map(cat => ({
-        name: cat.label,
-        value: categoryTotals[cat.value],
-        color: cat.color,
-        percentage: total > 0 ? ((categoryTotals[cat.value] / total) * 100).toFixed(1) : "0"
-      }));
+    // Ensure "income" pseudo-category exists in the lookup
+    const lookup = [...categories, { value: 'income', label: 'Income', emoji: '💰', color: INCOME_COLOR }];
+    return Object.keys(categoryTotals)
+      .map(key => {
+        const cat = lookup.find(c => c.value === key) || { value: key, label: key, emoji: '📌', color: '#6366f1' };
+        return {
+          name: cat.label,
+          emoji: cat.emoji,
+          value: categoryTotals[key],
+          color: cat.color,
+          percentage: total > 0 ? ((categoryTotals[key] / total) * 100).toFixed(1) : "0"
+        };
+      })
+      .sort((a, b) => b.value - a.value);
   };
 
-  const pieData = getCategoryData();
+  const pieData = getCategoryData(chartView);
 
 
   const resetForm = () => {
@@ -1053,9 +1059,9 @@ const Expenses = () => {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Wallet className="w-7 h-7 text-primary" />
-            Your Expenses
+            Income &amp; Expenses
           </h1>
-          <p className="text-muted-foreground">Track and manage your spending • {currentMonth}</p>
+          <p className="text-muted-foreground">Track your money in and out • {currentMonth}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {/* Analytics Sheet */}
@@ -1685,8 +1691,8 @@ const Expenses = () => {
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </div>
-                <Button onClick={handleAddExpense} className="w-full gradient-primary">
-                  Add Expense
+                <Button onClick={handleAddExpense} className={`w-full ${transactionType === 'income' ? 'bg-[#2d6a4f] hover:bg-[#2d6a4f]/90 text-white' : 'gradient-primary'}`}>
+                  Add {transactionType === 'income' ? 'Income' : 'Expense'}
                 </Button>
               </div>
             </DialogContent>
@@ -1776,8 +1782,8 @@ const Expenses = () => {
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </div>
-                <Button onClick={handleUpdateExpense} className="w-full gradient-primary">
-                  Update Expense
+                <Button onClick={handleUpdateExpense} className={`w-full ${transactionType === 'income' ? 'bg-[#2d6a4f] hover:bg-[#2d6a4f]/90 text-white' : 'gradient-primary'}`}>
+                  Update {transactionType === 'income' ? 'Income' : 'Expense'}
                 </Button>
               </div>
             </DialogContent>
@@ -1962,67 +1968,105 @@ const Expenses = () => {
       {expenses.length === 0 ? (
         <Card className="p-12 text-center">
           <Wallet className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">No expenses recorded yet. Add your first expense above!</p>
+          <p className="text-muted-foreground">No transactions recorded yet. Add your first income or expense above!</p>
         </Card>
       ) : filteredExpenses.length === 0 ? (
         <Card className="p-12 text-center">
           <Filter className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">No expenses match your filters. Try adjusting them.</p>
+          <p className="text-muted-foreground">No transactions match your filters. Try adjusting them.</p>
         </Card>
       ) : (
         <>
           {/* Main Content */}
           <div className="grid lg:grid-cols-2 gap-8">
-            {/* Pie Chart */}
+            {/* Pie Chart with Income/Expense toggle */}
             <Card className="p-6">
-              <h3 className="font-semibold mb-4 flex items-center gap-2">
-                <PieChart className="w-5 h-5 text-primary" />
-                Expense Distribution
-              </h3>
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <PieChart className="w-5 h-5 text-primary" />
+                  {chartView === 'income' ? 'Income' : 'Expense'} Distribution
+                </h3>
+                <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/40">
+                  <button
+                    type="button"
+                    onClick={() => setChartView('income')}
+                    className={cn(
+                      "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                      chartView === 'income' ? 'bg-[#2d6a4f] text-white' : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    + Income
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChartView('expense')}
+                    className={cn(
+                      "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                      chartView === 'expense' ? 'bg-[#d62828] text-white' : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    − Expense
+                  </button>
+                </div>
+              </div>
               <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsPie>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value: number, name: string) => [formatCurrency(value), name]}
-                    />
-                    <Legend />
-                  </RechartsPie>
-                </ResponsiveContainer>
+                {pieData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground text-center px-6">
+                    No {chartView} entries for the current filter.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsPie>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                      />
+                      <Legend />
+                    </RechartsPie>
+                  </ResponsiveContainer>
+                )}
               </div>
             </Card>
 
             {/* Category Breakdown */}
             <Card className="p-6">
-              <h3 className="font-semibold mb-4">Category Breakdown</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {pieData.map((item) => (
-                  <div key={item.name} className="p-4 rounded-xl border border-border/50 hover:border-border transition-colors">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                      <span className="font-medium">{item.name}</span>
+              <h3 className="font-semibold mb-4">
+                {chartView === 'income' ? 'Income Sources' : 'Category Breakdown'}
+              </h3>
+              {pieData.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-10 text-center">
+                  Nothing to break down yet for {chartView}.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  {pieData.map((item) => (
+                    <div key={item.name} className="p-4 rounded-xl border border-border/50 hover:border-border transition-colors">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="font-medium truncate">{item.emoji} {item.name}</span>
+                      </div>
+                      <div className="text-xl font-bold" style={{ color: item.color }}>
+                        {chartView === 'income' ? '+' : '−'}{formatCurrency(item.value)}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {item.percentage}% of total
+                      </div>
                     </div>
-                    <div className="text-xl font-bold" style={{ color: item.color }}>
-                      {formatCurrency(item.value)}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {item.percentage}% of total
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </Card>
           </div>
 
